@@ -42,7 +42,22 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
-## Implemented (2026-02-10 - v2)
+## Implemented (2026-02-10 - v3)
+- [x] Date picker italiano (dd/mm/yyyy) con shadcn Calendar + locale `it`,
+  applicato a data nascita paziente e data valutazione
+- [x] Nuovi tool per Sclerosi Sistemica: **mRSS** (17 aree 0-3, max 51),
+  **Capillaroscopia** (pattern Cutolo + features qualitative),
+  **Test di Schöber** modificato (distanza eretta vs flessione)
+- [x] Suggerimenti automatici basati sulla diagnosi:
+  card dedicata in patient detail + sezione "Consigliati" in cima al dropdown
+  Nuova Valutazione (matching keywords: AR, AP, SpA, LES, Sjögren, Vasculiti,
+  Miositi, Fibromialgia, SSc, Gotta, PMR, Behçet, IgG4-RD, AOSD, Psoriasi)
+- [x] Backend: nuovi endpoint `POST/GET/DELETE /api/criteria-evaluations`
+  con cascade delete dal paziente
+- [x] Storico criteri classificativi nella scheda paziente con score, soglia,
+  esito (Soddisfatti/Non raggiunti) e azione di delete
+- [x] Salvataggio criteri da pagina Criteri: selezione paziente + data + bottone
+  "Salva nel paziente". Pre-apertura criterio via URL `?paziente=x&open=y`
 - [x] Nuovi indici: BASFI, BASMI lineare, ESSDAI, ESSPRI, BVAS v3, MMT-8 (range 0-150 corretto), FIQR
 - [x] Pagina Criteri Classificativi con 14 criteri interattivi:
   - ACR/EULAR 2010 AR, CASPAR AP, ASAS axSpA, IBP ASAS, ACR/EULAR 2019 LES,

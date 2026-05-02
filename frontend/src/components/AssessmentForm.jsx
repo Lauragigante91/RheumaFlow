@@ -8,14 +8,17 @@ import { Card } from "./ui/card";
 import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import ItalianDatePicker from "./ItalianDatePicker";
 import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
   calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
+  calcMRSS, calcSchober, calcCapillaroscopy,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
   interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
-  interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR,
+  interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR, interpretMRSS, interpretSchober, interpretCapillaroscopy,
   SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS, BASFI_QUESTIONS, BASMI_MEASURES, ESSDAI_DOMAINS,
   BVAS_SYSTEMS, MMT8_GROUPS, FIQR_FUNCTION, FIQR_OVERALL, FIQR_SYMPTOMS,
+  MRSS_AREAS, CAPILLAROSCOPY_PATTERNS, CAPILLAROSCOPY_FEATURES,
   INDEX_LABELS,
 } from "../lib/clinimetrics";
 
@@ -32,6 +35,8 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
   const [bvasData, setBvasData] = useState({});
   const [mmtData, setMmtData] = useState({});
   const [fiqrData, setFiqrData] = useState({ function: {}, overall: {}, symptoms: {} });
+  const [mrssData, setMrssData] = useState({});
+  const [capData, setCapData] = useState({ pattern: "", features: {} });
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -79,6 +84,14 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
         return { score: calcMMT8(mmtData), interp: interpretMMT8, ins: { groups: mmtData } };
       case "fiqr":
         return { score: calcFIQR(fiqrData), interp: interpretFIQR, ins: fiqrData };
+      case "mrss":
+        return { score: calcMRSS(mrssData), interp: interpretMRSS, ins: { areas: mrssData } };
+      case "schober":
+        return { score: calcSchober(inputs), interp: interpretSchober, ins: { ...inputs } };
+      case "capillaroscopy": {
+        const sc = calcCapillaroscopy(capData);
+        return { score: sc, interp: () => interpretCapillaroscopy(capData), ins: { ...capData } };
+      }
       default:
         return { score: null, interp: () => "-", ins: {} };
     }
@@ -122,7 +135,9 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
         </div>
         <div className="flex gap-2 items-center">
           <Label className="text-xs uppercase tracking-[0.15em] text-gray-600">Data:</Label>
-          <Input type="date" className="w-40" value={date} onChange={(e) => setDate(e.target.value)} data-testid="assessment-date" />
+          <div className="w-44">
+            <ItalianDatePicker value={date} onChange={setDate} testid="assessment-date" />
+          </div>
         </div>
       </div>
 
@@ -176,6 +191,10 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
             setMmtData={setMmtData}
             fiqrData={fiqrData}
             setFiqrData={setFiqrData}
+            mrssData={mrssData}
+            setMrssData={setMrssData}
+            capData={capData}
+            setCapData={setCapData}
           />
 
           {/* Score summary */}
@@ -260,7 +279,7 @@ function VASSlider({ label, value, onChange, testid }) {
   );
 }
 
-function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData, essdaiData, setEssdaiData, bvasData, setBvasData, mmtData, setMmtData, fiqrData, setFiqrData }) {
+function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData, essdaiData, setEssdaiData, bvasData, setBvasData, mmtData, setMmtData, fiqrData, setFiqrData, mrssData, setMrssData, capData, setCapData }) {
   switch (indexType) {
     case "das28_esr":
       return (
@@ -515,6 +534,90 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
             ))}
           </TabsContent>
         </Tabs>
+      );
+    case "mrss":
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Per ogni area corporea valuta lo spessore cutaneo: 0 = normale, 1 = lieve ispessimento, 2 = moderato, 3 = severo. Massimo 51.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {MRSS_AREAS.map((a) => (
+              <div key={a.key} className="flex items-center justify-between gap-2 border border-gray-200 rounded-md p-2.5">
+                <div className="text-sm font-medium">{a.label}</div>
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3].map((v) => (
+                    <Button
+                      key={v}
+                      variant={mrssData[a.key] === v ? "default" : "outline"}
+                      size="sm"
+                      className={`w-9 h-8 ${mrssData[a.key] === v ? "bg-[#0A2540] text-white" : ""}`}
+                      onClick={() => setMrssData((p) => ({ ...p, [a.key]: v }))}
+                      data-testid={`mrss-${a.key}-${v}`}
+                    >
+                      {v}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    case "schober":
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Test di Schöber modificato (10+5 cm). Marca un punto a livello della linea bisiliaca (S1, dimples of Venus), uno 10 cm sopra e uno 5 cm sotto. Misura la distanza tra i due marcatori esterni in posizione eretta e in flessione massima.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <NumInput label="Distanza in posizione eretta" value={inputs.standing} onChange={(v) => set("standing", v)} min={0} step="0.1" unit="cm" testid="schober-standing" />
+            <NumInput label="Distanza in flessione massima" value={inputs.flexed} onChange={(v) => set("flexed", v)} min={0} step="0.1" unit="cm" testid="schober-flexed" />
+          </div>
+          <div className="text-xs text-gray-500 bg-[#F9FAFB] border border-gray-200 rounded-md p-3">
+            Valore atteso normale: incremento ≥ 5 cm. Riduzione = limitazione mobilità lombare.
+          </div>
+        </div>
+      );
+    case "capillaroscopy":
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-600">Pattern qualitativo (Cutolo) e caratteristiche capillaroscopiche.</p>
+          <div>
+            <Label className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-2 block">Pattern</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {CAPILLAROSCOPY_PATTERNS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setCapData((s) => ({ ...s, pattern: p.value }))}
+                  className={`text-left border rounded-md p-3 transition-colors ${capData.pattern === p.value ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]" : "border-gray-200 hover:bg-gray-50"}`}
+                  data-testid={`cap-pattern-${p.value}`}
+                  type="button"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{p.label}</span>
+                    {p.points > 0 && <span className="text-xs font-mono text-gray-500">+{p.points}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-2 block">Caratteristiche aggiuntive</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {CAPILLAROSCOPY_FEATURES.map((f) => (
+                <label key={f.key} className="flex items-center gap-3 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer">
+                  <Checkbox
+                    checked={!!capData.features?.[f.key]}
+                    onCheckedChange={(v) => setCapData((s) => ({ ...s, features: { ...s.features, [f.key]: !!v } }))}
+                    data-testid={`cap-feat-${f.key}`}
+                  />
+                  <span className="text-sm flex-1">{f.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       );
     default:
       return null;

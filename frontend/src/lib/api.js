@@ -24,3 +24,10 @@ export const assessmentsApi = {
 export const statsApi = {
   get: () => api.get("/stats").then((r) => r.data),
 };
+
+export const criteriaApi = {
+  create: (data) => api.post("/criteria-evaluations", data).then((r) => r.data),
+  listByPatient: (patientId) =>
+    api.get(`/patients/${patientId}/criteria-evaluations`).then((r) => r.data),
+  remove: (id) => api.delete(`/criteria-evaluations/${id}`).then((r) => r.data),
+};

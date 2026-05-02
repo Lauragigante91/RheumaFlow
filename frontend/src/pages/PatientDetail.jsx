@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { patientsApi, assessmentsApi } from "../lib/api";
+import { patientsApi, assessmentsApi, criteriaApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,11 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2 } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import { INDEX_LABELS, INDEX_DISEASES } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF } from "../lib/export";
+import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 export default function PatientDetail() {
@@ -27,6 +29,7 @@ export default function PatientDetail() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [assessments, setAssessments] = useState([]);
+  const [criteriaEvals, setCriteriaEvals] = useState([]);
   const [newOpen, setNewOpen] = useState(false);
   const [newType, setNewType] = useState("das28_esr");
   const [selectedIndex, setSelectedIndex] = useState("all");
@@ -36,8 +39,19 @@ export default function PatientDetail() {
     setPatient(p);
     const a = await assessmentsApi.listByPatient(id);
     setAssessments(a);
+    const ce = await criteriaApi.listByPatient(id).catch(() => []);
+    setCriteriaEvals(ce);
   };
   useEffect(() => { load(); }, [id]);
+
+  const suggestions = useMemo(() => suggestForDiagnosis(patient?.diagnosi), [patient?.diagnosi]);
+
+  const removeCriteriaEval = async (cid) => {
+    if (!window.confirm("Eliminare questa valutazione di criteri?")) return;
+    await criteriaApi.remove(cid);
+    toast.success("Eliminata");
+    load();
+  };
 
   const startNew = (type) => {
     setNewType(type);
@@ -113,7 +127,22 @@ export default function PatientDetail() {
                 <Plus className="w-4 h-4 mr-2" /> Nuova valutazione <ChevronDown className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent align="end" className="w-72 max-h-[80vh] overflow-y-auto">
+              {suggestions.indices.length > 0 && (
+                <>
+                  <DropdownMenuLabel className="flex items-center gap-1.5 text-[#0A2540]">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Consigliati per diagnosi
+                  </DropdownMenuLabel>
+                  {suggestions.indices.map((k) => (
+                    <DropdownMenuItem key={`sug-${k}`} onClick={() => startNew(k)} data-testid={`new-suggested-${k}`} className="bg-blue-50/50">
+                      <span className="font-medium">{INDEX_LABELS[k]}</span>
+                      <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuLabel>Artrite Reumatoide</DropdownMenuLabel>
               {["das28_esr", "das28_crp", "cdai", "sdai"].map((k) => (
                 <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
@@ -122,7 +151,14 @@ export default function PatientDetail() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
-              {["basdai", "asdas_crp", "basfi", "basmi"].map((k) => (
+              {["basdai", "asdas_crp", "basfi", "basmi", "schober"].map((k) => (
+                <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
+                  {INDEX_LABELS[k]}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Sclerosi Sistemica</DropdownMenuLabel>
+              {["mrss", "capillaroscopy"].map((k) => (
                 <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
                   {INDEX_LABELS[k]}
                 </DropdownMenuItem>
@@ -154,6 +190,53 @@ export default function PatientDetail() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Suggested indices/criteria */}
+      {(suggestions.indices.length > 0 || suggestions.criteria.length > 0) && (
+        <Card className="border-blue-200 bg-blue-50/30 p-5" data-testid="suggestions-card">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-[#0A2540] mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-heading font-bold text-base tracking-tight mb-1">
+                Consigliati per <span className="text-[#0A2540]">{patient.diagnosi}</span>
+              </h3>
+              {suggestions.indices.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Indici clinimetrici</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.indices.map((k) => (
+                      <Button
+                        key={k}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white border-gray-300"
+                        onClick={() => startNew(k)}
+                        data-testid={`suggested-${k}`}
+                      >
+                        {INDEX_LABELS[k]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {suggestions.criteria.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Criteri classificativi</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.criteria.map((cid) => (
+                      <Link key={cid} to={`/criteri?paziente=${id}&open=${cid}`}>
+                        <Button variant="outline" size="sm" className="bg-white border-gray-300" data-testid={`suggested-crit-${cid}`}>
+                          <FileCheck2 className="w-3.5 h-3.5 mr-1.5" /> {cid.split("_").slice(0, -1).join(" ").toUpperCase()}
+                        </Button>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Trend chart */}
       <Card className="border-gray-200 shadow-sm p-6">
@@ -221,6 +304,58 @@ export default function PatientDetail() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button variant="ghost" size="icon" onClick={() => removeAssessment(a.id)} data-testid={`delete-assessment-${a.id}`}>
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Criteria evaluations history */}
+      <Card className="border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
+          <h2 className="font-heading font-bold text-xl tracking-tight">Storico criteri classificativi</h2>
+          <Link to={`/criteri?paziente=${id}`}>
+            <Button variant="outline" size="sm" data-testid="goto-criteria-btn">
+              <FileCheck2 className="w-4 h-4 mr-2" /> Applica criteri
+            </Button>
+          </Link>
+        </div>
+        {criteriaEvals.length === 0 ? (
+          <div className="p-10 text-center text-gray-500" data-testid="empty-criteria">
+            Nessun criterio applicato. Vai a "Criteri" per valutare il paziente.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#F9FAFB] border-b border-gray-200">
+                <tr className="text-left">
+                  <Th>Data</Th>
+                  <Th>Criteri</Th>
+                  <Th>Sorgente</Th>
+                  <Th>Score</Th>
+                  <Th>Esito</Th>
+                  <Th className="text-right">Azioni</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {criteriaEvals.map((ce) => (
+                  <tr key={ce.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`criteria-row-${ce.id}`}>
+                    <td className="px-4 py-3 font-medium">{new Date(ce.date).toLocaleDateString("it-IT")}</td>
+                    <td className="px-4 py-3">{ce.criteria_name}</td>
+                    <td className="px-4 py-3 text-gray-600">{ce.source}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-[#0A2540]">{ce.score} / ≥{ce.threshold}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={ce.meets ? "default" : "outline"} className={ce.meets ? "bg-green-700 hover:bg-green-700 text-white" : ""}>
+                        {ce.meets ? "Soddisfatti" : "Non raggiunti"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="icon" onClick={() => removeCriteriaEval(ce.id)} data-testid={`delete-criteria-${ce.id}`}>
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
                     </td>

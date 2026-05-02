@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Plus, Search, User, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
+import ItalianDatePicker from "../components/ItalianDatePicker";
 
 const emptyForm = { nome: "", cognome: "", data_nascita: "", sesso: "", codice_fiscale: "", diagnosi: "", note: "" };
 
@@ -93,7 +94,7 @@ export default function Patients() {
                 <Input data-testid="patient-cognome" value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} />
               </Field>
               <Field label="Data di nascita">
-                <Input type="date" data-testid="patient-data-nascita" value={form.data_nascita || ""} onChange={(e) => setForm({ ...form, data_nascita: e.target.value })} />
+                <ItalianDatePicker value={form.data_nascita || ""} onChange={(v) => setForm({ ...form, data_nascita: v })} testid="patient-data-nascita" />
               </Field>
               <Field label="Sesso">
                 <Select value={form.sesso || ""} onValueChange={(v) => setForm({ ...form, sesso: v })}>

@@ -1,17 +1,40 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Checkbox } from "../components/ui/checkbox";
 import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Search, ChevronRight, RotateCcw, FileCheck2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Search, ChevronRight, RotateCcw, FileCheck2, Save } from "lucide-react";
+import { toast } from "sonner";
 import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
+import { patientsApi, criteriaApi } from "../lib/api";
+import ItalianDatePicker from "../components/ItalianDatePicker";
 
 export default function Criteria() {
+  const [searchParams] = useSearchParams();
+  const paramPatient = searchParams.get("paziente");
+  const paramOpen = searchParams.get("open");
+
   const [search, setSearch] = useState("");
   const [selectedDisease, setSelectedDisease] = useState("all");
   const [openCrit, setOpenCrit] = useState(null);
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(paramPatient || "");
+
+  useEffect(() => {
+    patientsApi.list().then(setPatients).catch(() => {});
+  }, []);
+
+  // Auto-open criteria from URL param
+  useEffect(() => {
+    if (paramOpen) {
+      const c = CRITERIA.find((x) => x.id === paramOpen);
+      if (c) setOpenCrit(c);
+    }
+  }, [paramOpen]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,15 +129,25 @@ export default function Criteria() {
           <DialogHeader>
             <DialogTitle className="sr-only">{openCrit?.name}</DialogTitle>
           </DialogHeader>
-          {openCrit && <CriteriaInteractive criteria={openCrit} />}
+          {openCrit && (
+            <CriteriaInteractive
+              criteria={openCrit}
+              patients={patients}
+              selectedPatient={selectedPatient}
+              setSelectedPatient={setSelectedPatient}
+              onSaved={() => setOpenCrit(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function CriteriaInteractive({ criteria }) {
+function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", setSelectedPatient, onSaved }) {
   const [state, setState] = useState({});
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saving, setSaving] = useState(false);
 
   const reset = () => setState({});
 
@@ -220,6 +253,60 @@ function CriteriaInteractive({ criteria }) {
           </Card>
         ))}
       </div>
+
+      {/* Save to patient */}
+      <Card className="border-gray-200 shadow-sm p-4">
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-1.5">Paziente</div>
+            <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+              <SelectTrigger data-testid="criteria-patient-select"><SelectValue placeholder="Seleziona paziente" /></SelectTrigger>
+              <SelectContent>
+                {patients.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.cognome} {p.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-44">
+            <div className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-1.5">Data</div>
+            <ItalianDatePicker value={date} onChange={setDate} testid="criteria-date" />
+          </div>
+          <Button
+            onClick={async () => {
+              if (!selectedPatient) {
+                toast.error("Seleziona un paziente");
+                return;
+              }
+              setSaving(true);
+              try {
+                await criteriaApi.create({
+                  patient_id: selectedPatient,
+                  criteria_id: criteria.id,
+                  criteria_name: criteria.name,
+                  source: criteria.source,
+                  date,
+                  score: total,
+                  threshold: criteria.threshold.value,
+                  meets,
+                  selections: state,
+                });
+                toast.success("Valutazione criteri salvata");
+                onSaved && onSaved();
+              } catch (e) {
+                toast.error(e.response?.data?.detail || "Errore");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="bg-[#0A2540] text-white hover:bg-[#051626]"
+            disabled={saving}
+            data-testid="criteria-save-btn"
+          >
+            <Save className="w-4 h-4 mr-2" /> Salva nel paziente
+          </Button>
+        </div>
+      </Card>
 
       {/* Score summary */}
       <div className="sticky bottom-0 bg-white border-t-2 border-[#0A2540] -mx-6 px-6 pt-4 pb-2">

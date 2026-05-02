@@ -395,6 +395,90 @@ export function interpretFIQR(score) {
   return "Impatto severo";
 }
 
+// ============ mRSS (modified Rodnan Skin Score) ============
+// 17 aree corporee, ognuna 0-3 (0=normale, 1=ispessimento lieve, 2=moderato, 3=severo). Max 51.
+export const MRSS_AREAS = [
+  { key: "face", label: "Volto" },
+  { key: "ant_chest", label: "Torace anteriore" },
+  { key: "abdomen", label: "Addome" },
+  { key: "upper_arm_l", label: "Braccio SX" },
+  { key: "upper_arm_r", label: "Braccio DX" },
+  { key: "forearm_l", label: "Avambraccio SX" },
+  { key: "forearm_r", label: "Avambraccio DX" },
+  { key: "hand_l", label: "Dorso mano SX" },
+  { key: "hand_r", label: "Dorso mano DX" },
+  { key: "fingers_l", label: "Dita SX" },
+  { key: "fingers_r", label: "Dita DX" },
+  { key: "thigh_l", label: "Coscia SX" },
+  { key: "thigh_r", label: "Coscia DX" },
+  { key: "leg_l", label: "Gamba SX" },
+  { key: "leg_r", label: "Gamba DX" },
+  { key: "foot_l", label: "Dorso piede SX" },
+  { key: "foot_r", label: "Dorso piede DX" },
+];
+export function calcMRSS(values) {
+  return MRSS_AREAS.reduce((sum, a) => sum + (Number(values?.[a.key]) || 0), 0);
+}
+export function interpretMRSS(score) {
+  if (score == null) return "-";
+  if (score === 0) return "Nessun ispessimento cutaneo";
+  if (score <= 14) return "Sclerosi cutanea limitata/lieve";
+  if (score <= 29) return "Sclerosi cutanea moderata";
+  return "Sclerosi cutanea severa";
+}
+
+// ============ Test di Schöber modificato ============
+// Misurazione: paziente in piedi, marcatura su S1 (dimples of Venus) e 10 cm sopra (e 5 cm sotto = 15 cm totali).
+// In flessione massima si misura nuovamente la distanza. Differenza = incremento.
+// Normale: incremento ≥ 5 cm (Schöber classico) o ≥ 20 cm di distanza totale (Schöber modificato 10+5).
+export function calcSchober({ standing, flexed }) {
+  const s = Number(standing) || 0;
+  const f = Number(flexed) || 0;
+  return round2(f - s);
+}
+export function interpretSchober(score) {
+  if (score == null) return "-";
+  if (score < 4) return "Limitazione severa flessione lombare";
+  if (score < 5) return "Limitazione lieve-moderata";
+  return "Flessione lombare normale";
+}
+
+// ============ Capillaroscopia (pattern Cutolo) ============
+// Tre pattern principali per sclerodermia: Early, Active, Late.
+// Score = pattern + features (dilated capillaries, megacapillaries, microhemorrhages, avascular areas,
+// neoangiogenesis, branched/bushy capillaries, capillary loss).
+export const CAPILLAROSCOPY_PATTERNS = [
+  { value: "normal", label: "Normale", points: 0 },
+  { value: "non_specific", label: "Aspecifico", points: 1 },
+  { value: "early", label: "Pattern Early SD", points: 3 },
+  { value: "active", label: "Pattern Active SD", points: 5 },
+  { value: "late", label: "Pattern Late SD", points: 7 },
+];
+export const CAPILLAROSCOPY_FEATURES = [
+  { key: "dilated", label: "Capillari dilatati" },
+  { key: "mega", label: "Megacapillari" },
+  { key: "microhem", label: "Microemorragie" },
+  { key: "avascular", label: "Aree avascolari" },
+  { key: "neoangio", label: "Neoangiogenesi (capillari ramificati/bushy)" },
+  { key: "loss", label: "Perdita capillare (riduzione densità)" },
+  { key: "disorganized", label: "Architettura disorganizzata" },
+];
+export function calcCapillaroscopy(values) {
+  const patternPoints = CAPILLAROSCOPY_PATTERNS.find((p) => p.value === values?.pattern)?.points || 0;
+  // Each feature checked = 1 point (descriptive)
+  const featurePoints = CAPILLAROSCOPY_FEATURES.reduce((s, f) => s + (values?.features?.[f.key] ? 1 : 0), 0);
+  return patternPoints + featurePoints;
+}
+export function interpretCapillaroscopy(values) {
+  const p = values?.pattern;
+  if (!p || p === "normal") return "Capillaroscopia normale";
+  if (p === "non_specific") return "Pattern aspecifico (non scleroderma)";
+  if (p === "early") return "Pattern sclerodermico Early";
+  if (p === "active") return "Pattern sclerodermico Active";
+  if (p === "late") return "Pattern sclerodermico Late";
+  return "-";
+}
+
 // ============ Joint definitions ============
 // DAS28: 28 articolazioni
 export const JOINTS_DAS28 = [
@@ -447,6 +531,9 @@ export const INDEX_LABELS = {
   fiqr: "FIQR",
   haq: "HAQ",
   pasi: "PASI",
+  mrss: "mRSS",
+  schober: "Schöber mod.",
+  capillaroscopy: "Capillaroscopia",
 };
 
 export const INDEX_DISEASES = {
@@ -458,6 +545,7 @@ export const INDEX_DISEASES = {
   asdas_crp: "Spondiloartrite",
   basfi: "Spondiloartrite",
   basmi: "Spondiloartrite",
+  schober: "Spondiloartrite",
   dapsa: "Artrite Psoriasica",
   sledai: "LES",
   essdai: "Sindrome di Sjögren",
@@ -467,4 +555,6 @@ export const INDEX_DISEASES = {
   fiqr: "Fibromialgia",
   haq: "Qualità di vita",
   pasi: "Psoriasi",
+  mrss: "Sclerosi Sistemica",
+  capillaroscopy: "Sclerosi Sistemica",
 };

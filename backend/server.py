@@ -66,6 +66,25 @@ class Assessment(AssessmentBase):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+class CriteriaEvaluationBase(BaseModel):
+    patient_id: str
+    criteria_id: str  # e.g. "acr_eular_2010_ra"
+    criteria_name: str
+    source: str
+    date: str
+    score: float
+    threshold: float
+    meets: bool
+    selections: Dict[str, Any] = {}
+    notes: Optional[str] = None
+
+
+class CriteriaEvaluation(CriteriaEvaluationBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
 # ==================== PATIENTS ====================
 @api_router.get("/")
 async def root():
@@ -111,6 +130,7 @@ async def delete_patient(patient_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Paziente non trovato")
     await db.assessments.delete_many({"patient_id": patient_id})
+    await db.criteria_evaluations.delete_many({"patient_id": patient_id})
     return {"success": True}
 
 
@@ -143,6 +163,31 @@ async def get_assessment(assessment_id: str):
 @api_router.delete("/assessments/{assessment_id}")
 async def delete_assessment(assessment_id: str):
     result = await db.assessments.delete_one({"id": assessment_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Valutazione non trovata")
+    return {"success": True}
+
+
+# ==================== CRITERIA EVALUATIONS ====================
+@api_router.post("/criteria-evaluations", response_model=CriteriaEvaluation)
+async def create_criteria_evaluation(payload: CriteriaEvaluationBase):
+    exists = await db.patients.find_one({"id": payload.patient_id}, {"_id": 0, "id": 1})
+    if not exists:
+        raise HTTPException(status_code=404, detail="Paziente non trovato")
+    evaluation = CriteriaEvaluation(**payload.model_dump())
+    await db.criteria_evaluations.insert_one(evaluation.model_dump())
+    return evaluation
+
+
+@api_router.get("/patients/{patient_id}/criteria-evaluations", response_model=List[CriteriaEvaluation])
+async def list_patient_criteria(patient_id: str):
+    docs = await db.criteria_evaluations.find({"patient_id": patient_id}, {"_id": 0}).sort("date", -1).to_list(2000)
+    return docs
+
+
+@api_router.delete("/criteria-evaluations/{evaluation_id}")
+async def delete_criteria_evaluation(evaluation_id: str):
+    result = await db.criteria_evaluations.delete_one({"id": evaluation_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Valutazione non trovata")
     return {"success": True}
