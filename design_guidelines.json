@@ -1,0 +1,86 @@
+{
+  "theme": "light",
+  "archetype": "4_swiss_high_contrast",
+  "design_philosophy": "Objective, rigid, functional medical UI. High visual clarity for clinical settings. Color is function only - UI is monochrome until action is required.",
+  "colors": {
+    "background": "#FFFFFF",
+    "surface": "#F9FAFB",
+    "surface_hover": "#F3F4F6",
+    "primary": "#0A2540",
+    "primary_hover": "#051626",
+    "accent_tender": "#0055FF",
+    "accent_swollen": "#FF3333",
+    "accent_both": "#8B5CF6",
+    "text_primary": "#0A0A0A",
+    "text_secondary": "#4B5563",
+    "border": "#E5E7EB",
+    "status_success": "#10B981",
+    "status_warning": "#F59E0B"
+  },
+  "typography": {
+    "heading_font": "Chivo",
+    "body_font": "IBM Plex Sans",
+    "hierarchy": {
+      "h1": "text-4xl md:text-5xl font-black tracking-tighter",
+      "h2": "text-2xl md:text-3xl font-bold tracking-tight",
+      "h3": "text-xl font-bold tracking-tight",
+      "h4": "text-lg font-semibold",
+      "body": "text-base font-normal leading-relaxed",
+      "label": "text-xs font-semibold uppercase tracking-[0.2em] text-text_secondary"
+    }
+  },
+  "layout_and_spacing": {
+    "dashboard_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "homunculus_layout": "grid-cols-1 md:grid-cols-2 gap-8",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "border_radius": "rounded-md",
+    "card_style": "bg-white border border-border shadow-sm hover:shadow-md transition-shadow duration-200"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-white font-bold hover:bg-primary_hover transition-colors rounded-md",
+      "secondary": "bg-surface border border-border text-text_primary hover:bg-surface_hover transition-colors rounded-md",
+      "action_swollen": "bg-accent_swollen text-white font-bold rounded-md",
+      "action_tender": "bg-accent_tender text-white font-bold rounded-md"
+    },
+    "tables": "Shadcn UI tables, cardless if possible, dense row spacing (py-2), sharp borders.",
+    "inputs": "Shadcn UI inputs, max rounded-md, visible focus ring (focus:ring-2 focus:ring-primary)",
+    "tabs": "Shadcn UI tabs, override h-9 to h-auto, clear contrast for active state."
+  },
+  "specific_features": {
+    "homunculus_svg": "Create an interactive SVG component for front/back body map. Map joints (shoulders, elbows, wrists, MCPs, PIPs, knees, ankles, MTPs). Use toggle states: neutral (gray), tender (blue), swollen (red), both (purple).",
+    "pasi_map": "Interactive SVG with 4 zones: Head, Trunk, Upper Limbs, Lower Limbs. Click to set erythema, induration, and desquamation.",
+    "calculators": "Implement real-time calc logic for DAS28, CDAI, SDAI, BASDAI, ASDAS, DAPSA, SLEDAI, HAQ, PASI. Show inputs grouped logically in bento cards.",
+    "export": "Use jsPDF and react-csv for exporting reports.",
+    "language": "Italian (it-IT) mandatory across all labels, placeholders, and indices."
+  },
+  "motion_and_interactions": {
+    "hover": "Subtle border darkening, crisp shadow lift (-translate-y-0.5) on cards.",
+    "joint_click": "Fast color fill transition (0.15s ease) on SVG paths.",
+    "page_transition": "Simple fade-in (opacity 0 to 1 over 0.3s)."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1758691461935-202e2ef6b69f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxkb2N0b3IlMjBpbnRlcmFjdGluZyUyMHdpdGglMjBwYXRpZW50fGVufDB8fHx8MTc3Nzc1OTY2MHww&ixlib=rb-4.1.0&q=85",
+        "category": "auth_hero",
+        "description": "Doctor interacting with patient, suitable for login page background or welcome screen."
+      }
+    ]
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "style": "duotone or bold for active states, regular for inactive."
+  },
+  "instructions_to_main_agent": [
+    "Strictly use Italian for all text (e.g., 'Anagrafica Pazienti', 'Aggiungi Paziente', 'Conta Articolare').",
+    "Ensure the interactive homunculus is a custom React SVG where each joint path has an onClick handler to cycle through states: Nessuno -> Dolente (Tender, Blue) -> Tumefatta (Swollen, Red) -> Entrambe (Both, Purple).",
+    "Use Shadcn UI components for complex forms and layout structure.",
+    "Maintain high contrast (WCAG AA) to ensure medical professionals can read data easily. Apply Archetype 4 rules (Swiss & High-Contrast).",
+    "Add 'data-testid' to all buttons, joint SVG paths, and inputs for testing.",
+    "Implement the requested calculators (DAS28, CDAI, SDAI, BASDAI, ASDAS, DAPSA, SLEDAI, HAQ, PASI) using standard clinical formulas.",
+    "Use Recharts for rendering patient index trends over time.",
+    "For Export, use jsPDF for PDF generation and standard CSV export methods.",
+    "Yarn add @phosphor-icons/react for clinical dashboard iconography."
+  ]
+}
