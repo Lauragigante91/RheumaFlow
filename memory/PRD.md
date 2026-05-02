@@ -42,6 +42,40 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v5)
+- [x] **Multi-utente con autenticazione JWT** + organizzazioni (UO):
+  - Backend: bcrypt password hash, JWT in httpOnly cookie, /api/auth/*
+    (register, login, logout, me, refresh)
+  - Registrazione: crea nuova UO (admin) o unisciti via codice invito
+  - Tutti i pazienti, valutazioni, criteri e terapie sono tagged
+    organization_id; isolation a livello di UO (medici della stessa UO
+    vedono gli stessi pazienti)
+  - Migrazione automatica dati esistenti alla "UO Reumatologia" di default
+  - Sidebar con info UO + codice invito copiabile + menu utente con logout
+- [x] **Modulo Terapia** per ogni paziente:
+  - Backend: POST/GET/PUT/DELETE /api/therapies (organization-scoped)
+  - 13 schede terapeutiche per malattia (AR, AP, SpA, LES, Sjögren,
+    Vasculiti ANCA, Miositi, Fibromialgia, SSc, Gotta, PMR, Behçet, IgG4-RD)
+    con farmaci e posologia tipica, suggerimenti automatici da diagnosi
+  - CRUD completo: drug_name, categoria (csDMARD/bDMARD/tsDMARD/GC/FANS/
+    analgesico/sintomatica), dose, frequenza, via, date inizio/fine,
+    stato (active/discontinued/completed), motivo sospensione, note
+  - Sezioni separate per terapie in corso vs precedenti
+- [x] **Auto-aggiornamento diagnosi** al salvataggio criteri: dialog di
+  conferma se i criteri sono soddisfatti e la diagnosi attuale differisce
+- [x] **Confronto side-by-side homunculus**: nel form valutazione DAS28-type
+  l'omino della visita corrente (modificabile) e l'omino della visita
+  precedente (read-only) sono mostrati uno sotto l'altro con conta TJC/SJC
+  separate per confronto immediato
+- [x] **Correzione VEDOSS**: rimosso "ANA generico" (non specifico per SSc).
+  Solo Raynaud (obbligatorio) + ≥1 marker SSc-specifico (puffy fingers, ACA,
+  anti-Scl70, anti-RNAP III, capillaroscopia con pattern sclerodermico)
+- [x] **Correzione Capillaroscopia**: score semi-quantitativo basato sul
+  pattern Cutolo (Normale=0, Aspecifico=0, Early=1, Active=2, Late=3).
+  Features descrittive non sommano punti
+- [x] Test credentials in `/app/memory/test_credentials.md`
+  (admin@clinimetria.it / admin123 / UO Reumatologia)
+
 ## Implemented (2026-02-10 - v4)
 - [x] EULAR Response calcolata automaticamente tra valutazioni successive
   di DAS28-ESR/CRP (Buona/Moderata/Nessuna) e CDAI/SDAI (≥85% / ≥50% / ≥20%)

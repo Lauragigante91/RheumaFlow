@@ -19,6 +19,7 @@ import {
 import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
+import TherapySection from "../components/TherapySection";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -287,6 +288,9 @@ export default function PatientDetail() {
           </div>
         </Card>
       )}
+
+      {/* Therapy section */}
+      <TherapySection patient={patient} />
 
       {/* Trend chart */}
       <Card className="border-gray-200 shadow-sm p-6">

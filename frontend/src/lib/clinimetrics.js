@@ -444,30 +444,28 @@ export function interpretSchober(score) {
 }
 
 // ============ Capillaroscopia (pattern Cutolo) ============
-// Tre pattern principali per sclerodermia: Early, Active, Late.
-// Score = pattern + features (dilated capillaries, megacapillaries, microhemorrhages, avascular areas,
-// neoangiogenesis, branched/bushy capillaries, capillary loss).
+// Pattern qualitativo Cutolo per sclerodermia.
+// Score semi-quantitativo basato sulla progressione: 0=normale, 0=aspecifico,
+// 1=Early SD, 2=Active SD, 3=Late SD. Le features sono descrittive (NON sommano punti).
 export const CAPILLAROSCOPY_PATTERNS = [
   { value: "normal", label: "Normale", points: 0 },
-  { value: "non_specific", label: "Aspecifico", points: 1 },
-  { value: "early", label: "Pattern Early SD", points: 3 },
-  { value: "active", label: "Pattern Active SD", points: 5 },
-  { value: "late", label: "Pattern Late SD", points: 7 },
+  { value: "non_specific", label: "Aspecifico (non scleroderma)", points: 0 },
+  { value: "early", label: "Pattern Early SD", points: 1 },
+  { value: "active", label: "Pattern Active SD", points: 2 },
+  { value: "late", label: "Pattern Late SD", points: 3 },
 ];
 export const CAPILLAROSCOPY_FEATURES = [
   { key: "dilated", label: "Capillari dilatati" },
-  { key: "mega", label: "Megacapillari" },
+  { key: "mega", label: "Megacapillari (>50 μm)" },
   { key: "microhem", label: "Microemorragie" },
   { key: "avascular", label: "Aree avascolari" },
   { key: "neoangio", label: "Neoangiogenesi (capillari ramificati/bushy)" },
-  { key: "loss", label: "Perdita capillare (riduzione densità)" },
+  { key: "loss", label: "Perdita capillare (densità ridotta)" },
   { key: "disorganized", label: "Architettura disorganizzata" },
 ];
 export function calcCapillaroscopy(values) {
-  const patternPoints = CAPILLAROSCOPY_PATTERNS.find((p) => p.value === values?.pattern)?.points || 0;
-  // Each feature checked = 1 point (descriptive)
-  const featurePoints = CAPILLAROSCOPY_FEATURES.reduce((s, f) => s + (values?.features?.[f.key] ? 1 : 0), 0);
-  return patternPoints + featurePoints;
+  // Solo il pattern determina lo score; le features sono descrittive.
+  return CAPILLAROSCOPY_PATTERNS.find((p) => p.value === values?.pattern)?.points ?? 0;
 }
 export function interpretCapillaroscopy(values) {
   const p = values?.pattern;

@@ -13,6 +13,28 @@ import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
 import { patientsApi, criteriaApi } from "../lib/api";
 import ItalianDatePicker from "../components/ItalianDatePicker";
 
+// Maps each criterion to a suggested diagnosis label
+const CRITERIA_DIAGNOSIS_MAP = {
+  acr_eular_2010_ra: "Artrite Reumatoide",
+  caspar_psa: "Artrite Psoriasica",
+  asas_axspa: "Spondiloartrite assiale",
+  asas_ibp: null,
+  acr_eular_2019_sle: "Lupus Eritematoso Sistemico",
+  acr_eular_2016_sjogren: "Sindrome di Sjögren",
+  acr_eular_2013_ssc: "Sclerosi Sistemica",
+  vedoss_2011: "VEDOSS (Sclerodermia molto precoce)",
+  acr_eular_2015_gout: "Gotta",
+  acr_eular_2012_pmr: "Polimialgia Reumatica",
+  acr_eular_2022_gpa: "Granulomatosi con Poliangite (GPA)",
+  acr_eular_2022_mpa: "Poliangite Microscopica (MPA)",
+  acr_eular_2022_egpa: "Granulomatosi Eosinofila con Poliangite (EGPA)",
+  yamaguchi_aosd: "Still dell'adulto (AOSD)",
+  acr_eular_2017_iim: "Miosite idiopatica infiammatoria",
+  acr_2016_fm: "Fibromialgia",
+  icbd_2014_behcet: "Malattia di Behçet",
+  acr_eular_2019_igg4: "Malattia IgG4-correlata",
+};
+
 export default function Criteria() {
   const [searchParams] = useSearchParams();
   const paramPatient = searchParams.get("paziente");
@@ -292,6 +314,21 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
                   selections: state,
                 });
                 toast.success("Valutazione criteri salvata");
+
+                // Auto-suggest diagnosis update if criteria are met
+                const suggested = CRITERIA_DIAGNOSIS_MAP[criteria.id];
+                if (meets && suggested) {
+                  const patient = patients.find((p) => p.id === selectedPatient);
+                  if (patient && (patient.diagnosi || "").trim().toLowerCase() !== suggested.toLowerCase()) {
+                    if (window.confirm(
+                      `I criteri sono soddisfatti.\n\nVuoi aggiornare la diagnosi del paziente ${patient.cognome} ${patient.nome} a:\n"${suggested}"?\n\nDiagnosi attuale: ${patient.diagnosi || "—"}`
+                    )) {
+                      await patientsApi.update(selectedPatient, { diagnosi: suggested });
+                      toast.success("Diagnosi aggiornata");
+                    }
+                  }
+                }
+
                 onSaved && onSaved();
               } catch (e) {
                 toast.error(e.response?.data?.detail || "Errore");

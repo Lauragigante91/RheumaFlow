@@ -181,11 +181,29 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
             <p className="text-xs text-gray-500 mb-4">
               Clicca sull'articolazione per ciclare: nessuno → dolente → tumefatta → entrambe.
             </p>
-            <Homunculus mode={jointMode} joints={joints} onChange={setJoints} />
+            <Homunculus mode={jointMode} joints={joints} onChange={setJoints} title="Visita corrente" />
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
               <StatBox label="Dolenti (TJC)" value={countTender(joints)} color="#0055FF" testid="tjc-count" />
               <StatBox label="Tumefatte (SJC)" value={countSwollen(joints)} color="#FF3333" testid="sjc-count" />
             </div>
+
+            {lastWithJoints && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="text-xs text-gray-500 mb-2">
+                  Confronto con visita del {new Date(lastWithJoints.date).toLocaleDateString("it-IT")}
+                </div>
+                <Homunculus
+                  mode={jointMode}
+                  joints={lastWithJoints.inputs?.joints_state || {}}
+                  readOnly
+                  title="Visita precedente"
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <StatBox label="TJC prec." value={countTender(lastWithJoints.inputs?.joints_state || {})} color="#0055FF" testid="prev-tjc-count" />
+                  <StatBox label="SJC prec." value={countSwollen(lastWithJoints.inputs?.joints_state || {})} color="#FF3333" testid="prev-sjc-count" />
+                </div>
+              </div>
+            )}
           </Card>
         )}
 

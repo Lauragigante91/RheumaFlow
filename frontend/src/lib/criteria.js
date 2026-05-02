@@ -12,30 +12,29 @@ export const CRITERIA = [
     name: "VEDOSS (Sclerodermia molto precoce)",
     disease: "Sclerosi Sistemica",
     source: "Avouac/EUSTAR 2011",
-    intro: "Identifica i pazienti a rischio di sviluppare SSc prima che soddisfino i criteri ACR/EULAR 2013. Richiede entrambi i criteri obbligatori (Raynaud + dita gonfie) PIÙ ≥1 criterio aggiuntivo.",
+    intro: "Identifica i pazienti a rischio di sviluppare SSc prima che soddisfino i criteri ACR/EULAR 2013. Richiede il fenomeno di Raynaud (obbligatorio) PIÙ ≥1 marker tra: dita gonfie (puffy fingers), autoanticorpi SSc-specifici (ACA, anti-Scl70, anti-RNAP III) o capillaroscopia con pattern sclerodermico.",
     sections: [
       {
-        title: "Criteri obbligatori (entrambi necessari)",
+        title: "Criterio obbligatorio",
         type: "check",
         items: [
           { key: "raynaud", label: "Fenomeno di Raynaud", points: 10 },
-          { key: "puffy", label: "Dita gonfie (puffy fingers) / edema digitale", points: 10 },
         ],
       },
       {
-        title: "Criteri aggiuntivi (≥1 necessario)",
+        title: "Marker aggiuntivi (≥1 necessario)",
         type: "check",
         items: [
-          { key: "ana", label: "ANA positivi (titolo ≥1:160)", points: 1 },
+          { key: "puffy", label: "Dita gonfie (puffy fingers) / edema digitale", points: 1 },
           { key: "aca", label: "Anti-centromero positivi", points: 1 },
           { key: "scl70", label: "Anti-topoisomerasi I (Scl-70) positivi", points: 1 },
           { key: "rnap3", label: "Anti-RNA polimerasi III positivi", points: 1 },
-          { key: "capillaroscopy_ssc", label: "Capillaroscopia: pattern sclerodermico (Early/Active/Late)", points: 1 },
+          { key: "capillaroscopy_ssc", label: "Capillaroscopia con pattern sclerodermico (Early/Active/Late)", points: 1 },
         ],
       },
     ],
-    threshold: { value: 21, label: "VEDOSS positivo (Raynaud + puffy fingers + ≥1 marker)" },
-    note: "Verifica obbligatoriamente che siano presenti SIA Raynaud SIA dita gonfie. Lo score 21 si raggiunge solo con entrambi i criteri obbligatori + ≥1 aggiuntivo.",
+    threshold: { value: 11, label: "VEDOSS positivo (Raynaud + ≥1 marker SSc-specifico)" },
+    note: "L'ANA isolato (senza specificità SSc) NON costituisce criterio VEDOSS. Sono validi solo gli autoanticorpi SSc-specifici (ACA, anti-Scl70, anti-RNAP III) o la capillaroscopia con pattern sclerodermico.",
   },
 
   // ============ ARTRITE REUMATOIDE ============

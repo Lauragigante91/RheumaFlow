@@ -136,10 +136,11 @@ const JOINT_LABELS_IT = {
 
 export { JOINT_LABELS_IT };
 
-export default function Homunculus({ mode = "28", joints = {}, onChange }) {
+export default function Homunculus({ mode = "28", joints = {}, onChange, readOnly = false, title }) {
   const keys = mode === "28" ? DAS28_KEYS : Object.keys(FRONT_JOINTS);
 
   const handleClick = (key) => {
+    if (readOnly) return;
     const current = joints[key] || "none";
     const next = nextState(current);
     const updated = { ...joints, [key]: next };
@@ -148,6 +149,7 @@ export default function Homunculus({ mode = "28", joints = {}, onChange }) {
 
   return (
     <div className="flex flex-col items-center gap-4">
+      {title && <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">{title}</div>}
       <svg
         viewBox="0 0 200 440"
         className="joint-svg w-full max-w-[280px] h-auto"
@@ -195,7 +197,7 @@ export default function Homunculus({ mode = "28", joints = {}, onChange }) {
                 fill="transparent"
                 onClick={() => handleClick(key)}
                 data-testid={`joint-${key}`}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: readOnly ? "default" : "pointer" }}
               />
               <circle
                 cx={j.x}
