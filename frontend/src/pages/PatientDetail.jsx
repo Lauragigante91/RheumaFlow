@@ -16,11 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2 } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
-import { INDEX_LABELS, INDEX_DISEASES } from "../lib/clinimetrics";
-import { exportPatientCSV, exportPatientPDF } from "../lib/export";
+import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
+import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -32,6 +32,7 @@ export default function PatientDetail() {
   const [criteriaEvals, setCriteriaEvals] = useState([]);
   const [newOpen, setNewOpen] = useState(false);
   const [newType, setNewType] = useState("das28_esr");
+  const [editingAssessment, setEditingAssessment] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState("all");
 
   const load = async () => {
@@ -55,14 +56,27 @@ export default function PatientDetail() {
 
   const startNew = (type) => {
     setNewType(type);
+    setEditingAssessment(null);
+    setNewOpen(true);
+  };
+
+  const startEdit = (assessment) => {
+    setNewType(assessment.index_type);
+    setEditingAssessment(assessment);
     setNewOpen(true);
   };
 
   const saveAssessment = async (payload) => {
     try {
-      await assessmentsApi.create({ ...payload, patient_id: id });
-      toast.success("Valutazione salvata");
+      if (editingAssessment) {
+        await assessmentsApi.update(editingAssessment.id, { ...payload, patient_id: id });
+        toast.success("Valutazione aggiornata");
+      } else {
+        await assessmentsApi.create({ ...payload, patient_id: id });
+        toast.success("Valutazione salvata");
+      }
       setNewOpen(false);
+      setEditingAssessment(null);
       load();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore nel salvataggio");
@@ -74,6 +88,32 @@ export default function PatientDetail() {
     await assessmentsApi.remove(aid);
     toast.success("Eliminata");
     load();
+  };
+
+  // Pre-compute EULAR response for each DAS28/CDAI/SDAI assessment vs previous same-type
+  const responseByAssessmentId = useMemo(() => {
+    const out = {};
+    const sortedAsc = [...assessments].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const lastSameType = {};
+    for (const a of sortedAsc) {
+      const prev = lastSameType[a.index_type];
+      if (prev && a.score != null && prev.score != null) {
+        if (a.index_type === "das28_esr" || a.index_type === "das28_crp") {
+          out[a.id] = eularResponseDAS28(prev.score, a.score);
+        } else if (a.index_type === "cdai" || a.index_type === "sdai") {
+          out[a.id] = cdaiResponse(prev.score, a.score);
+        }
+      }
+      lastSameType[a.index_type] = a;
+    }
+    return out;
+  }, [assessments]);
+
+  const responseColor = (level) => {
+    if (level === "good") return "bg-green-700 hover:bg-green-700 text-white";
+    if (level === "moderate") return "bg-amber-500 hover:bg-amber-500 text-white";
+    if (level === "none") return "bg-gray-300 hover:bg-gray-300 text-gray-800";
+    return "";
   };
 
   const chartData = useMemo(() => {
@@ -180,11 +220,21 @@ export default function PatientDetail() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Clinimetria</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => exportPatientPDF(patient, assessments)} data-testid="export-pdf">
-                <FileText className="w-4 h-4 mr-2" /> PDF
+                <FileText className="w-4 h-4 mr-2" /> PDF clinimetria
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportPatientCSV(patient, assessments)} data-testid="export-csv">
-                <FileText className="w-4 h-4 mr-2" /> CSV
+                <FileText className="w-4 h-4 mr-2" /> CSV clinimetria
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Criteri</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => exportCriteriaPDF(patient, criteriaEvals)}
+                disabled={criteriaEvals.length === 0}
+                data-testid="export-criteria-pdf"
+              >
+                <FileCheck2 className="w-4 h-4 mr-2" /> PDF criteri classificativi
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -288,27 +338,43 @@ export default function PatientDetail() {
                   <Th>Indice</Th>
                   <Th>Punteggio</Th>
                   <Th>Interpretazione</Th>
+                  <Th>EULAR</Th>
                   <Th>TJC / SJC</Th>
                   <Th className="text-right">Azioni</Th>
                 </tr>
               </thead>
               <tbody>
-                {assessments.map((a) => (
+                {assessments.map((a) => {
+                  const resp = responseByAssessmentId[a.id];
+                  return (
                   <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`assessment-row-${a.id}`}>
                     <td className="px-4 py-3 font-medium">{new Date(a.date).toLocaleDateString("it-IT")}</td>
                     <td className="px-4 py-3">{INDEX_LABELS[a.index_type] || a.index_type}</td>
                     <td className="px-4 py-3 font-mono font-bold text-[#0A2540]">{a.score ?? "-"}</td>
                     <td className="px-4 py-3">{a.interpretation || "-"}</td>
+                    <td className="px-4 py-3">
+                      {resp ? (
+                        <Badge className={responseColor(resp.level)} data-testid={`eular-${a.id}`}>
+                          <TrendingUp className="w-3 h-3 mr-1" /> {resp.label}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600">
                       {(a.tender_joints?.length ?? 0)} / {(a.swollen_joints?.length ?? 0)}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <Button variant="ghost" size="icon" onClick={() => startEdit(a)} data-testid={`edit-assessment-${a.id}`}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => removeAssessment(a.id)} data-testid={`delete-assessment-${a.id}`}>
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -368,16 +434,17 @@ export default function PatientDetail() {
       </Card>
 
       {/* New assessment dialog */}
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+      <Dialog open={newOpen} onOpenChange={(v) => { setNewOpen(v); if (!v) setEditingAssessment(null); }}>
         <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="sr-only">Nuova valutazione</DialogTitle>
+            <DialogTitle className="sr-only">{editingAssessment ? "Modifica valutazione" : "Nuova valutazione"}</DialogTitle>
           </DialogHeader>
           <AssessmentForm
             indexType={newType}
             onSubmit={saveAssessment}
-            onCancel={() => setNewOpen(false)}
-            previousAssessments={assessments.filter((a) => a.index_type === newType)}
+            onCancel={() => { setNewOpen(false); setEditingAssessment(null); }}
+            previousAssessments={assessments.filter((a) => a.index_type === newType && a.id !== editingAssessment?.id)}
+            initial={editingAssessment}
           />
         </DialogContent>
       </Dialog>

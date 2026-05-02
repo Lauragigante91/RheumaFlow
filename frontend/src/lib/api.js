@@ -15,6 +15,7 @@ export const patientsApi = {
 
 export const assessmentsApi = {
   create: (data) => api.post("/assessments", data).then((r) => r.data),
+  update: (id, data) => api.put(`/assessments/${id}`, data).then((r) => r.data),
   listByPatient: (patientId) =>
     api.get(`/patients/${patientId}/assessments`).then((r) => r.data),
   get: (id) => api.get(`/assessments/${id}`).then((r) => r.data),

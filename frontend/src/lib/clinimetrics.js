@@ -479,6 +479,50 @@ export function interpretCapillaroscopy(values) {
   return "-";
 }
 
+// ============ EULAR RESPONSE (DAS28) ============
+// Confronta valore corrente vs precedente:
+//   miglioramento = baseline - current
+//   Buona risposta:    current ≤ 3.2 e miglioramento > 1.2
+//   Moderata risposta: current ≤ 3.2 e miglioramento 0.6-1.2
+//                       OR 3.2 < current ≤ 5.1 e miglioramento > 0.6
+//                       OR current > 5.1 e miglioramento > 1.2
+//   Nessuna risposta:  altrimenti
+export function eularResponseDAS28(prev, current) {
+  if (prev == null || current == null) return null;
+  const delta = prev - current;
+  if (current <= 3.2) {
+    if (delta > 1.2) return { label: "Buona risposta", level: "good" };
+    if (delta > 0.6) return { label: "Moderata risposta", level: "moderate" };
+    return { label: "Nessuna risposta", level: "none" };
+  }
+  if (current <= 5.1) {
+    if (delta > 0.6) return { label: "Moderata risposta", level: "moderate" };
+    return { label: "Nessuna risposta", level: "none" };
+  }
+  if (delta > 1.2) return { label: "Moderata risposta", level: "moderate" };
+  return { label: "Nessuna risposta", level: "none" };
+}
+
+// ============ ACR/EULAR Boolean Remission (DAS28-based proxies) ============
+export function acrEularBooleanRemission({ tjc, sjc, crp, pga }) {
+  // Tutti ≤ 1: TJC≤1, SJC≤1, CRP≤1 mg/dL, PGA≤1 (su scala 0-10)
+  const t = Number(tjc) || 0, s = Number(sjc) || 0, c = Number(crp) || 0, p = Number(pga) || 0;
+  return t <= 1 && s <= 1 && c <= 1 && p <= 1;
+}
+
+// CDAI/SDAI improvement: clinically meaningful change (MCII)
+// CDAI: -1 (low) / -6 (moderate) / -12 (high) per Aletaha 2009
+// Per CDAI: response if reduction ≥50% from baseline
+export function cdaiResponse(prev, current) {
+  if (prev == null || current == null || prev <= 0) return null;
+  const delta = prev - current;
+  const pct = (delta / prev) * 100;
+  if (pct >= 85) return { label: "Risposta maggiore (≥85%)", level: "good" };
+  if (pct >= 50) return { label: "Risposta moderata (≥50%)", level: "moderate" };
+  if (pct >= 20) return { label: "Risposta minima (≥20%)", level: "moderate" };
+  return { label: "Nessuna risposta", level: "none" };
+}
+
 // ============ Joint definitions ============
 // DAS28: 28 articolazioni
 export const JOINTS_DAS28 = [

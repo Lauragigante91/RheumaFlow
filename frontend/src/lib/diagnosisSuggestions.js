@@ -51,9 +51,9 @@ const RULES = [
     diseaseLabel: "Fibromialgia",
   },
   {
-    keywords: ["sclerosi sistem", "sclerodermia", "ssc ", "scleroderma"],
+    keywords: ["sclerosi sistem", "sclerodermia", "ssc ", "scleroderma", "vedoss", "raynaud"],
     indices: ["mrss", "capillaroscopy", "haq"],
-    criteria: ["acr_eular_2013_ssc"],
+    criteria: ["acr_eular_2013_ssc", "vedoss_2011"],
     diseaseLabel: "Sclerosi Sistemica",
   },
   {

@@ -42,6 +42,24 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v4)
+- [x] EULAR Response calcolata automaticamente tra valutazioni successive
+  di DAS28-ESR/CRP (Buona/Moderata/Nessuna) e CDAI/SDAI (≥85% / ≥50% / ≥20%)
+  con badge colorato nello storico
+- [x] Modifica valutazioni esistenti: bottone Edit + form precompilato
+  (PUT /api/assessments/{id}); supporta tutti gli indici inclusi homunculus
+  e mappe complesse (PASI, PASI, mRSS, FIQR, ecc.)
+- [x] Tutti i nuovi indici (mRSS, Schöber, Capillaroscopia) sono già nel
+  filtro del grafico andamento (lookup da INDEX_LABELS)
+- [x] Export PDF dei criteri classificativi (`exportCriteriaPDF`):
+  anagrafica + tabella sintetica + dettaglio voce per voce per ogni criterio
+- [x] **mRSS Homunculus**: SVG con 17 regioni cliccabili (volto, torace,
+  addome, braccia, avambracci, mani, dita, cosce, gambe, piedi); click
+  cicla 0→1→2→3 con codifica colore (grigio/giallo/arancione/rosso) e
+  numero in sovraimpressione; totale calcolato in tempo reale
+- [x] **Criteri VEDOSS** (Avouac/EUSTAR 2011): Raynaud + dita gonfie +
+  ≥1 marker (ANA, ACA, anti-Scl70, anti-RNAP III, capillaroscopia SSc)
+
 ## Implemented (2026-02-10 - v3)
 - [x] Date picker italiano (dd/mm/yyyy) con shadcn Calendar + locale `it`,
   applicato a data nascita paziente e data valutazione

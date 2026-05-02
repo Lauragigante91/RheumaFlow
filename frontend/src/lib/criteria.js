@@ -6,6 +6,38 @@
 //   note?: string
 
 export const CRITERIA = [
+  // ============ VEDOSS - Avouac 2011 / EUSTAR ============
+  {
+    id: "vedoss_2011",
+    name: "VEDOSS (Sclerodermia molto precoce)",
+    disease: "Sclerosi Sistemica",
+    source: "Avouac/EUSTAR 2011",
+    intro: "Identifica i pazienti a rischio di sviluppare SSc prima che soddisfino i criteri ACR/EULAR 2013. Richiede entrambi i criteri obbligatori (Raynaud + dita gonfie) PIÙ ≥1 criterio aggiuntivo.",
+    sections: [
+      {
+        title: "Criteri obbligatori (entrambi necessari)",
+        type: "check",
+        items: [
+          { key: "raynaud", label: "Fenomeno di Raynaud", points: 10 },
+          { key: "puffy", label: "Dita gonfie (puffy fingers) / edema digitale", points: 10 },
+        ],
+      },
+      {
+        title: "Criteri aggiuntivi (≥1 necessario)",
+        type: "check",
+        items: [
+          { key: "ana", label: "ANA positivi (titolo ≥1:160)", points: 1 },
+          { key: "aca", label: "Anti-centromero positivi", points: 1 },
+          { key: "scl70", label: "Anti-topoisomerasi I (Scl-70) positivi", points: 1 },
+          { key: "rnap3", label: "Anti-RNA polimerasi III positivi", points: 1 },
+          { key: "capillaroscopy_ssc", label: "Capillaroscopia: pattern sclerodermico (Early/Active/Late)", points: 1 },
+        ],
+      },
+    ],
+    threshold: { value: 21, label: "VEDOSS positivo (Raynaud + puffy fingers + ≥1 marker)" },
+    note: "Verifica obbligatoriamente che siano presenti SIA Raynaud SIA dita gonfie. Lo score 21 si raggiunge solo con entrambi i criteri obbligatori + ≥1 aggiuntivo.",
+  },
+
   // ============ ARTRITE REUMATOIDE ============
   {
     id: "acr_eular_2010_ra",

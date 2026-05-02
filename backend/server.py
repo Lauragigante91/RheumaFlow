@@ -168,6 +168,16 @@ async def delete_assessment(assessment_id: str):
     return {"success": True}
 
 
+@api_router.put("/assessments/{assessment_id}", response_model=Assessment)
+async def update_assessment(assessment_id: str, payload: AssessmentBase):
+    update_data = payload.model_dump()
+    result = await db.assessments.update_one({"id": assessment_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Valutazione non trovata")
+    doc = await db.assessments.find_one({"id": assessment_id}, {"_id": 0})
+    return doc
+
+
 # ==================== CRITERIA EVALUATIONS ====================
 @api_router.post("/criteria-evaluations", response_model=CriteriaEvaluation)
 async def create_criteria_evaluation(payload: CriteriaEvaluationBase):

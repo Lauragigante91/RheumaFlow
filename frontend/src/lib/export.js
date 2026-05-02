@@ -162,3 +162,96 @@ export function exportPatientPDF(patient, assessments) {
 
   doc.save(`report_${patient.cognome}_${patient.nome}.pdf`);
 }
+
+export function exportCriteriaPDF(patient, criteriaEvals) {
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+
+  // Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("Report Criteri Classificativi", 14, 18);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Data emissione: ${new Date().toLocaleDateString("it-IT")}`, pageW - 14, 18, { align: "right" });
+
+  doc.setDrawColor(10, 37, 64);
+  doc.setLineWidth(0.5);
+  doc.line(14, 22, pageW - 14, 22);
+
+  // Patient info
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Anagrafica Paziente", 14, 32);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const lines = [
+    `Nome: ${patient.nome || "-"}`,
+    `Cognome: ${patient.cognome || "-"}`,
+    `Data di nascita: ${formatDate(patient.data_nascita)}`,
+    `Sesso: ${patient.sesso || "-"}`,
+    `Codice Fiscale: ${patient.codice_fiscale || "-"}`,
+    `Diagnosi: ${patient.diagnosi || "-"}`,
+  ];
+  lines.forEach((l, i) => doc.text(l, 14, 40 + i * 6));
+
+  const startY = 40 + lines.length * 6 + 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Storico criteri applicati", 14, startY);
+
+  const tableData = criteriaEvals.map((ce) => [
+    formatDate(ce.date),
+    ce.criteria_name,
+    ce.source,
+    `${ce.score} / ≥${ce.threshold}`,
+    ce.meets ? "Soddisfatti" : "Non raggiunti",
+  ]);
+
+  autoTable(doc, {
+    startY: startY + 4,
+    head: [["Data", "Criteri", "Sorgente", "Score / Soglia", "Esito"]],
+    body: tableData,
+    theme: "striped",
+    headStyles: { fillColor: [10, 37, 64], textColor: 255, fontStyle: "bold" },
+    styles: { fontSize: 9, cellPadding: 3 },
+  });
+
+  // Detail per evaluation
+  criteriaEvals.forEach((ce) => {
+    doc.addPage();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`${ce.criteria_name}`, 14, 20);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Sorgente: ${ce.source}`, 14, 28);
+    doc.text(`Data: ${formatDate(ce.date)}`, 14, 34);
+    doc.text(`Score: ${ce.score} (soglia ≥ ${ce.threshold})`, 14, 40);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(ce.meets ? 21 : 100, ce.meets ? 128 : 100, ce.meets ? 61 : 100);
+    doc.text(`Esito: ${ce.meets ? "CRITERI SODDISFATTI" : "Criteri non raggiunti"}`, 14, 48);
+    doc.setTextColor(0, 0, 0);
+
+    const selRows = Object.entries(ce.selections || {}).map(([k, v]) => [
+      String(k),
+      typeof v === "boolean" ? (v ? "Sì" : "No") : String(v),
+    ]);
+    if (selRows.length) {
+      autoTable(doc, {
+        startY: 56,
+        head: [["Voce", "Selezione"]],
+        body: selRows,
+        theme: "grid",
+        headStyles: { fillColor: [10, 37, 64], textColor: 255 },
+        styles: { fontSize: 9 },
+      });
+    }
+  });
+
+  doc.save(`criteri_${patient.cognome}_${patient.nome}.pdf`);
+}

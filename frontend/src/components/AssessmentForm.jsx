@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Homunculus, { countTender, countSwollen, getTenderKeys, getSwollenKeys, JOINT_LABELS_IT } from "./Homunculus";
+import MRSSHomunculus from "./MRSSHomunculus";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -23,22 +24,39 @@ import {
 } from "../lib/clinimetrics";
 
 /**
- * props: indexType, onSubmit({ inputs, score, interpretation, tender_joints, swollen_joints }), previousAssessments
+ * props: indexType, onSubmit({ inputs, score, interpretation, tender_joints, swollen_joints }), previousAssessments, initial (per modifica)
  */
-export default function AssessmentForm({ indexType, onSubmit, onCancel, previousAssessments = [] }) {
-  const [inputs, setInputs] = useState({});
-  const [joints, setJoints] = useState({});
-  const [pasiData, setPasiData] = useState({});
-  const [sledaiData, setSledaiData] = useState({});
-  const [haqData, setHaqData] = useState({});
-  const [essdaiData, setEssdaiData] = useState({});
-  const [bvasData, setBvasData] = useState({});
-  const [mmtData, setMmtData] = useState({});
-  const [fiqrData, setFiqrData] = useState({ function: {}, overall: {}, symptoms: {} });
-  const [mrssData, setMrssData] = useState({});
-  const [capData, setCapData] = useState({ pattern: "", features: {} });
-  const [notes, setNotes] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+export default function AssessmentForm({ indexType, onSubmit, onCancel, previousAssessments = [], initial = null }) {
+  const [inputs, setInputs] = useState(() => {
+    if (!initial) return {};
+    // Estrae i campi semplici dagli inputs salvati (esclude joints_state e altre sub-mappe)
+    const i = { ...(initial.inputs || {}) };
+    delete i.joints_state;
+    delete i.regions;
+    delete i.items;
+    delete i.categories;
+    delete i.domains;
+    delete i.systems;
+    delete i.groups;
+    delete i.areas;
+    delete i.function;
+    delete i.overall;
+    delete i.symptoms;
+    delete i.features;
+    return i;
+  });
+  const [joints, setJoints] = useState(() => initial?.inputs?.joints_state || {});
+  const [pasiData, setPasiData] = useState(() => initial?.inputs?.regions || {});
+  const [sledaiData, setSledaiData] = useState(() => initial?.inputs?.items || {});
+  const [haqData, setHaqData] = useState(() => initial?.inputs?.categories || {});
+  const [essdaiData, setEssdaiData] = useState(() => initial?.inputs?.domains || {});
+  const [bvasData, setBvasData] = useState(() => initial?.inputs?.systems || {});
+  const [mmtData, setMmtData] = useState(() => initial?.inputs?.groups || {});
+  const [fiqrData, setFiqrData] = useState(() => initial?.inputs?.function ? { function: initial.inputs.function, overall: initial.inputs.overall || {}, symptoms: initial.inputs.symptoms || {} } : { function: {}, overall: {}, symptoms: {} });
+  const [mrssData, setMrssData] = useState(() => initial?.inputs?.areas || {});
+  const [capData, setCapData] = useState(() => initial?.inputs?.pattern ? { pattern: initial.inputs.pattern, features: initial.inputs.features || {} } : { pattern: "", features: {} });
+  const [notes, setNotes] = useState(() => initial?.notes || "");
+  const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
 
   const set = (k, v) => setInputs((p) => ({ ...p, [k]: v }));
 
@@ -128,7 +146,7 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Calcolo</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">{initial ? "Modifica" : "Calcolo"}</div>
           <h2 className="font-heading text-3xl font-black tracking-tighter text-[#0A2540]">
             {INDEX_LABELS[indexType]}
           </h2>
@@ -221,7 +239,7 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
           <div className="mt-6 flex gap-3 justify-end">
             <Button variant="outline" onClick={onCancel} data-testid="cancel-assessment-btn">Annulla</Button>
             <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" onClick={handleSubmit} data-testid="save-assessment-btn">
-              Salva valutazione
+              {initial ? "Aggiorna valutazione" : "Salva valutazione"}
             </Button>
           </div>
         </Card>
@@ -539,29 +557,9 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
       return (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Per ogni area corporea valuta lo spessore cutaneo: 0 = normale, 1 = lieve ispessimento, 2 = moderato, 3 = severo. Massimo 51.
+            Clicca su ogni regione corporea per ciclare lo spessore cutaneo: 0 (normale) → 1 (lieve) → 2 (moderato) → 3 (severo). Massimo 51.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {MRSS_AREAS.map((a) => (
-              <div key={a.key} className="flex items-center justify-between gap-2 border border-gray-200 rounded-md p-2.5">
-                <div className="text-sm font-medium">{a.label}</div>
-                <div className="flex gap-1">
-                  {[0, 1, 2, 3].map((v) => (
-                    <Button
-                      key={v}
-                      variant={mrssData[a.key] === v ? "default" : "outline"}
-                      size="sm"
-                      className={`w-9 h-8 ${mrssData[a.key] === v ? "bg-[#0A2540] text-white" : ""}`}
-                      onClick={() => setMrssData((p) => ({ ...p, [a.key]: v }))}
-                      data-testid={`mrss-${a.key}-${v}`}
-                    >
-                      {v}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <MRSSHomunculus values={mrssData} onChange={setMrssData} />
         </div>
       );
     case "schober":
