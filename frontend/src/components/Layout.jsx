@@ -1,10 +1,11 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2 } from "lucide-react";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pazienti", label: "Pazienti", icon: Users },
+  { to: "/criteri", label: "Criteri", icon: FileCheck2 },
 ];
 
 export default function Layout({ children }) {

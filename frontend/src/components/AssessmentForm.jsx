@@ -10,22 +10,28 @@ import { Checkbox } from "./ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
-  calcSLEDAI, calcHAQ, calcPASI,
+  calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
-  interpretSLEDAI, interpretHAQ, interpretPASI,
-  SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS,
+  interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
+  interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR,
+  SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS, BASFI_QUESTIONS, BASMI_MEASURES, ESSDAI_DOMAINS,
+  BVAS_SYSTEMS, MMT8_GROUPS, FIQR_FUNCTION, FIQR_OVERALL, FIQR_SYMPTOMS,
   INDEX_LABELS,
 } from "../lib/clinimetrics";
 
 /**
- * props: indexType, onSubmit({ inputs, score, interpretation, tender_joints, swollen_joints })
+ * props: indexType, onSubmit({ inputs, score, interpretation, tender_joints, swollen_joints }), previousAssessments
  */
-export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
+export default function AssessmentForm({ indexType, onSubmit, onCancel, previousAssessments = [] }) {
   const [inputs, setInputs] = useState({});
   const [joints, setJoints] = useState({});
   const [pasiData, setPasiData] = useState({});
   const [sledaiData, setSledaiData] = useState({});
   const [haqData, setHaqData] = useState({});
+  const [essdaiData, setEssdaiData] = useState({});
+  const [bvasData, setBvasData] = useState({});
+  const [mmtData, setMmtData] = useState({});
+  const [fiqrData, setFiqrData] = useState({ function: {}, overall: {}, symptoms: {} });
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -59,6 +65,20 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
         return { score: calcHAQ(haqData), interp: interpretHAQ, ins: { categories: haqData } };
       case "pasi":
         return { score: calcPASI(pasiData), interp: interpretPASI, ins: { regions: pasiData } };
+      case "basfi":
+        return { score: calcBASFI(inputs), interp: interpretBASFI, ins: { ...inputs } };
+      case "basmi":
+        return { score: calcBASMI(inputs), interp: interpretBASMI, ins: { ...inputs } };
+      case "essdai":
+        return { score: calcESSDAI(essdaiData), interp: interpretESSDAI, ins: { domains: essdaiData } };
+      case "esspri":
+        return { score: calcESSPRI(inputs), interp: interpretESSPRI, ins: { ...inputs } };
+      case "bvas":
+        return { score: calcBVAS(bvasData), interp: interpretBVAS, ins: { systems: bvasData } };
+      case "mmt8":
+        return { score: calcMMT8(mmtData), interp: interpretMMT8, ins: { groups: mmtData } };
+      case "fiqr":
+        return { score: calcFIQR(fiqrData), interp: interpretFIQR, ins: fiqrData };
       default:
         return { score: null, interp: () => "-", ins: {} };
     }
@@ -71,7 +91,7 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
     const payload = {
       index_type: indexType,
       date,
-      inputs: ins,
+      inputs: { ...ins, joints_state: joints },
       score,
       interpretation,
       tender_joints: getTenderKeys(joints).map((k) => JOINT_LABELS_IT[k] || k),
@@ -79,6 +99,13 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
       notes,
     };
     onSubmit(payload);
+  };
+
+  // Importa la conta articolare dall'ultima valutazione disponibile
+  const lastWithJoints = (previousAssessments || []).find((a) => a.inputs?.joints_state && Object.keys(a.inputs.joints_state).length > 0);
+  const importPrevious = () => {
+    if (!lastWithJoints) return;
+    setJoints({ ...(lastWithJoints.inputs.joints_state || {}) });
   };
 
   const jointMode = ["das28_esr", "das28_crp", "cdai", "sdai"].includes(indexType) ? "28"
@@ -103,7 +130,21 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
         {/* Left: Joint counter or body map */}
         {jointMode && (
           <Card className="border-gray-200 shadow-sm p-6 lg:col-span-1">
-            <h3 className="font-heading font-bold text-lg tracking-tight mb-1">Conta articolare</h3>
+            <div className="flex items-start justify-between mb-1 gap-2">
+              <h3 className="font-heading font-bold text-lg tracking-tight">Conta articolare</h3>
+              {lastWithJoints && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={importPrevious}
+                  data-testid="import-previous-joints-btn"
+                  title={`Importa dalla valutazione del ${new Date(lastWithJoints.date).toLocaleDateString("it-IT")}`}
+                  className="text-xs"
+                >
+                  Importa precedente
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mb-4">
               Clicca sull'articolazione per ciclare: nessuno → dolente → tumefatta → entrambe.
             </p>
@@ -127,6 +168,14 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel }) {
             setHaqData={setHaqData}
             pasiData={pasiData}
             setPasiData={setPasiData}
+            essdaiData={essdaiData}
+            setEssdaiData={setEssdaiData}
+            bvasData={bvasData}
+            setBvasData={setBvasData}
+            mmtData={mmtData}
+            setMmtData={setMmtData}
+            fiqrData={fiqrData}
+            setFiqrData={setFiqrData}
           />
 
           {/* Score summary */}
@@ -211,7 +260,7 @@ function VASSlider({ label, value, onChange, testid }) {
   );
 }
 
-function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData }) {
+function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData, essdaiData, setEssdaiData, bvasData, setBvasData, mmtData, setMmtData, fiqrData, setFiqrData }) {
   switch (indexType) {
     case "das28_esr":
       return (
@@ -318,6 +367,155 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
       );
     case "pasi":
       return <PASIForm pasiData={pasiData} setPasiData={setPasiData} />;
+    case "basfi":
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-600">Per ogni attività indica la difficoltà negli ultimi giorni (0 = facile, 10 = impossibile).</p>
+          {BASFI_QUESTIONS.map((q, i) => (
+            <VASSlider key={i} label={`${i + 1}. ${q}`} value={inputs[`q${i + 1}`] || 0} onChange={(v) => set(`q${i + 1}`, v)} testid={`basfi-q${i + 1}`} />
+          ))}
+        </div>
+      );
+    case "basmi":
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p className="md:col-span-2 text-sm text-gray-600">Inserisci le misurazioni fisiche (BASMI lineare, range 0-10 per ogni misura).</p>
+          {BASMI_MEASURES.map((m) => (
+            <NumInput key={m.key} label={m.label} value={inputs[m.key]} onChange={(v) => set(m.key, v)} min={0} step="0.1" testid={`basmi-${m.key}`} />
+          ))}
+        </div>
+      );
+    case "essdai":
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Per ogni dominio, indica il livello di attività attuale.</p>
+          {ESSDAI_DOMAINS.map((d) => (
+            <div key={d.key} className="border border-gray-200 rounded-md p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">{d.label}</Label>
+                <span className="text-xs font-mono text-gray-500">peso ×{d.weight}</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {d.levels.map((lv, idx) => (
+                  <Button
+                    key={idx}
+                    variant={essdaiData[d.key] === idx ? "default" : "outline"}
+                    size="sm"
+                    className={essdaiData[d.key] === idx ? "bg-[#0A2540] text-white" : ""}
+                    onClick={() => setEssdaiData((p) => ({ ...p, [d.key]: idx }))}
+                    data-testid={`essdai-${d.key}-${idx}`}
+                  >
+                    {lv}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    case "esspri":
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-600">Per ogni dominio indica l'intensità negli ultimi 14 giorni (VAS 0-10).</p>
+          <VASSlider label="Secchezza" value={inputs.dryness || 0} onChange={(v) => set("dryness", v)} testid="esspri-dryness" />
+          <VASSlider label="Affaticamento" value={inputs.fatigue || 0} onChange={(v) => set("fatigue", v)} testid="esspri-fatigue" />
+          <VASSlider label="Dolore (articolare/muscolare)" value={inputs.pain || 0} onChange={(v) => set("pain", v)} testid="esspri-pain" />
+        </div>
+      );
+    case "bvas":
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Per ogni sistema, indica se l'attività è di nuova insorgenza (peso maggiore) o persistente (peso minore) e specifica i punti.</p>
+          {BVAS_SYSTEMS.map((s) => (
+            <div key={s.key} className="border border-gray-200 rounded-md p-3">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <Label className="text-sm font-semibold">{s.label}</Label>
+                <span className="text-xs text-gray-500">max nuovo: {s.newMax} · max persistente: {s.persistentMax}</span>
+              </div>
+              <div className="flex gap-2 items-center flex-wrap">
+                <Button
+                  variant={bvasData[s.key]?.type === "new" ? "default" : "outline"}
+                  size="sm"
+                  className={bvasData[s.key]?.type === "new" ? "bg-[#0A2540] text-white" : ""}
+                  onClick={() => setBvasData((p) => ({ ...p, [s.key]: { ...(p[s.key] || {}), type: "new" } }))}
+                  data-testid={`bvas-${s.key}-new`}
+                >Nuovo / peggiorato</Button>
+                <Button
+                  variant={bvasData[s.key]?.type === "persistent" ? "default" : "outline"}
+                  size="sm"
+                  className={bvasData[s.key]?.type === "persistent" ? "bg-[#0A2540] text-white" : ""}
+                  onClick={() => setBvasData((p) => ({ ...p, [s.key]: { ...(p[s.key] || {}), type: "persistent" } }))}
+                  data-testid={`bvas-${s.key}-persistent`}
+                >Persistente</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBvasData((p) => ({ ...p, [s.key]: { type: null, score: 0 } }))}
+                  data-testid={`bvas-${s.key}-clear`}
+                >Pulisci</Button>
+                <Input
+                  type="number"
+                  className="w-24"
+                  min={0}
+                  max={bvasData[s.key]?.type === "new" ? s.newMax : s.persistentMax}
+                  value={bvasData[s.key]?.score ?? ""}
+                  onChange={(e) => setBvasData((p) => ({ ...p, [s.key]: { ...(p[s.key] || {}), score: Number(e.target.value) || 0 } }))}
+                  placeholder="Punti"
+                  data-testid={`bvas-${s.key}-score`}
+                  disabled={!bvasData[s.key]?.type}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    case "mmt8":
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Forza muscolare scala Kendall 0-10 per ogni gruppo. I gruppi bilaterali si valutano separatamente dx/sx (max totale 150).</p>
+          {MMT8_GROUPS.map((g) => (
+            <div key={g.key} className="border border-gray-200 rounded-md p-3">
+              <Label className="text-sm font-semibold">{g.label}</Label>
+              {g.bilateral ? (
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <NumInput label="Sinistra" value={mmtData[g.key]?.l} onChange={(v) => setMmtData((p) => ({ ...p, [g.key]: { ...(p[g.key] || {}), l: v } }))} min={0} max={10} step="0.5" testid={`mmt-${g.key}-l`} />
+                  <NumInput label="Destra" value={mmtData[g.key]?.r} onChange={(v) => setMmtData((p) => ({ ...p, [g.key]: { ...(p[g.key] || {}), r: v } }))} min={0} max={10} step="0.5" testid={`mmt-${g.key}-r`} />
+                </div>
+              ) : (
+                <div className="mt-2 max-w-xs">
+                  <NumInput label="Punteggio" value={mmtData[g.key]?.s} onChange={(v) => setMmtData((p) => ({ ...p, [g.key]: { s: v } }))} min={0} max={10} step="0.5" testid={`mmt-${g.key}-s`} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    case "fiqr":
+      return (
+        <Tabs defaultValue="function" className="w-full">
+          <TabsList className="grid grid-cols-3 mb-4">
+            <TabsTrigger value="function" data-testid="fiqr-tab-function">Funzione</TabsTrigger>
+            <TabsTrigger value="overall" data-testid="fiqr-tab-overall">Impatto globale</TabsTrigger>
+            <TabsTrigger value="symptoms" data-testid="fiqr-tab-symptoms">Sintomi</TabsTrigger>
+          </TabsList>
+          <TabsContent value="function" className="space-y-4">
+            <p className="text-sm text-gray-600">Difficoltà nelle attività (0 = facile, 10 = impossibile).</p>
+            {FIQR_FUNCTION.map((q, i) => (
+              <VASSlider key={i} label={`${i + 1}. ${q}`} value={fiqrData.function?.[`q${i + 1}`] || 0} onChange={(v) => setFiqrData((p) => ({ ...p, function: { ...p.function, [`q${i + 1}`]: v } }))} testid={`fiqr-fn-${i + 1}`} />
+            ))}
+          </TabsContent>
+          <TabsContent value="overall" className="space-y-4">
+            {FIQR_OVERALL.map((d) => (
+              <VASSlider key={d.key} label={d.label} value={fiqrData.overall?.[d.key] || 0} onChange={(v) => setFiqrData((p) => ({ ...p, overall: { ...p.overall, [d.key]: v } }))} testid={`fiqr-ov-${d.key}`} />
+            ))}
+          </TabsContent>
+          <TabsContent value="symptoms" className="space-y-4">
+            {FIQR_SYMPTOMS.map((d) => (
+              <VASSlider key={d.key} label={d.label} value={fiqrData.symptoms?.[d.key] || 0} onChange={(v) => setFiqrData((p) => ({ ...p, symptoms: { ...p.symptoms, [d.key]: v } }))} testid={`fiqr-sy-${d.key}`} />
+            ))}
+          </TabsContent>
+        </Tabs>
+      );
     default:
       return null;
   }

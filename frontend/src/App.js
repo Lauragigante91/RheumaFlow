@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
+import Criteria from "./pages/Criteria";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/pazienti" element={<Patients />} />
             <Route path="/pazienti/:id" element={<PatientDetail />} />
+            <Route path="/criteri" element={<Criteria />} />
           </Routes>
         </Layout>
         <Toaster position="top-right" richColors />

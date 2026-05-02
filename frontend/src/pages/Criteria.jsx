@@ -1,0 +1,254 @@
+import React, { useState, useMemo } from "react";
+import { Card } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Checkbox } from "../components/ui/checkbox";
+import { Badge } from "../components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { Search, ChevronRight, RotateCcw, FileCheck2 } from "lucide-react";
+import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
+
+export default function Criteria() {
+  const [search, setSearch] = useState("");
+  const [selectedDisease, setSelectedDisease] = useState("all");
+  const [openCrit, setOpenCrit] = useState(null);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return CRITERIA.filter((c) => {
+      if (selectedDisease !== "all" && c.disease !== selectedDisease) return false;
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.disease.toLowerCase().includes(q) ||
+        c.source.toLowerCase().includes(q)
+      );
+    });
+  }, [search, selectedDisease]);
+
+  return (
+    <div className="space-y-6 fade-in" data-testid="criteria-page">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-2">Reference</div>
+        <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter text-[#0A2540]">
+          Criteri Classificativi
+        </h1>
+        <p className="mt-2 text-gray-600 max-w-3xl">
+          Calcolatori interattivi dei principali criteri classificativi delle malattie reumatiche. Seleziona una malattia per applicare i criteri al paziente.
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[260px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            className="pl-9"
+            placeholder="Cerca criteri o malattia"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            data-testid="criteria-search"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={selectedDisease === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSelectedDisease("all")}
+          className={selectedDisease === "all" ? "bg-[#0A2540] text-white" : ""}
+          data-testid="filter-all"
+        >
+          Tutte
+        </Button>
+        {CRITERIA_GROUPS.map((g) => (
+          <Button
+            key={g}
+            variant={selectedDisease === g ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedDisease(g)}
+            className={selectedDisease === g ? "bg-[#0A2540] text-white" : ""}
+            data-testid={`filter-${g}`}
+          >
+            {g}
+          </Button>
+        ))}
+      </div>
+
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setOpenCrit(c)}
+            className="text-left border border-gray-200 hover:border-[#0A2540] hover:shadow-md rounded-md p-5 transition-all bg-white group"
+            data-testid={`criteria-card-${c.id}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{c.source}</div>
+                <h3 className="font-heading font-bold text-lg tracking-tight mt-1 text-[#0A2540]">{c.name}</h3>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A2540] transition-colors" />
+            </div>
+            <Badge variant="outline" className="mt-3 text-xs">{c.disease}</Badge>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="p-10 text-center text-gray-500">Nessun criterio per questa ricerca.</div>
+      )}
+
+      <Dialog open={!!openCrit} onOpenChange={(v) => !v && setOpenCrit(null)}>
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="sr-only">{openCrit?.name}</DialogTitle>
+          </DialogHeader>
+          {openCrit && <CriteriaInteractive criteria={openCrit} />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CriteriaInteractive({ criteria }) {
+  const [state, setState] = useState({});
+
+  const reset = () => setState({});
+
+  const total = useMemo(() => {
+    let sum = 0;
+    criteria.sections.forEach((sec) => {
+      if (sec.type === "check") {
+        sec.items.forEach((it) => {
+          if (state[it.key]) sum += it.points;
+        });
+      } else if (sec.type === "radio") {
+        const val = state[sec.groupKey];
+        if (val !== undefined) {
+          const opt = sec.options.find((o) => String(o.value) === String(val));
+          if (opt) sum += opt.points;
+        }
+      }
+    });
+    return sum;
+  }, [state, criteria]);
+
+  const meets = total >= criteria.threshold.value;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">{criteria.source}</div>
+        <h2 className="font-heading text-3xl font-black tracking-tighter text-[#0A2540] mt-1">
+          {criteria.name}
+        </h2>
+        <p className="mt-2 text-sm text-gray-600">{criteria.intro}</p>
+      </div>
+
+      {/* Sections */}
+      <div className="space-y-5">
+        {criteria.sections.map((sec, sIdx) => (
+          <Card key={sIdx} className="border-gray-200 shadow-sm p-4">
+            {sec.title && (
+              <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-gray-700 mb-3">
+                {sec.title}
+              </h3>
+            )}
+
+            {sec.type === "check" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {sec.items.map((it) => (
+                  <label
+                    key={it.key}
+                    className="flex items-start gap-3 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={!!state[it.key]}
+                      onCheckedChange={(v) => setState((p) => ({ ...p, [it.key]: !!v }))}
+                      data-testid={`crit-${criteria.id}-${it.key}`}
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm">{it.label}</div>
+                    </div>
+                    {it.points !== 0 && (
+                      <span className={`text-xs font-mono font-bold ${it.points < 0 ? "text-red-600" : "text-gray-500"}`}>
+                        {it.points > 0 ? `+${it.points}` : it.points}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {sec.type === "radio" && (
+              <div className="space-y-1.5">
+                {sec.options.map((opt) => {
+                  const isSelected = String(state[sec.groupKey]) === String(opt.value);
+                  return (
+                    <button
+                      key={String(opt.value)}
+                      onClick={() => setState((p) => ({ ...p, [sec.groupKey]: opt.value }))}
+                      className={`w-full text-left flex items-center justify-between gap-3 p-2.5 border rounded-md transition-colors ${
+                        isSelected
+                          ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                      data-testid={`crit-${criteria.id}-${sec.groupKey}-${opt.value}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                            isSelected ? "border-[#0A2540] bg-[#0A2540]" : "border-gray-400"
+                          }`}
+                        />
+                        <span className="text-sm">{opt.label}</span>
+                      </div>
+                      {opt.points !== 0 && (
+                        <span className={`text-xs font-mono font-bold ${opt.points < 0 ? "text-red-600" : "text-gray-500"}`}>
+                          {opt.points > 0 ? `+${opt.points}` : opt.points}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {/* Score summary */}
+      <div className="sticky bottom-0 bg-white border-t-2 border-[#0A2540] -mx-6 px-6 pt-4 pb-2">
+        <div className="p-4 bg-[#F9FAFB] border border-gray-200 rounded-md flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-6 flex-wrap">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-gray-500">Score</div>
+              <div className="font-mono font-black text-3xl text-[#0A2540]" data-testid="criteria-score">{total}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-gray-500">Soglia</div>
+              <div className="font-mono font-bold text-lg">≥ {criteria.threshold.value}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-gray-500">Esito</div>
+              <div className={`font-heading font-bold text-base flex items-center gap-2 ${meets ? "text-green-700" : "text-gray-700"}`} data-testid="criteria-result">
+                {meets && <FileCheck2 className="w-4 h-4" />}
+                {meets ? criteria.threshold.label : "Criteri non raggiunti"}
+              </div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={reset} data-testid="criteria-reset">
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Azzera
+          </Button>
+        </div>
+        {criteria.note && (
+          <div className="mt-3 text-xs text-gray-500 italic">Nota: {criteria.note}</div>
+        )}
+      </div>
+    </div>
+  );
+}

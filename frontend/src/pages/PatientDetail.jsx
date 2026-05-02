@@ -122,14 +122,14 @@ export default function PatientDetail() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
-              {["basdai", "asdas_crp"].map((k) => (
+              {["basdai", "asdas_crp", "basfi", "basmi"].map((k) => (
                 <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
                   {INDEX_LABELS[k]}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Altri</DropdownMenuLabel>
-              {["dapsa", "sledai", "haq", "pasi"].map((k) => (
+              {["dapsa", "sledai", "essdai", "esspri", "bvas", "mmt8", "fiqr", "haq", "pasi"].map((k) => (
                 <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
                   {INDEX_LABELS[k]} <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
                 </DropdownMenuItem>
@@ -242,6 +242,7 @@ export default function PatientDetail() {
             indexType={newType}
             onSubmit={saveAssessment}
             onCancel={() => setNewOpen(false)}
+            previousAssessments={assessments.filter((a) => a.index_type === newType)}
           />
         </DialogContent>
       </Dialog>

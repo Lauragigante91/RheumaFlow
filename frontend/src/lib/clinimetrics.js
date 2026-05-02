@@ -188,6 +188,213 @@ export function interpretPASI(score) {
   return "Severa";
 }
 
+// ============ BASFI (0-10, media 10 domande) ============
+export const BASFI_QUESTIONS = [
+  "Mettersi calze o collant senza aiuto",
+  "Chinarsi in avanti da seduto per raccogliere una penna dal pavimento",
+  "Raggiungere uno scaffale alto senza aiuto",
+  "Alzarsi da una sedia senza braccioli senza usare le mani",
+  "Alzarsi dal pavimento da posizione supina senza aiuto",
+  "Stare in piedi senza supporto per 10 minuti senza disagio",
+  "Salire 12-15 gradini usando un piede per gradino senza tenersi al corrimano",
+  "Guardarsi alle spalle senza girare il corpo",
+  "Eseguire attività fisicamente impegnative (es. ginnastica)",
+  "Svolgere attività quotidiane per un'intera giornata",
+];
+export function calcBASFI(values) {
+  const vals = BASFI_QUESTIONS.map((_, i) => Number(values?.[`q${i + 1}`]) || 0);
+  return round2(vals.reduce((a, b) => a + b, 0) / 10);
+}
+export function interpretBASFI(score) {
+  if (score == null) return "-";
+  return score >= 4 ? "Limitazione funzionale significativa" : "Funzione conservata";
+}
+
+// ============ BASMI (lineare 0-10, 5 misure, score 0/1/2 each) ============
+export const BASMI_MEASURES = [
+  { key: "tragus_wall", label: "Distanza tragio-muro (cm)" },
+  { key: "lumbar_flexion", label: "Flessione lombare - Schober modificato (cm)" },
+  { key: "cervical_rotation", label: "Rotazione cervicale (gradi, media dx/sx)" },
+  { key: "lumbar_side_flex", label: "Flessione laterale lombare (cm)" },
+  { key: "intermalleolar", label: "Distanza intermalleolare (cm)" },
+];
+// Score each 0-10 linear, thresholds (BASMI lineare)
+function basmiScore(key, v) {
+  v = Number(v) || 0;
+  switch (key) {
+    case "tragus_wall":
+      // 0cm -> 0; 30cm -> 10
+      return clamp((v / 30) * 10, 0, 10);
+    case "lumbar_flexion":
+      // >=7 -> 0, 0 -> 10
+      return clamp(((7 - v) / 7) * 10, 0, 10);
+    case "cervical_rotation":
+      // 85 -> 0, 0 -> 10
+      return clamp(((85 - v) / 85) * 10, 0, 10);
+    case "lumbar_side_flex":
+      // 20 -> 0, 0 -> 10
+      return clamp(((20 - v) / 20) * 10, 0, 10);
+    case "intermalleolar":
+      // 120 -> 0, 0 -> 10
+      return clamp(((120 - v) / 120) * 10, 0, 10);
+    default:
+      return 0;
+  }
+}
+function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+export function calcBASMI(values) {
+  const scores = BASMI_MEASURES.map((m) => basmiScore(m.key, values?.[m.key]));
+  return round2(scores.reduce((a, b) => a + b, 0) / 5);
+}
+export function interpretBASMI(score) {
+  if (score == null) return "-";
+  if (score < 2) return "Mobilità conservata";
+  if (score < 4) return "Limitazione lieve";
+  if (score < 6) return "Limitazione moderata";
+  return "Limitazione severa";
+}
+
+// ============ ESSDAI (Sjogren) - 12 domini pesati ============
+export const ESSDAI_DOMAINS = [
+  { key: "constitutional", label: "Costituzionale", weight: 3, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "lymphadenopathy", label: "Linfoadenopatia / linfoma", weight: 4, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "glandular", label: "Ghiandolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)"] },
+  { key: "articular", label: "Articolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "cutaneous", label: "Cutaneo", weight: 3, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "pulmonary", label: "Polmonare", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "renal", label: "Renale", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "muscular", label: "Muscolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "pns", label: "SNP", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "cns", label: "SNC", weight: 5, levels: ["Nessuno (0)", "Moderato (1)", "Alto (2)"] },
+  { key: "hematological", label: "Ematologico", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
+  { key: "biological", label: "Biologico", weight: 1, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)"] },
+];
+export function calcESSDAI(values) {
+  return ESSDAI_DOMAINS.reduce((sum, d) => sum + (Number(values?.[d.key]) || 0) * d.weight, 0);
+}
+export function interpretESSDAI(score) {
+  if (score == null) return "-";
+  if (score < 5) return "Bassa attività";
+  if (score < 14) return "Moderata attività";
+  return "Alta attività";
+}
+
+// ============ ESSPRI (Sjogren Patient Reported Index) ============
+export function calcESSPRI({ dryness, fatigue, pain }) {
+  const d = Number(dryness) || 0;
+  const f = Number(fatigue) || 0;
+  const p = Number(pain) || 0;
+  return round2((d + f + p) / 3);
+}
+export function interpretESSPRI(score) {
+  if (score == null) return "-";
+  return score >= 5 ? "Sintomi accettabili non raggiunti" : "Sintomi accettabili";
+}
+
+// ============ BVAS v3 (Birmingham Vasculitis Activity Score) ============
+// Semplificato: 9 sistemi, per ogni sistema score "New/Worse" (peso maggiore) o "Persistent" (peso minore)
+export const BVAS_SYSTEMS = [
+  { key: "general", label: "Generale", newMax: 3, persistentMax: 2 },
+  { key: "cutaneous", label: "Cutaneo", newMax: 6, persistentMax: 3 },
+  { key: "mucous_eyes", label: "Mucose / occhi", newMax: 6, persistentMax: 3 },
+  { key: "ent", label: "ORL", newMax: 6, persistentMax: 3 },
+  { key: "chest", label: "Torace / polmone", newMax: 6, persistentMax: 4 },
+  { key: "cardiovascular", label: "Cardiovascolare", newMax: 6, persistentMax: 3 },
+  { key: "abdominal", label: "Addominale", newMax: 9, persistentMax: 4 },
+  { key: "renal", label: "Renale", newMax: 12, persistentMax: 6 },
+  { key: "nervous", label: "Sistema nervoso", newMax: 9, persistentMax: 6 },
+];
+export function calcBVAS(values) {
+  return BVAS_SYSTEMS.reduce((sum, s) => {
+    const isNew = values?.[s.key]?.type === "new";
+    const points = Number(values?.[s.key]?.score) || 0;
+    return sum + (isNew ? points : points);
+  }, 0);
+}
+export function interpretBVAS(score) {
+  if (score == null) return "-";
+  if (score === 0) return "Remissione";
+  if (score < 10) return "Bassa attività";
+  if (score < 20) return "Attività moderata";
+  return "Attività severa";
+}
+
+// ============ MMT-8 (Manual Muscle Test, scala Kendall 0-10, max 150) ============
+// 7 gruppi bilaterali (dx + sx, 0-10 ciascuno) + Flessori del collo (singolo, 0-10) = 150
+export const MMT8_GROUPS = [
+  { key: "neck_flexors", label: "Flessori del collo", bilateral: false },
+  { key: "deltoid_mid", label: "Deltoide medio", bilateral: true },
+  { key: "biceps", label: "Bicipite brachiale", bilateral: true },
+  { key: "wrist_ext", label: "Estensori del polso", bilateral: true },
+  { key: "gluteus_max", label: "Grande gluteo", bilateral: true },
+  { key: "gluteus_med", label: "Medio gluteo", bilateral: true },
+  { key: "quadriceps", label: "Quadricipite", bilateral: true },
+  { key: "ankle_dorsi", label: "Dorsiflessori della caviglia", bilateral: true },
+];
+// Max = 7*20 + 10 = 150
+export function calcMMT8(values) {
+  let total = 0;
+  MMT8_GROUPS.forEach((g) => {
+    if (g.bilateral) {
+      total += (Number(values?.[g.key]?.l) || 0) + (Number(values?.[g.key]?.r) || 0);
+    } else {
+      total += Number(values?.[g.key]?.s) || 0;
+    }
+  });
+  return round2(total);
+}
+export function interpretMMT8(score) {
+  if (score == null) return "-";
+  if (score >= 145) return "Forza normale";
+  if (score >= 130) return "Debolezza lieve";
+  if (score >= 100) return "Debolezza moderata";
+  return "Debolezza severa";
+}
+
+// ============ FIQR (Fibromyalgia Impact Questionnaire Revised, 0-100) ============
+export const FIQR_FUNCTION = [
+  "Spazzolare o pettinare i capelli",
+  "Camminare in modo continuo per 20 minuti",
+  "Preparare un pasto fatto in casa",
+  "Passare l'aspirapolvere, pulire i pavimenti o rifare il letto",
+  "Sollevare e portare una borsa piena di spesa",
+  "Salire un piano di scale",
+  "Cambiare le lenzuola",
+  "Stare seduto su una sedia per 45 minuti",
+  "Andare a fare la spesa",
+];
+export const FIQR_OVERALL = [
+  { key: "balance", label: "Equilibrio / dolore globale (ultimi 7gg)" },
+  { key: "environmental", label: "Sensibilità ambientale (luce, rumori, temperatura)" },
+];
+export const FIQR_SYMPTOMS = [
+  { key: "pain", label: "Dolore" },
+  { key: "energy", label: "Mancanza di energia" },
+  { key: "stiffness", label: "Rigidità" },
+  { key: "sleep", label: "Qualità del sonno" },
+  { key: "depression", label: "Depressione" },
+  { key: "memory", label: "Problemi di memoria" },
+  { key: "anxiety", label: "Ansia" },
+  { key: "tenderness", label: "Dolorabilità al tocco" },
+  { key: "balance_sym", label: "Problemi di equilibrio" },
+  { key: "environmental_sym", label: "Sensibilità a stimoli ambientali" },
+];
+export function calcFIQR(values) {
+  // Function: somma 9 domande (0-10) / 3 = max 30
+  const fn = FIQR_FUNCTION.reduce((s, _, i) => s + (Number(values?.function?.[`q${i + 1}`]) || 0), 0) / 3;
+  // Overall: somma 2 (0-10) = max 20
+  const ov = FIQR_OVERALL.reduce((s, d) => s + (Number(values?.overall?.[d.key]) || 0), 0);
+  // Symptoms: somma 10 (0-10) / 2 = max 50
+  const sy = FIQR_SYMPTOMS.reduce((s, d) => s + (Number(values?.symptoms?.[d.key]) || 0), 0) / 2;
+  return round2(fn + ov + sy);
+}
+export function interpretFIQR(score) {
+  if (score == null) return "-";
+  if (score < 39) return "Impatto lieve";
+  if (score < 59) return "Impatto moderato";
+  return "Impatto severo";
+}
+
 // ============ Joint definitions ============
 // DAS28: 28 articolazioni
 export const JOINTS_DAS28 = [
@@ -229,8 +436,15 @@ export const INDEX_LABELS = {
   sdai: "SDAI",
   basdai: "BASDAI",
   asdas_crp: "ASDAS-CRP",
+  basfi: "BASFI",
+  basmi: "BASMI",
   dapsa: "DAPSA",
   sledai: "SLEDAI-2K",
+  essdai: "ESSDAI",
+  esspri: "ESSPRI",
+  bvas: "BVAS v3",
+  mmt8: "MMT-8",
+  fiqr: "FIQR",
   haq: "HAQ",
   pasi: "PASI",
 };
@@ -242,8 +456,15 @@ export const INDEX_DISEASES = {
   sdai: "Artrite Reumatoide",
   basdai: "Spondiloartrite",
   asdas_crp: "Spondiloartrite",
+  basfi: "Spondiloartrite",
+  basmi: "Spondiloartrite",
   dapsa: "Artrite Psoriasica",
   sledai: "LES",
+  essdai: "Sindrome di Sjögren",
+  esspri: "Sindrome di Sjögren",
+  bvas: "Vasculiti ANCA",
+  mmt8: "Miositi",
+  fiqr: "Fibromialgia",
   haq: "Qualità di vita",
   pasi: "Psoriasi",
 };

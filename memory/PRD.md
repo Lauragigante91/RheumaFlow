@@ -42,6 +42,19 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v2)
+- [x] Nuovi indici: BASFI, BASMI lineare, ESSDAI, ESSPRI, BVAS v3, MMT-8 (range 0-150 corretto), FIQR
+- [x] Pagina Criteri Classificativi con 14 criteri interattivi:
+  - ACR/EULAR 2010 AR, CASPAR AP, ASAS axSpA, IBP ASAS, ACR/EULAR 2019 LES,
+    ACR/EULAR 2016 Sjögren, ACR/EULAR 2013 SSc, ACR/EULAR 2015 Gotta,
+    ACR/EULAR 2012 PMR, ACR/EULAR 2022 GPA/MPA/EGPA, Yamaguchi AOSD,
+    ACR/EULAR 2017 Miositi, ACR 2016 Fibromialgia, ICBD 2014 Behçet,
+    ACR/EULAR 2019 IgG4-RD
+- [x] Importa clinimetria precedente: pulsante "Importa precedente" nel form
+  valutazione che pre-popola lo stato dell'omino con la conta articolare
+  dell'ultima valutazione dello stesso indice (per confronto visivo)
+- [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
+
 ## Backlog (Prioritized)
 ### P1
 - [ ] Date picker con locale it-IT (attualmente browser-native mm/dd/yyyy)
