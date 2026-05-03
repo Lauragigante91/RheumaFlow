@@ -42,6 +42,29 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v10)
+- [x] **Profilo Sclerodermia per paziente**: nuova sezione visibile solo
+  per pazienti con diagnosi SSc/sclerodermia/VEDOSS in PatientDetail.
+  Backend: nuovo modello `ScleroProfile` + endpoints
+  `GET/PUT /api/patients/{id}/sclero-profile` (upsert, 1 profilo per paziente).
+  Frontend: `ScleroProfileSection.jsx` con 7 sezioni accordion:
+  - Impegno cutaneo (subset sine/limited/diffuse, mRSS, sclerodattilia,
+    puffy fingers, calcinosi, teleangectasie, microstomia)
+  - Profilo anticorpale (ANA titolo+pattern, ACA, Scl-70, RNAP III,
+    U3-RNP, Th/To, PM-Scl, Ku, U1-RNP, altri ENA con tri-state Neg/Borderline/Pos)
+  - Impegno vascolare (Raynaud primario/secondario, ulcere digitali,
+    pitting scars, gangrena, capillaroscopia Cutolo, crisi renale, terapia)
+  - Impegno polmonare interstiziale (presenza/stabilità, pattern HRCT,
+    estensione Goh-Wells, FVC%, DLCO%, 6MWT, terapia)
+  - Ipertensione polmonare (status screening, PSAP eco, NT-proBNP, RHC
+    mPAP/PCWP/PVR, classe OMS, terapia)
+  - Impegno gastrointestinale (GERD, dismotilità esofagea, GAVE, SIBO,
+    pseudo-ostruzione, malassorbimento, calo ponderale, terapia)
+  - Impegno muscoloscheletrico (artralgie, sinovite, tendon friction
+    rubs, contratture, acroosteolisi, miosite, CK, debolezza)
+  - Note generali libere
+  Audit "creato da" e "ultima modifica" tracciati. Cascade delete con paziente.
+
 ## Implemented (2026-02-10 - v9)
 - [x] **Criteri ACR/EULAR 2022 GCA** (Ponte): entry obbligatori (età ≥50, imaging
   LVV, esclusi mimics) + criteri clinici + lab + imaging/istologia, soglia ≥6.

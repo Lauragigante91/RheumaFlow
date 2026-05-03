@@ -270,6 +270,30 @@ class ReminderUpdate(BaseModel):
     completed: Optional[bool] = None
 
 
+# ==================== SCLERODERMA PROFILE ====================
+class ScleroProfileBase(BaseModel):
+    patient_id: str
+    cutaneous: Optional[Dict[str, Any]] = None       # subset, mrss, notes
+    antibody: Optional[Dict[str, Any]] = None        # ana, aca, scl70, rnap3, ...
+    vascular: Optional[Dict[str, Any]] = None        # raynaud, ulcers, capillaroscopy ...
+    ild: Optional[Dict[str, Any]] = None             # presence, hrct, fvc, dlco
+    pah: Optional[Dict[str, Any]] = None             # screen, echo, rhc
+    gi: Optional[Dict[str, Any]] = None              # ger, sibo, dysmotility, ...
+    msk: Optional[Dict[str, Any]] = None             # arthralgia, arthritis, contractures
+    notes: Optional[str] = None
+
+
+class ScleroProfile(ScleroProfileBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_by_name: Optional[str] = None
+
+
 # ==================== APP ====================
 app = FastAPI(title="Clinimetria Reumatologica API")
 api_router = APIRouter(prefix="/api")
@@ -430,6 +454,7 @@ async def delete_patient(patient_id: str, user: dict = Depends(get_current_user)
     await db.therapies.delete_many({"patient_id": patient_id})
     await db.lab_exams.delete_many({"patient_id": patient_id})
     await db.reminders.delete_many({"patient_id": patient_id})
+    await db.sclero_profiles.delete_many({"patient_id": patient_id})
     return {"success": True}
 
 
@@ -638,6 +663,53 @@ async def stats(user: dict = Depends(get_current_user)):
     return {"patients": patients_count, "assessments": assessments_count, "recent_assessments": recent}
 
 
+# ==================== SCLERODERMA PROFILE ENDPOINTS ====================
+@api_router.get("/patients/{patient_id}/sclero-profile")
+async def get_sclero_profile(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    doc = await db.sclero_profiles.find_one(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    )
+    return doc  # null if not exists
+
+
+@api_router.put("/patients/{patient_id}/sclero-profile", response_model=ScleroProfile)
+async def upsert_sclero_profile(
+    patient_id: str,
+    payload: ScleroProfileBase,
+    user: dict = Depends(get_current_user),
+):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    if payload.patient_id != patient_id:
+        raise HTTPException(status_code=400, detail="patient_id mismatch")
+
+    existing = await db.sclero_profiles.find_one(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    if existing:
+        update_data = payload.model_dump(exclude={"patient_id"})
+        update_data["updated_at"] = now
+        update_data["updated_by_name"] = user.get("name")
+        await db.sclero_profiles.update_one(
+            {"id": existing["id"]},
+            {"$set": update_data},
+        )
+        return await db.sclero_profiles.find_one({"id": existing["id"]}, {"_id": 0})
+
+    profile = ScleroProfile(
+        **payload.model_dump(),
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+        updated_by_name=user.get("name"),
+    )
+    await db.sclero_profiles.insert_one(profile.model_dump())
+    return profile
+
+
 app.include_router(api_router)
 
 
@@ -654,6 +726,7 @@ async def startup_event():
         await db.assessments.create_index([("patient_id", 1), ("date", -1)])
         await db.criteria_evaluations.create_index([("patient_id", 1), ("date", -1)])
         await db.therapies.create_index([("patient_id", 1)])
+        await db.sclero_profiles.create_index([("patient_id", 1)], unique=True)
     except Exception as e:
         logger.warning(f"Index creation: {e}")
 

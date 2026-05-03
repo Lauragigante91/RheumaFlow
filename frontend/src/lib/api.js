@@ -75,3 +75,10 @@ export const remindersApi = {
   update: (id, data) => api.put(`/reminders/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/reminders/${id}`).then((r) => r.data),
 };
+
+export const scleroProfileApi = {
+  get: (patientId) =>
+    api.get(`/patients/${patientId}/sclero-profile`).then((r) => r.data),
+  upsert: (patientId, data) =>
+    api.put(`/patients/${patientId}/sclero-profile`, { ...data, patient_id: patientId }).then((r) => r.data),
+};

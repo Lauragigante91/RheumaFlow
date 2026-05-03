@@ -22,6 +22,7 @@ import AssessmentForm from "../components/AssessmentForm";
 import TherapySection from "../components/TherapySection";
 import ExamsSection from "../components/ExamsSection";
 import RemindersSection from "../components/RemindersSection";
+import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -293,6 +294,9 @@ export default function PatientDetail() {
 
       {/* Therapy section */}
       <TherapySection patient={patient} />
+
+      {/* Scleroderma profile - only if SSc diagnosis */}
+      {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
 
       {/* Lab exams */}
       <ExamsSection patient={patient} />
