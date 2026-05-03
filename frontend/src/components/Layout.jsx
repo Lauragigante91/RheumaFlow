@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import {
@@ -32,7 +32,7 @@ export default function Layout({ children }) {
       <div className="flex">
         {/* Sidebar */}
         <aside className="w-64 min-h-screen border-r border-gray-200 bg-[#F9FAFB] hidden md:flex flex-col">
-          <div className="p-6 border-b border-gray-200">
+          <Link to="/" className="p-6 border-b border-gray-200 block hover:bg-gray-100 transition-colors" data-testid="sidebar-home-link">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[#0A2540] flex items-center justify-center rounded-sm">
                 <Activity className="w-5 h-5 text-white" />
@@ -42,7 +42,7 @@ export default function Layout({ children }) {
                 <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mt-1">Reumatologia</div>
               </div>
             </div>
-          </div>
+          </Link>
 
           {user && (
             <div className="px-4 py-3 border-b border-gray-200">
@@ -113,20 +113,41 @@ export default function Layout({ children }) {
         {/* Main */}
         <main className="flex-1 min-h-screen fade-in">
           {/* Mobile header */}
-          <div className="md:hidden border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="md:hidden border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-2 sticky top-0 bg-white z-30">
+            <Link to="/" className="flex items-center gap-2" data-testid="mobile-home-link">
               <div className="w-7 h-7 bg-[#0A2540] flex items-center justify-center rounded-sm">
                 <Activity className="w-4 h-4 text-white" />
               </div>
               <div className="font-heading font-black tracking-tight">CLINIMETRIA</div>
+            </Link>
+            <div className="flex items-center gap-1">
+              {location.pathname !== "/" && (
+                <Link to="/">
+                  <Button variant="ghost" size="icon" data-testid="mobile-home-btn" title="Home">
+                    <Home className="w-4 h-4" />
+                  </Button>
+                </Link>
+              )}
+              {user && (
+                <Button variant="ghost" size="icon" onClick={logout} data-testid="mobile-logout">
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              )}
             </div>
-            {user && (
-              <Button variant="ghost" size="icon" onClick={logout} data-testid="mobile-logout">
-                <LogOut className="w-4 h-4" />
-              </Button>
-            )}
           </div>
           <div className="p-6 md:p-8 lg:p-10">{children}</div>
+
+          {/* Floating Home button — visible on all pages except dashboard */}
+          {location.pathname !== "/" && (
+            <Link to="/" data-testid="floating-home-btn" title="Vai alla Dashboard">
+              <Button
+                size="icon"
+                className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full shadow-lg bg-[#0A2540] hover:bg-[#051626] text-white"
+              >
+                <Home className="w-5 h-5" />
+              </Button>
+            </Link>
+          )}
         </main>
       </div>
     </div>

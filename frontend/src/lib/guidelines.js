@@ -9,6 +9,12 @@ export const GUIDELINES = [
     disease: "Interstiziopatia polmonare (ILD)",
     source: "ACR + ACCP 2023 / ERS-EULAR 2023",
     year: 2023,
+    url: "https://rheumatology.org/interstitial-lung-disease-guideline",
+    urls: [
+      { label: "ACR 2023 - Treatment (Wiley)", href: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/art.42861" },
+      { label: "ACR 2023 - Screening & Monitoring (Wiley)", href: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/art.42860" },
+      { label: "ACR Summary PDF", href: "https://assets.contentstack.io/v3/assets/bltee37abb6b278ab2c/blt7e2cadfc7bc986fb/interstitial-lung-disease-guideline-summary-screening-monitoring-2023.pdf" },
+    ],
     intro: "Approccio congiunto ACR (con CHEST 2023) ed ERS-EULAR alla gestione dell'ILD nelle malattie reumatiche autoimmuni sistemiche (SARDs).",
     sections: [
       {
@@ -94,6 +100,7 @@ export const GUIDELINES = [
     disease: "Artrite Reumatoide",
     source: "EULAR 2022 (update)",
     year: 2023,
+    url: "https://ard.bmj.com/content/82/1/3",
     intro: "Update EULAR 2022 (pubblicato 2023) per la gestione farmacologica dell'AR.",
     sections: [
       {
@@ -143,6 +150,7 @@ export const GUIDELINES = [
     disease: "Artrite Psoriasica",
     source: "EULAR 2023 / GRAPPA 2021",
     year: 2023,
+    url: "https://ard.bmj.com/content/83/6/706",
     intro: "Update EULAR 2023 per la gestione dell'AP.",
     sections: [
       {
@@ -229,6 +237,7 @@ export const GUIDELINES = [
     disease: "LES",
     source: "EULAR 2023",
     year: 2023,
+    url: "https://ard.bmj.com/content/83/1/15",
     intro: "Update EULAR 2023 per la gestione del LES con focus su steroid-sparing.",
     sections: [
       {
@@ -277,6 +286,7 @@ export const GUIDELINES = [
     disease: "Sclerosi Sistemica",
     source: "EULAR 2023 (update)",
     year: 2023,
+    url: "https://ard.bmj.com/content/84/1/29",
     intro: "Update EULAR 2023 per la gestione della SSc per organo bersaglio.",
     sections: [
       {
@@ -335,6 +345,7 @@ export const GUIDELINES = [
     disease: "Vasculiti ANCA",
     source: "EULAR 2022/23",
     year: 2023,
+    url: "https://ard.bmj.com/content/83/1/30",
     intro: "Update EULAR 2022 per GPA, MPA, EGPA.",
     sections: [
       {
@@ -371,6 +382,7 @@ export const GUIDELINES = [
     disease: "Sjögren",
     source: "EULAR 2019",
     year: 2019,
+    url: "https://ard.bmj.com/content/79/1/3",
     intro: "EULAR 2019 per la gestione di pSS.",
     sections: [
       {
@@ -407,6 +419,11 @@ export const GUIDELINES = [
     disease: "Gotta",
     source: "ACR 2020 / EULAR 2016",
     year: 2020,
+    url: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/art.41247",
+    urls: [
+      { label: "ACR Gout Guideline (Landing)", href: "https://rheumatology.org/gout-guideline" },
+      { label: "EULAR 2016 Gout (ARD)", href: "https://ard.bmj.com/content/76/1/29" },
+    ],
     intro: "ACR 2020 update per la gestione della gotta cronica.",
     sections: [
       {
@@ -452,6 +469,7 @@ export const GUIDELINES = [
     disease: "PMR",
     source: "EULAR/ACR 2015",
     year: 2015,
+    url: "https://ard.bmj.com/content/74/10/1799",
     intro: "Linee guida per il trattamento di PMR.",
     sections: [
       {
@@ -491,6 +509,7 @@ export const GUIDELINES = [
     disease: "Behçet",
     source: "EULAR 2018",
     year: 2018,
+    url: "https://ard.bmj.com/content/77/6/808",
     intro: "Update EULAR 2018 per la gestione di Behçet.",
     sections: [
       {
@@ -533,6 +552,7 @@ export const GUIDELINES = [
     disease: "Fibromialgia",
     source: "EULAR 2016",
     year: 2016,
+    url: "https://ard.bmj.com/content/76/2/318",
     intro: "EULAR 2016 per la gestione della fibromialgia.",
     sections: [
       {

@@ -118,6 +118,18 @@ export default function Guidelines() {
                   {g.sections.length} sezioni
                 </span>
               </div>
+              {g.url && (
+                <a
+                  href={g.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#0A2540] hover:underline"
+                  data-testid={`guidelines-card-link-${g.id}`}
+                >
+                  <ExternalLink className="w-3 h-3" /> Apri documento originale
+                </a>
+              )}
             </button>
           );
         })}
@@ -151,6 +163,41 @@ function GuidelineDetail({ g }) {
         </h2>
         <Badge variant="outline" className="mt-2">{g.disease}</Badge>
         <p className="mt-3 text-sm text-gray-700 leading-relaxed">{g.intro}</p>
+        {(g.url || (g.urls && g.urls.length > 0)) && (
+          <div className="mt-4 p-3 bg-[#F9FAFB] border border-gray-200 rounded-md">
+            <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2 flex items-center gap-1.5">
+              <ExternalLink className="w-3 h-3" /> Documenti originali
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {g.url && (
+                <a
+                  href={g.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#0A2540] hover:underline inline-flex items-center gap-1.5 break-all"
+                  data-testid={`guideline-detail-link-main-${g.id}`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="font-medium">Sito ufficiale / Articolo</span>
+                  <span className="text-xs text-gray-500 font-mono truncate">{g.url}</span>
+                </a>
+              )}
+              {(g.urls || []).map((u, i) => (
+                <a
+                  key={i}
+                  href={u.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#0A2540] hover:underline inline-flex items-center gap-1.5 break-all"
+                  data-testid={`guideline-detail-link-${g.id}-${i}`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="font-medium">{u.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
