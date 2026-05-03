@@ -827,6 +827,166 @@ export const GUIDELINES = [
     ],
     note: "Tabella di sintesi a scopo orientativo. Decisioni terapeutiche individualizzate; consultare le linee guida complete e centri di riferimento per gravidanza ad alto rischio.",
   },
+
+  // ============ LVV - EULAR 2018 (Hellmich) ============
+  {
+    id: "eular_2018_lvv",
+    name: "Vasculiti dei grandi vasi (GCA + Takayasu) - gestione",
+    disease: "Vasculiti grandi vasi",
+    source: "EULAR 2018 update (Hellmich)",
+    year: 2018,
+    url: "https://ard.bmj.com/content/79/1/19",
+    urls: [
+      { label: "EULAR 2018 LVV (PubMed)", href: "https://pubmed.ncbi.nlm.nih.gov/31270110/" },
+      { label: "PDF Vasculitis Foundation", href: "https://vasculitis.org/wp-content/uploads/2023/10/EULAR-Recommendations-for-the-management-of-large-vessel-vasculitis.pdf" },
+    ],
+    intro:
+      "Update EULAR 2018 per la gestione delle vasculiti dei grandi vasi (Arterite Gigantocellulare GCA e Arterite di Takayasu TAK): 3 principi generali + 10 raccomandazioni.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "Pazienti con LVV richiedono valutazione e gestione multidisciplinare in centri di esperienza.",
+          "Conferma diagnostica obbligatoria con imaging (eco color-Doppler, MRI, angio-TC, FDG-PET) o istologia PRIMA di iniziare il trattamento.",
+          "Decisioni condivise con il paziente, comunicazione di obiettivi terapeutici e potenziali effetti avversi.",
+        ],
+      },
+      {
+        title: "Diagnosi - GCA",
+        items: [
+          "Sospetto clinico → eco color-Doppler delle arterie temporali e ascellari come prima indagine (operatore esperto).",
+          "Halo sign all'eco è altamente specifico; in alternativa MRI 3T delle arterie cefaliche.",
+          "Biopsia dell'arteria temporale (≥1 cm) se imaging non disponibile o discordante; falso negativo possibile.",
+          "Imaging dell'aorta toracica e dei grandi vasi (CTA/MRA/PET) per documentare estensione extracranica e baseline.",
+        ],
+      },
+      {
+        title: "Diagnosi - Takayasu",
+        items: [
+          "MRA o CTA dell'aorta e dei grandi vasi è l'imaging di prima scelta.",
+          "FDG-PET utile per attività infiammatoria e monitoraggio.",
+          "Eco color-Doppler delle carotidi/succlavie in mani esperte.",
+        ],
+      },
+      {
+        title: "Trattamento - induzione GCA",
+        items: [
+          "Glucocorticoidi alte dosi: prednisone 40-60 mg/die (1 mg/kg, max 60 mg) come prima linea.",
+          "GCA con perdita visiva attuale o recente: boli e.v. metilprednisolone 500-1000 mg x 3 gg, poi switch a orale.",
+          "Riduzione progressiva: target 15-20 mg/die a 2-3 mesi, ≤5 mg/die a 1 anno.",
+          "Adjuvante steroid-sparing: TOCILIZUMAB (162 mg/sett s.c. o 8 mg/kg/4 sett e.v.) raccomandato in malattia refrattaria/recidivante o ad alto rischio di tossicità GC (GiACTA trial).",
+          "MTX (10-15 mg/sett) come alternativa quando tocilizumab non disponibile.",
+          "Aspirina a basse dosi NON raccomandata di routine; valutare in ischemia cerebrale o critical limb ischemia.",
+        ],
+      },
+      {
+        title: "Trattamento - induzione Takayasu",
+        items: [
+          "Glucocorticoidi alte dosi (prednisone 1 mg/kg/die, max 60 mg) di prima linea.",
+          "Combinare GC con immunosoppressore non-biologico (MTX 15-25 mg/sett, AZA 2 mg/kg/die o MMF 2 g/die) in TUTTI i pazienti.",
+          "Riduzione GC graduale, target ≤10 mg/die a 6 mesi.",
+          "Casi refrattari/recidivanti: agenti biologici (TNFi: infliximab, adalimumab; tocilizumab) come seconda linea.",
+        ],
+      },
+      {
+        title: "Monitoraggio",
+        items: [
+          "Valutazione clinica + indici di flogosi (VES, PCR) ogni 3-6 mesi nel primo anno.",
+          "Imaging di follow-up per documentare progressione strutturale: MRA/CTA ogni 6-12 mesi nel primo anno, poi annualmente.",
+          "Screening ecocardiografico annuale per dilatazione aortica nelle GCA con coinvolgimento aortico.",
+          "Profilassi GC: bifosfonati + Ca/vitD per osteoporosi; PPI; controllo glicemia/PA; vaccinazioni (pneumococco, influenza, COVID).",
+        ],
+      },
+      {
+        title: "Procedure di rivascolarizzazione (TAK)",
+        items: [
+          "Indicate per stenosi/occlusioni critiche con sintomi ischemici severi non controllabili medicalmente.",
+          "Eseguire preferibilmente in fase di malattia in remissione (rischio di restenosi inferiore).",
+          "Coinvolgimento multidisciplinare con chirurgia vascolare e radiologia interventistica.",
+          "Bypass chirurgico generalmente preferito a stent endovascolari per durabilità maggiore.",
+        ],
+      },
+    ],
+    note: "Aggiornamento EULAR 2018 (pubblicato 2020).",
+  },
+
+  // ============ ACR/VF 2021 GCA & TAK ============
+  {
+    id: "acr_vf_2021_lvv",
+    name: "Vasculiti grandi vasi (GCA + Takayasu) - linee guida ACR",
+    disease: "Vasculiti grandi vasi",
+    source: "ACR/VF 2021 (Maz)",
+    year: 2021,
+    url: "https://rheumatology.org/large-vessel-vasculitis-guideline",
+    urls: [
+      { label: "ACR 2021 Full text (Wiley)", href: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/art.41774" },
+      { label: "VF PDF", href: "https://vasculitisfoundation.org/wp-content/uploads/2024/01/2021-ACR-VF-Guideline-for-Management-of-Giant-Cell-Arteritis-and-Takayasu-Artheritis.pdf" },
+    ],
+    intro:
+      "Linee guida ACR/Vasculitis Foundation 2021 (Maz et al.) per la gestione di GCA e TAK. 22 raccomandazioni per GCA + 20 per TAK.",
+    sections: [
+      {
+        title: "GCA - Diagnosi",
+        items: [
+          "Sospetto di GCA con sintomi cranici → eco color-Doppler temporali bilaterale O biopsia temporale (lunghezza ≥1 cm) come test diagnostico iniziale.",
+          "Sospetto di GCA con sintomi sistemici / coinvolgimento grandi vasi → MRA o CTA dell'aorta e dei rami principali.",
+          "FDG-PET nei casi con sospetto di malattia extracranica e marker infiammatori elevati.",
+          "NON ritardare il trattamento per attendere conferma diagnostica nei casi con perdita visiva attuale o recente.",
+        ],
+      },
+      {
+        title: "GCA - Induzione",
+        items: [
+          "GCA non complicata: prednisone orale 40-60 mg/die.",
+          "GCA con perdita visiva acuta o ischemia transitoria oculare: boli e.v. metilprednisolone 500-1000 mg/die x 3 gg.",
+          "Aggiungere tocilizumab al GC dall'inizio (raccomandazione condizionale a favore) - efficace nel ridurre l'esposizione cumulativa a GC.",
+          "MTX come alternativa se tocilizumab controindicato o non disponibile.",
+        ],
+      },
+      {
+        title: "GCA - Recidive e tapering",
+        items: [
+          "Recidiva con sintomi cranici: aumentare GC alla dose pre-recidiva + tocilizumab (se non già in uso).",
+          "Recidiva senza sintomi cranici: aumento moderato GC + considerare tocilizumab.",
+          "Riduzione GC con tocilizumab: target sospensione GC entro 6-12 mesi.",
+          "Aspirina a basse dosi NON raccomandata di routine in GCA.",
+        ],
+      },
+      {
+        title: "TAK - Induzione",
+        items: [
+          "GC alte dosi (1 mg/kg/die prednisone) come prima linea.",
+          "Aggiungere immunosoppressore non-biologico (MTX, AZA, MMF, leflunomide) al GC in TUTTI i pazienti.",
+          "Casi severi/refrattari: TNFi (preferenza ACR) o tocilizumab come seconda linea.",
+        ],
+      },
+      {
+        title: "TAK - Recidive",
+        items: [
+          "Recidive in corso di GC + DMARD non-biologico → aggiungere o passare a TNFi (infliximab, adalimumab) o tocilizumab.",
+          "Aspirina non raccomandata di routine; considerare in caso di rischio CV elevato o coinvolgimento coronarico.",
+          "Anticoagulazione solo per indicazioni specifiche (trombosi documentata).",
+        ],
+      },
+      {
+        title: "Procedure invasive",
+        items: [
+          "Rivascolarizzazione (chirurgia vs endovascolare) nei pazienti con stenosi sintomatica critica, idealmente in fase di remissione attiva.",
+          "Continuare immunosoppressione per ridurre rischio restenosi.",
+          "Centro di esperienza multidisciplinare raccomandato.",
+        ],
+      },
+      {
+        title: "Sorveglianza imaging",
+        items: [
+          "GCA con coinvolgimento aortico: imaging (CTA/MRA o ecocardio aortico) ogni 1-2 anni per dilatazione/aneurisma.",
+          "TAK: imaging seriato (MRA preferita per minor radiazione) ogni 6-12 mesi nel primo anno, poi annualmente in remissione.",
+          "Adeguare frequenza in base ad attività clinica e sospetto di progressione.",
+        ],
+      },
+    ],
+    note: "Le raccomandazioni ACR sono complementari alle EULAR 2018; differenze principali sull'uso di tocilizumab vs MTX e sull'aspirina.",
+  },
 ];
 
 export const GUIDELINE_GROUPS = Array.from(new Set(GUIDELINES.map((g) => g.disease)));

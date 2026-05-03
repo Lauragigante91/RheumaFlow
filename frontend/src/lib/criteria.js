@@ -923,6 +923,113 @@ export const CRITERIA = [
     note:
       "ATTENZIONE: la classificazione richiede ≥3 punti nel dominio CLINICO (D1–D6) E SEPARATAMENTE ≥3 punti nel dominio LABORATORIO (D7–D8). Il punteggio totale ≥6 è solo indicativo: verifica manualmente che entrambi i sotto-domini raggiungano ≥3. Ogni dominio contribuisce con il valore più alto raggiunto nel suo gruppo (nessuna sommatoria intra-dominio).",
   },
+
+  // ============ GCA - ACR/EULAR 2022 (Ponte) ============
+  {
+    id: "acr_eular_2022_gca",
+    name: "Arterite Gigantocellulare (GCA)",
+    disease: "Vasculiti grandi vasi",
+    source: "ACR/EULAR 2022 (Ponte)",
+    intro:
+      "Criteri di classificazione 2022 (Ponte et al.). REQUISITI ASSOLUTI (entry): età ≥50 anni alla diagnosi E evidenza di vasculite dei medi/grandi vasi tramite imaging (US/MRI/PET/angio-TC) o istologia, con esclusione dei mimics. Soglia per classificazione: ≥6 punti.",
+    sections: [
+      {
+        title: "Requisiti assoluti (entry, obbligatori)",
+        type: "check",
+        items: [
+          { key: "entry_age50", label: "Età ≥50 anni alla diagnosi", points: 0 },
+          { key: "entry_imaging", label: "Vasculite di medi/grandi vasi confermata (imaging o biopsia)", points: 0 },
+          { key: "entry_mimics", label: "Esclusi i mimics (infezioni, neoplasie, altre vasculiti)", points: 0 },
+        ],
+      },
+      {
+        title: "Criteri clinici aggiuntivi",
+        type: "check",
+        items: [
+          { key: "morning_stiffness", label: "Rigidità mattutina di spalle/collo", points: 2 },
+          { key: "visual_loss", label: "Perdita visiva improvvisa", points: 3 },
+          { key: "jaw_claudication", label: "Claudicatio mandibolare o linguale", points: 2 },
+          { key: "new_headache", label: "Cefalea temporale di nuova insorgenza", points: 2 },
+          { key: "scalp_tenderness", label: "Dolore al cuoio capelluto", points: 2 },
+          { key: "abnormal_temporal", label: "Esame anomalo dell'arteria temporale (assenza polso, dolorabilità, indurimento)", points: 2 },
+        ],
+      },
+      {
+        title: "Laboratorio",
+        type: "radio",
+        groupKey: "lab_inflam",
+        options: [
+          { value: "none", label: "VES <50 mm/h E PCR <10 mg/L", points: 0 },
+          { value: "high", label: "Massima VES ≥50 mm/h O PCR ≥10 mg/L", points: 3 },
+        ],
+      },
+      {
+        title: "Imaging / Istologia",
+        type: "check",
+        items: [
+          { key: "biopsy_pos", label: "Biopsia arteria temporale positiva (vasculite) o halo sign all'eco color-Doppler", points: 5 },
+          { key: "bilateral_axillary", label: "Coinvolgimento ascellare bilaterale (US/MRI/PET/CTA)", points: 2 },
+          { key: "fdg_aorta", label: "Captazione FDG-PET aortica", points: 2 },
+        ],
+      },
+    ],
+    threshold: { value: 6, label: "Soddisfatti i criteri GCA" },
+    note: "I requisiti di entry sono OBBLIGATORI; senza di essi i criteri non sono applicabili anche se score ≥6. AUC 0.91, sensibilità 87%, specificità 95% nella validazione.",
+  },
+
+  // ============ Takayasu - ACR/EULAR 2022 (Grayson) ============
+  {
+    id: "acr_eular_2022_tak",
+    name: "Arterite di Takayasu (TAK)",
+    disease: "Vasculiti grandi vasi",
+    source: "ACR/EULAR 2022 (Grayson)",
+    intro:
+      "Criteri di classificazione 2022 (Grayson et al.). REQUISITI ASSOLUTI (entry): età ≤60 anni alla diagnosi E imaging dimostrante vasculite dei grandi vasi (angio-TC, MRA, PET, angiografia convenzionale o ecografia). Soglia per classificazione: ≥5 punti.",
+    sections: [
+      {
+        title: "Requisiti assoluti (entry, obbligatori)",
+        type: "check",
+        items: [
+          { key: "entry_age60", label: "Età ≤60 anni alla diagnosi", points: 0 },
+          { key: "entry_imaging", label: "Imaging compatibile con vasculite dei grandi vasi", points: 0 },
+        ],
+      },
+      {
+        title: "Criteri clinici",
+        type: "check",
+        items: [
+          { key: "female", label: "Sesso femminile", points: 1 },
+          { key: "angina", label: "Angina (dolore toracico ischemico)", points: 2 },
+          { key: "limb_claudication", label: "Claudicatio degli arti", points: 2 },
+          { key: "bruit", label: "Soffio arterioso", points: 2 },
+          { key: "reduced_upper_pulse", label: "Riduzione del polso di un arto superiore", points: 2 },
+          { key: "carotid_pulse", label: "Riduzione del polso o dolorabilità di una carotide", points: 2 },
+          { key: "bp_diff", label: "Differenza pressoria ≥20 mmHg tra le braccia", points: 1 },
+        ],
+      },
+      {
+        title: "Imaging - territori arteriosi coinvolti",
+        type: "radio",
+        groupKey: "imaging_territories",
+        options: [
+          { value: "none", label: "Nessun territorio coinvolto", points: 0 },
+          { value: "one", label: "1 territorio arterioso coinvolto", points: 1 },
+          { value: "two", label: "2 territori arteriosi coinvolti", points: 2 },
+          { value: "three", label: "≥3 territori arteriosi coinvolti", points: 3 },
+        ],
+      },
+      {
+        title: "Imaging - pattern aggiuntivi",
+        type: "check",
+        items: [
+          { key: "paired_artery", label: "Coinvolgimento di arteria pari (es. entrambe le succlavie/carotidi)", points: 1 },
+          { key: "aorta_renal_mes", label: "Coinvolgimento aorta addominale + arteria renale o mesenterica", points: 3 },
+        ],
+      },
+    ],
+    threshold: { value: 5, label: "Soddisfatti i criteri TAK" },
+    note: "I requisiti di entry sono OBBLIGATORI. AUC 0.97, sensibilità 93.8%, specificità 99.2% nella validazione.",
+  },
 ];
 
 export const CRITERIA_GROUPS = [
@@ -941,4 +1048,5 @@ export const CRITERIA_GROUPS = [
   "Behçet",
   "IgG4-RD",
   "APS",
+  "Vasculiti grandi vasi",
 ];

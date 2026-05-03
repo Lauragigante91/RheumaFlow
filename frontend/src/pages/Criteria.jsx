@@ -34,6 +34,8 @@ const CRITERIA_DIAGNOSIS_MAP = {
   icbd_2014_behcet: "Malattia di Behçet",
   acr_eular_2019_igg4: "Malattia IgG4-correlata",
   acr_eular_2023_aps: "Sindrome da anticorpi antifosfolipidi (APS)",
+  acr_eular_2022_gca: "Arterite Gigantocellulare (GCA)",
+  acr_eular_2022_tak: "Arterite di Takayasu",
 };
 
 export default function Criteria() {

@@ -42,6 +42,20 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v9)
+- [x] **Criteri ACR/EULAR 2022 GCA** (Ponte): entry obbligatori (età ≥50, imaging
+  LVV, esclusi mimics) + criteri clinici + lab + imaging/istologia, soglia ≥6.
+- [x] **Criteri ACR/EULAR 2022 Takayasu** (Grayson): entry obbligatori
+  (età ≤60, imaging LVV) + clinici + territori arteriosi, soglia ≥5.
+- [x] **Linee guida EULAR 2018 LVV** (Hellmich): diagnosi/induzione/monitoraggio
+  GCA + Takayasu + procedure di rivascolarizzazione.
+- [x] **Linee guida ACR/VF 2021 LVV** (Maz): 22 raccomandazioni GCA + 20 TAK,
+  con focus su tocilizumab, MTX, sorveglianza imaging.
+- [x] Auto-suggestion per diagnosi "GCA/Horton/Takayasu" → suggerisce
+  automaticamente i criteri 2022.
+- [x] Aggiunto gruppo "Vasculiti grandi vasi" a CRITERIA_GROUPS e
+  GUIDELINE_GROUPS; badge "LVV" rosa nelle pinned guidelines.
+
 ## Implemented (2026-02-10 - v8)
 - [x] **Criteri ACR/EULAR 2023 APS** (Barbhaiya): 8 domini (D1-D6 clinici + D7-D8 lab),
   entry criterion + scoring stratificato per profilo di rischio. Aggiunto a

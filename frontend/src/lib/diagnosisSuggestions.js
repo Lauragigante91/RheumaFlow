@@ -98,6 +98,18 @@ const RULES = [
     criteria: ["acr_eular_2023_aps"],
     diseaseLabel: "Sindrome da anticorpi antifosfolipidi",
   },
+  {
+    keywords: ["arterite gigantocellulare", "arterite a cellule giganti", "gca", "horton", "giant cell arteritis", "arterite temporale", "polimialgia arteritica"],
+    indices: [],
+    criteria: ["acr_eular_2022_gca"],
+    diseaseLabel: "Arterite Gigantocellulare (GCA)",
+  },
+  {
+    keywords: ["takayasu", "tak ", "arterite di takayasu", "pulseless disease"],
+    indices: [],
+    criteria: ["acr_eular_2022_tak"],
+    diseaseLabel: "Arterite di Takayasu",
+  },
 ];
 
 export function suggestForDiagnosis(diagnosis) {
