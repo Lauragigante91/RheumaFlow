@@ -9,6 +9,7 @@ import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
 import Criteria from "./pages/Criteria";
 import Guidelines from "./pages/Guidelines";
+import Miscellanea from "./pages/Miscellanea";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -51,6 +52,7 @@ function AppRoutes() {
                 <Route path="/pazienti/:id" element={<PatientDetail />} />
                 <Route path="/criteri" element={<Criteria />} />
                 <Route path="/linee-guida" element={<Guidelines />} />
+                <Route path="/miscellanea" element={<Miscellanea />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

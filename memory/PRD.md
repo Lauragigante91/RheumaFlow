@@ -42,6 +42,23 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v12)
+- [x] **Sezione "Miscellanea"** in sidebar con icona FlaskConical, tabelle sinottiche e algoritmi diagnostici.
+- [x] **Tabella Anticorpi miosite-specifici**: 13 MSAs con fenotipo + coinvolgimento muscolo/cute/polmone/cuore/GI/tumore
+  (Jo-1, PL-7, PL-12, EJ, OJ, Mi-2, TIF1-γ, NXP2, MDA5, SAE, SRP, HMGCR, cN1A).
+- [x] **Tabella Malattie autoinfiammatorie**: 13 malattie (FMF, TRAPS, HIDS/MKD, CAPS FCAS/MWS/NOMID, PFAPA,
+  AOSD, Behçet, Schnitzler, DIRA, PAPA, VEXAS) con esordio, febbre, pattern, red flag e genetica.
+- [x] **Tabella Pattern ANA**: omogeneo, speckled, nucleolare, centromerico, nuclear dots, citoplasmatico, NuMA +
+  anticorpi associati + malattie.
+- [x] **7 iter diagnostici** con step numerati:
+  - iperCKemia (conferma, clinica, esami, screening autoimmune, strumentali, DD, red flags)
+  - Aftosi orale ricorrente (caratterizzazione, cause locali, nutrizionali, autoimmuni, GI, DD, Behçet)
+  - Eritema nodoso (conferma, cause, esami, Löfgren, terapia)
+  - Raynaud primario vs secondario (Allen-Brown, red flags, cause, terapia)
+  - Iperferritinemia reumatologica (soglie, cause, HLH, H-score, MAS)
+  - Uveite (classificazione SUN, spondiloartriti, JIA, sarcoidosi, Behçet, terapia)
+  - Dolore infiammatorio vs meccanico (IBP ASAS, pattern articolare)
+
 ## Implemented (2026-02-10 - v11)
 - [x] **Filtri/ordinamento storico valutazioni** in PatientDetail:
   filtro per indice, range date (da/a), sort (data ↓/↑, score ↓/↑, indice A-Z),

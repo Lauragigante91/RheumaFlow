@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home, Database, FileJson, FileArchive } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home, Database, FileJson, FileArchive, FlaskConical } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import {
@@ -15,6 +15,7 @@ const nav = [
   { to: "/pazienti", label: "Pazienti", icon: Users },
   { to: "/criteri", label: "Criteri", icon: FileCheck2 },
   { to: "/linee-guida", label: "Linee Guida", icon: BookOpen },
+  { to: "/miscellanea", label: "Miscellanea", icon: FlaskConical },
 ];
 
 export default function Layout({ children }) {
