@@ -527,6 +527,7 @@ async def delete_patient(patient_id: str, user: dict = Depends(get_current_user)
     await db.lab_exams.delete_many({"patient_id": patient_id})
     await db.reminders.delete_many({"patient_id": patient_id})
     await db.sclero_profiles.delete_many({"patient_id": patient_id})
+    await db.disease_profiles.delete_many({"patient_id": patient_id})
     return {"success": True}
 
 
@@ -729,6 +730,7 @@ async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_use
 COLLECTIONS_TO_EXPORT = [
     "patients", "assessments", "criteria_evaluations",
     "therapies", "lab_exams", "reminders", "sclero_profiles",
+    "disease_profiles",
 ]
 
 
@@ -986,6 +988,95 @@ async def upsert_sclero_profile(
     return profile
 
 
+# ==================== GENERIC DISEASE PROFILE (RA / SpA / ...) ====================
+ALLOWED_DISEASE_TYPES = {"ra", "spa"}
+
+
+class DiseaseProfileBase(BaseModel):
+    patient_id: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DiseaseProfile(DiseaseProfileBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    disease_type: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_by_name: Optional[str] = None
+
+
+def _check_disease_type(t: str):
+    if t not in ALLOWED_DISEASE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Disease type '{t}' non supportato")
+
+
+@api_router.get("/patients/{patient_id}/disease-profile/{disease_type}")
+async def get_disease_profile(
+    patient_id: str, disease_type: str, user: dict = Depends(get_current_user)
+):
+    _check_disease_type(disease_type)
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    doc = await db.disease_profiles.find_one(
+        {
+            "patient_id": patient_id,
+            "organization_id": user["organization_id"],
+            "disease_type": disease_type,
+        },
+        {"_id": 0},
+    )
+    return doc  # null if not exists
+
+
+@api_router.put("/patients/{patient_id}/disease-profile/{disease_type}", response_model=DiseaseProfile)
+async def upsert_disease_profile(
+    patient_id: str,
+    disease_type: str,
+    payload: DiseaseProfileBase,
+    user: dict = Depends(get_current_user),
+):
+    _check_disease_type(disease_type)
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    if payload.patient_id != patient_id:
+        raise HTTPException(status_code=400, detail="patient_id mismatch")
+
+    existing = await db.disease_profiles.find_one(
+        {
+            "patient_id": patient_id,
+            "organization_id": user["organization_id"],
+            "disease_type": disease_type,
+        },
+        {"_id": 0},
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    if existing:
+        await db.disease_profiles.update_one(
+            {"id": existing["id"]},
+            {
+                "$set": {
+                    "data": payload.data,
+                    "updated_at": now,
+                    "updated_by_name": user.get("name"),
+                }
+            },
+        )
+        return await db.disease_profiles.find_one({"id": existing["id"]}, {"_id": 0})
+
+    profile = DiseaseProfile(
+        **payload.model_dump(),
+        disease_type=disease_type,
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+        updated_by_name=user.get("name"),
+    )
+    await db.disease_profiles.insert_one(profile.model_dump())
+    return profile
+
+
 app.include_router(api_router)
 
 
@@ -1003,6 +1094,9 @@ async def startup_event():
         await db.criteria_evaluations.create_index([("patient_id", 1), ("date", -1)])
         await db.therapies.create_index([("patient_id", 1)])
         await db.sclero_profiles.create_index([("patient_id", 1)], unique=True)
+        await db.disease_profiles.create_index(
+            [("patient_id", 1), ("disease_type", 1)], unique=True
+        )
     except Exception as e:
         logger.warning(f"Index creation: {e}")
 

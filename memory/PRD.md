@@ -329,7 +329,34 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-03 - v21 - Terapie & Storico intelligenti)
+## Implemented (2026-05-03 - v22 - Profili malattia-specifici AR/SpA + legenda grafico per farmaco)
+- [x] **Puntini grafico per singolo farmaco** (non più per categoria):
+  palette dedicata (`DRUG_PALETTE`, 18 colori), `buildDrugColorMap(chartData)`
+  assegna un colore stabile a ogni farmaco in base all'ordine di comparsa.
+  Legenda sotto il grafico ora elenca i nomi dei farmaci invece delle categorie
+  (csDMARD/Biologico/ecc). Tooltip e puntini sotto asse X mostrano lo stesso
+  colore per farmaco.
+- [x] **Profilo clinico Artrite Reumatoide** (`RaProfileSection.jsx`):
+  - Anticorpi: FR (Positivo/Negativo/Non testato + campo titolo se positivo),
+    Anti-CCP/ACPA (stessa struttura)
+  - Danno strutturale: forma Erosiva / Non erosiva (toggle mutualmente esclusivo)
+  - ILD flag (checkbox con etichetta descrittiva "Pattern HRCT compatibile")
+  - Campo testo "Altro" per note libere
+  - Si mostra automaticamente per diagnosi contenenti "artrite reumatoide"
+    / "rheumatoid" / "AR" isolato
+- [x] **Profilo clinico Spondiloartrite** (`SpaProfileSection.jsx`):
+  - 3 checkbox con card selettive: Psoriasi, Uveite, IBD (MICI) con etichette
+    descrittive sottostanti
+  - Campo testo "Altro" per note cliniche (entesite, dattilite, HLA-B27, ecc.)
+  - Si mostra per diagnosi contenenti "spondilo", "anchilosante", "axspa",
+    "artrite psoriasica", "psa", "as"
+- [x] **Backend generico** `disease_profiles` collection con endpoint
+  `/api/patients/{id}/disease-profile/{type}` (type = "ra" | "spa"), indice
+  unique `(patient_id, disease_type)`. Estendibile facilmente per futuri
+  profili (SLE, Vasculiti, Sjögren, ecc.) senza nuovi endpoint.
+  Cascade delete aggiornato + incluso nell'export DB.
+
+
 - [x] **Alert interazioni farmacologiche** (`/app/frontend/src/lib/drugInteractions.js`):
   database di 18 interazioni clinicamente rilevanti in reumatologia (MTX+TMP/SMX,
   MTX+FANS, MTX+PPI, MTX+Leflunomide, Colchicina+Macrolidi, Colchicina+Ciclosporina,

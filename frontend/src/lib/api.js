@@ -88,6 +88,20 @@ export const scleroProfileApi = {
     api.put(`/patients/${patientId}/sclero-profile`, { ...data, patient_id: patientId }).then((r) => r.data),
 };
 
+export const diseaseProfileApi = {
+  get: (patientId, diseaseType) =>
+    api
+      .get(`/patients/${patientId}/disease-profile/${diseaseType}`)
+      .then((r) => r.data),
+  upsert: (patientId, diseaseType, data) =>
+    api
+      .put(`/patients/${patientId}/disease-profile/${diseaseType}`, {
+        patient_id: patientId,
+        data,
+      })
+      .then((r) => r.data),
+};
+
 export const exportApi = {
   json: () => `${API}/export/json`,
   csvZip: () => `${API}/export/csv-zip`,

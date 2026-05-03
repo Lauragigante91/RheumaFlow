@@ -23,6 +23,8 @@ import TherapySection from "../components/TherapySection";
 import ExamsSection from "../components/ExamsSection";
 import RemindersSection from "../components/RemindersSection";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
+import RaProfileSection, { isRaDiagnosis } from "../components/RaProfileSection";
+import SpaProfileSection, { isSpaDiagnosis } from "../components/SpaProfileSection";
 import VisitImportButton from "../components/VisitImportButton";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
@@ -166,6 +168,8 @@ export default function PatientDetail() {
         };
       });
   }, [assessments, selectedIndex, therapies]);
+
+  const drugColorMap = useMemo(() => buildDrugColorMap(chartData), [chartData]);
 
   const historyIndexOptions = useMemo(() => {
     const set = new Set();
@@ -399,6 +403,12 @@ export default function PatientDetail() {
       {/* Therapy section */}
       <TherapySection patient={patient} />
 
+      {/* Rheumatoid Arthritis profile */}
+      {isRaDiagnosis(patient.diagnosi) && <RaProfileSection patient={patient} />}
+
+      {/* Spondyloarthritis profile (incl. PsA) */}
+      {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} />}
+
       {/* Scleroderma profile - only if SSc diagnosis */}
       {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
 
@@ -447,17 +457,17 @@ export default function PatientDetail() {
                   dataKey="date"
                   fontSize={11}
                   stroke="#6B7280"
-                  tick={showTherapies ? <TherapyAwareTick data={chartData} /> : undefined}
+                  tick={showTherapies ? <TherapyAwareTick data={chartData} drugColorMap={drugColorMap} /> : undefined}
                   interval={0}
                   height={showTherapies ? 80 : 30}
                 />
                 <YAxis fontSize={11} stroke="#6B7280" />
-                <Tooltip content={<TrendTooltip showTherapies={showTherapies} />} />
+                <Tooltip content={<TrendTooltip showTherapies={showTherapies} drugColorMap={drugColorMap} />} />
                 <Legend verticalAlign="top" height={24} />
                 <Line type="monotone" dataKey="score" stroke="#0A2540" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Punteggio" />
               </LineChart>
             </ResponsiveContainer>
-            {showTherapies && <TherapyLegend chartData={chartData} />}
+            {showTherapies && <TherapyLegend chartData={chartData} drugColorMap={drugColorMap} />}
           </>
         )}
       </Card>
@@ -685,7 +695,7 @@ const Info = ({ label, value }) => (
 );
 
 
-// Category → color mapping used for therapy pills under the chart
+// Category → color used for therapy pills in the history table
 const CATEGORY_COLORS = {
   csDMARD: "#0A2540",
   bDMARD: "#0EA5E9",
@@ -701,7 +711,31 @@ function categoryColor(cat) {
   return CATEGORY_COLORS[cat] || "#6B7280";
 }
 
-function TrendTooltip({ active, payload, showTherapies }) {
+// Palette per singolo farmaco (usata nel grafico/asse/tooltip/legenda)
+const DRUG_PALETTE = [
+  "#0A2540", "#0EA5E9", "#8B5CF6", "#F59E0B", "#10B981",
+  "#EF4444", "#EC4899", "#14B8A6", "#F97316", "#6366F1",
+  "#84CC16", "#06B6D4", "#D946EF", "#E11D48", "#65A30D",
+  "#7C3AED", "#0369A1", "#B45309",
+];
+
+// Deriva una mappa farmaco→colore stabile in base all'ordine di comparsa
+function buildDrugColorMap(chartData) {
+  const map = {};
+  let idx = 0;
+  (chartData || []).forEach((d) => {
+    (d.therapies || []).forEach((t) => {
+      const name = t.name;
+      if (name && !(name in map)) {
+        map[name] = DRUG_PALETTE[idx % DRUG_PALETTE.length];
+        idx += 1;
+      }
+    });
+  });
+  return map;
+}
+
+function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
   return (
@@ -723,7 +757,7 @@ function TrendTooltip({ active, payload, showTherapies }) {
                 <li key={i} className="flex items-center gap-1.5">
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: categoryColor(t.category) }}
+                    style={{ background: (drugColorMap && drugColorMap[t.name]) || "#6B7280" }}
                   />
                   <span className="font-medium">{t.name}</span>
                   {t.dose && <span className="text-gray-500">{t.dose}</span>}
@@ -739,56 +773,57 @@ function TrendTooltip({ active, payload, showTherapies }) {
   );
 }
 
-// Custom X axis tick that shows date + small colored dots for active therapies
-function TherapyAwareTick({ x, y, payload, data }) {
+// Custom X axis tick that shows date + small colored dots per active drug
+function TherapyAwareTick({ x, y, payload, data, drugColorMap }) {
   const entry = (data || []).find((d) => d.date === payload.value);
-  const cats = Array.from(new Set((entry?.therapies || []).map((t) => t.category)));
+  const drugs = Array.from(new Set((entry?.therapies || []).map((t) => t.name))).filter(Boolean);
+  const maxDots = 6;
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={12} textAnchor="middle" fontSize={10} fill="#6B7280">
         {payload.value}
       </text>
-      {cats.slice(0, 4).map((c, i) => (
+      {drugs.slice(0, maxDots).map((name, i) => (
         <circle
-          key={c}
-          cx={(i - (cats.length - 1) / 2) * 8}
+          key={name}
+          cx={(i - (Math.min(drugs.length, maxDots) - 1) / 2) * 7}
           cy={26}
-          r={3}
-          fill={categoryColor(c)}
-        />
+          r={2.8}
+          fill={(drugColorMap && drugColorMap[name]) || "#6B7280"}
+        >
+          <title>{name}</title>
+        </circle>
       ))}
-      {cats.length > 4 && (
-        <text x={16} y={29} fontSize={9} fill="#6B7280">+{cats.length - 4}</text>
+      {drugs.length > maxDots && (
+        <text x={(maxDots / 2) * 7 + 4} y={29} fontSize={9} fill="#6B7280">+{drugs.length - maxDots}</text>
       )}
     </g>
   );
 }
 
-function TherapyLegend({ chartData }) {
-  // Collect all unique categories shown across the chart
-  const cats = new Set();
+function TherapyLegend({ chartData, drugColorMap }) {
+  // Collect all unique drug names shown across the chart
+  const names = new Set();
   (chartData || []).forEach((d) =>
-    (d.therapies || []).forEach((t) => cats.add(t.category))
+    (d.therapies || []).forEach((t) => { if (t.name) names.add(t.name); })
   );
-  if (cats.size === 0) {
+  if (names.size === 0) {
     return (
       <div className="mt-3 text-[11px] text-gray-500 italic">
         Nessuna terapia registrata per le date delle valutazioni.
       </div>
     );
   }
-  const labels = {
-    csDMARD: "csDMARD", bDMARD: "Biologico", tsDMARD: "tsDMARD/JAKi",
-    glucocorticoid: "GC", NSAID: "FANS", analgesic: "Analgesico",
-    supportive: "Supportivo", other: "Altro",
-  };
   return (
-    <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-gray-600 items-center pl-4">
-      <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">Terapie</span>
-      {[...cats].map((c) => (
-        <span key={c} className="inline-flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: categoryColor(c) }} />
-          {labels[c] || c}
+    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-gray-700 items-center pl-4">
+      <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">Farmaci</span>
+      {[...names].map((name) => (
+        <span key={name} className="inline-flex items-center gap-1.5" data-testid={`chart-legend-${name}`}>
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: (drugColorMap && drugColorMap[name]) || "#6B7280" }}
+          />
+          {name}
         </span>
       ))}
     </div>
