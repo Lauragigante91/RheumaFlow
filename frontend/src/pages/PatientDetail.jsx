@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { patientsApi, assessmentsApi, criteriaApi } from "../lib/api";
+import { patientsApi, assessmentsApi, criteriaApi, therapiesApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -43,6 +43,8 @@ export default function PatientDetail() {
   const [histDateFrom, setHistDateFrom] = useState("");
   const [histDateTo, setHistDateTo] = useState("");
   const [histSort, setHistSort] = useState("date_desc");
+  const [therapies, setTherapies] = useState([]);
+  const [showTherapies, setShowTherapies] = useState(true);
 
   const load = async () => {
     const p = await patientsApi.get(id);
@@ -51,6 +53,8 @@ export default function PatientDetail() {
     setAssessments(a);
     const ce = await criteriaApi.listByPatient(id).catch(() => []);
     setCriteriaEvals(ce);
+    const th = await therapiesApi.listByPatient(id).catch(() => []);
+    setTherapies(th);
   };
   useEffect(() => { load(); }, [id]);
 
@@ -125,18 +129,42 @@ export default function PatientDetail() {
     return "";
   };
 
+  // Returns list of therapies active on a given ISO date
+  const therapiesActiveOn = (isoDate) => {
+    if (!isoDate || !therapies || therapies.length === 0) return [];
+    return therapies.filter((t) => {
+      const start = t.start_date || null;
+      const end = t.end_date || null;
+      if (start && isoDate < start) return false;
+      if (end && isoDate > end) return false;
+      return true;
+    });
+  };
+
   const chartData = useMemo(() => {
     const filtered = selectedIndex === "all"
       ? assessments
       : assessments.filter((a) => a.index_type === selectedIndex);
     return [...filtered]
       .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map((a) => ({
-        date: new Date(a.date).toLocaleDateString("it-IT"),
-        score: a.score,
-        type: INDEX_LABELS[a.index_type] || a.index_type,
-      }));
-  }, [assessments, selectedIndex]);
+      .map((a) => {
+        const active = therapiesActiveOn(a.date);
+        return {
+          date: new Date(a.date).toLocaleDateString("it-IT"),
+          rawDate: a.date,
+          score: a.score,
+          type: INDEX_LABELS[a.index_type] || a.index_type,
+          therapies: active.map((t) => ({
+            name: t.drug_name,
+            dose: t.dose,
+            category: t.category,
+          })),
+          therapyLabel: active.length === 0
+            ? "Nessuna terapia registrata"
+            : active.map((t) => t.drug_name + (t.dose ? ` ${t.dose}` : "")).join(", "),
+        };
+      });
+  }, [assessments, selectedIndex, therapies]);
 
   const historyIndexOptions = useMemo(() => {
     const set = new Set();
@@ -368,34 +396,56 @@ export default function PatientDetail() {
       <RemindersSection patient={patient} />
 
       {/* Trend chart */}
-      <Card className="border-gray-200 shadow-sm p-6">
+      <Card className="border-gray-200 shadow-sm p-6" data-testid="trend-card">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="font-heading font-bold text-xl tracking-tight">Andamento nel tempo</h2>
-          <Select value={selectedIndex} onValueChange={setSelectedIndex}>
-            <SelectTrigger className="w-56" data-testid="trend-filter"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti gli indici</SelectItem>
-              {Object.entries(INDEX_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-xs select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showTherapies}
+                onChange={(e) => setShowTherapies(e.target.checked)}
+                className="w-4 h-4 accent-[#0A2540]"
+                data-testid="show-therapies-toggle"
+              />
+              <span className="font-medium text-gray-700">Mostra terapie</span>
+            </label>
+            <Select value={selectedIndex} onValueChange={setSelectedIndex}>
+              <SelectTrigger className="w-56" data-testid="trend-filter"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti gli indici</SelectItem>
+                {Object.entries(INDEX_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         {chartData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-gray-500 border border-dashed border-gray-200 rounded-md">
             Nessun dato per questo indice
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="date" fontSize={11} stroke="#6B7280" />
-              <YAxis fontSize={11} stroke="#6B7280" />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6 }} />
-              <Legend />
-              <Line type="monotone" dataKey="score" stroke="#0A2540" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Punteggio" />
-            </LineChart>
-          </ResponsiveContainer>
+          <>
+            <ResponsiveContainer width="100%" height={showTherapies ? 320 : 280}>
+              <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: showTherapies ? 60 : 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis
+                  dataKey="date"
+                  fontSize={11}
+                  stroke="#6B7280"
+                  tick={showTherapies ? <TherapyAwareTick data={chartData} /> : undefined}
+                  interval={0}
+                  height={showTherapies ? 80 : 30}
+                />
+                <YAxis fontSize={11} stroke="#6B7280" />
+                <Tooltip content={<TrendTooltip showTherapies={showTherapies} />} />
+                <Legend verticalAlign="top" height={24} />
+                <Line type="monotone" dataKey="score" stroke="#0A2540" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Punteggio" />
+              </LineChart>
+            </ResponsiveContainer>
+            {showTherapies && <TherapyLegend chartData={chartData} />}
+          </>
         )}
       </Card>
 
@@ -590,3 +640,114 @@ const Info = ({ label, value }) => (
     <div className="font-medium">{value}</div>
   </div>
 );
+
+
+// Category → color mapping used for therapy pills under the chart
+const CATEGORY_COLORS = {
+  csDMARD: "#0A2540",
+  bDMARD: "#0EA5E9",
+  tsDMARD: "#8B5CF6",
+  glucocorticoid: "#F59E0B",
+  NSAID: "#10B981",
+  analgesic: "#6B7280",
+  supportive: "#9CA3AF",
+  other: "#6B7280",
+};
+
+function categoryColor(cat) {
+  return CATEGORY_COLORS[cat] || "#6B7280";
+}
+
+function TrendTooltip({ active, payload, showTherapies }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs max-w-xs">
+      <div className="font-bold text-[#0A2540]">{d.date}</div>
+      <div className="mt-1">
+        <span className="text-gray-500">Score:</span>{" "}
+        <span className="font-mono font-bold">{d.score ?? "—"}</span>
+      </div>
+      {d.type && <div className="mt-0.5 text-gray-500 text-[10px]">{d.type}</div>}
+      {showTherapies && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1">
+            Terapia in corso
+          </div>
+          {d.therapies && d.therapies.length > 0 ? (
+            <ul className="space-y-0.5">
+              {d.therapies.map((t, i) => (
+                <li key={i} className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: categoryColor(t.category) }}
+                  />
+                  <span className="font-medium">{t.name}</span>
+                  {t.dose && <span className="text-gray-500">{t.dose}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="italic text-gray-400">{d.therapyLabel}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Custom X axis tick that shows date + small colored dots for active therapies
+function TherapyAwareTick({ x, y, payload, data }) {
+  const entry = (data || []).find((d) => d.date === payload.value);
+  const cats = Array.from(new Set((entry?.therapies || []).map((t) => t.category)));
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={12} textAnchor="middle" fontSize={10} fill="#6B7280">
+        {payload.value}
+      </text>
+      {cats.slice(0, 4).map((c, i) => (
+        <circle
+          key={c}
+          cx={(i - (cats.length - 1) / 2) * 8}
+          cy={26}
+          r={3}
+          fill={categoryColor(c)}
+        />
+      ))}
+      {cats.length > 4 && (
+        <text x={16} y={29} fontSize={9} fill="#6B7280">+{cats.length - 4}</text>
+      )}
+    </g>
+  );
+}
+
+function TherapyLegend({ chartData }) {
+  // Collect all unique categories shown across the chart
+  const cats = new Set();
+  (chartData || []).forEach((d) =>
+    (d.therapies || []).forEach((t) => cats.add(t.category))
+  );
+  if (cats.size === 0) {
+    return (
+      <div className="mt-3 text-[11px] text-gray-500 italic">
+        Nessuna terapia registrata per le date delle valutazioni.
+      </div>
+    );
+  }
+  const labels = {
+    csDMARD: "csDMARD", bDMARD: "Biologico", tsDMARD: "tsDMARD/JAKi",
+    glucocorticoid: "GC", NSAID: "FANS", analgesic: "Analgesico",
+    supportive: "Supportivo", other: "Altro",
+  };
+  return (
+    <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-gray-600 items-center pl-4">
+      <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">Terapie</span>
+      {[...cats].map((c) => (
+        <span key={c} className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: categoryColor(c) }} />
+          {labels[c] || c}
+        </span>
+      ))}
+    </div>
+  );
+}

@@ -42,6 +42,18 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v15)
+- [x] **Timeline clinimetrica con terapie in corso** in PatientDetail:
+  - Toggle "Mostra terapie" (flaggabile/deflaggabile) sopra il grafico.
+  - Sotto ogni punto della linea vengono visualizzati pallini colorati
+    corrispondenti alle categorie di terapia attive a quella data
+    (csDMARD, bDMARD, tsDMARD, glucocorticoide, FANS, analgesico).
+  - Tooltip arricchito al hover: data, score, indice e lista completa
+    delle terapie attive con dosi e colori di categoria.
+  - Legenda sotto il grafico con chiavi colore delle categorie
+    effettivamente presenti nel dataset.
+  - Calcolo automatico delle terapie attive basato su start_date/end_date.
+
 ## Implemented (2026-02-10 - v14)
 - [x] **FIX VEDOSS**: ristrutturato a 2 livelli secondo EUSTAR ufficiale.
   LIVELLO 1 (3 red flags obbligatori: Raynaud + ANA + Puffy fingers).
