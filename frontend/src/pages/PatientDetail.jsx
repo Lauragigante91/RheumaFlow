@@ -45,6 +45,7 @@ export default function PatientDetail() {
   const [histSort, setHistSort] = useState("date_desc");
   const [therapies, setTherapies] = useState([]);
   const [showTherapies, setShowTherapies] = useState(true);
+  const [showAllIndices, setShowAllIndices] = useState(false);
 
   const load = async () => {
     const p = await patientsApi.get(id);
@@ -276,35 +277,47 @@ export default function PatientDetail() {
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => { e.preventDefault(); setShowAllIndices((v) => !v); }}
+                    className="text-xs text-gray-600 italic justify-center"
+                    data-testid="toggle-all-indices"
+                  >
+                    {showAllIndices ? "↑ Mostra solo i consigliati" : "↓ Mostra tutti gli indici (avanzato)"}
+                  </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuLabel>Artrite Reumatoide</DropdownMenuLabel>
-              {["das28_esr", "das28_crp", "cdai", "sdai"].map((k) => (
-                <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                  {INDEX_LABELS[k]}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
-              {["basdai", "asdas_crp", "basfi", "basmi", "schober"].map((k) => (
-                <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                  {INDEX_LABELS[k]}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Sclerosi Sistemica</DropdownMenuLabel>
-              {["mrss", "capillaroscopy"].map((k) => (
-                <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                  {INDEX_LABELS[k]}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Altri</DropdownMenuLabel>
-              {["dapsa", "sledai", "essdai", "esspri", "bvas", "mmt8", "fiqr", "haq", "pasi"].map((k) => (
-                <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                  {INDEX_LABELS[k]} <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
-                </DropdownMenuItem>
-              ))}
+              {(suggestions.indices.length === 0 || showAllIndices) && (
+                <>
+                  {suggestions.indices.length > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuLabel>Artrite Reumatoide</DropdownMenuLabel>
+                  {["das28_esr", "das28_crp", "cdai", "sdai"].map((k) => (
+                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
+                      {INDEX_LABELS[k]}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
+                  {["basdai", "asdas_crp", "basfi", "basmi", "schober"].map((k) => (
+                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
+                      {INDEX_LABELS[k]}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Sclerosi Sistemica</DropdownMenuLabel>
+                  {["mrss", "capillaroscopy"].map((k) => (
+                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
+                      {INDEX_LABELS[k]}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Altri</DropdownMenuLabel>
+                  {["dapsa", "sledai", "essdai", "esspri", "bvas", "mmt8", "fiqr", "haq", "pasi"].map((k) => (
+                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
+                      {INDEX_LABELS[k]} <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -513,14 +526,16 @@ export default function PatientDetail() {
                   <Th>Indice</Th>
                   <Th>Punteggio</Th>
                   <Th>Interpretazione</Th>
-                  <Th>EULAR</Th>
-                  <Th>TJC / SJC</Th>
+                  <Th>Risposta / Dettagli</Th>
+                  <Th>Terapia in corso</Th>
                   <Th className="text-right">Azioni</Th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAssessments.map((a) => {
                   const resp = responseByAssessmentId[a.id];
+                  const isJointIdx = ["das28_esr", "das28_crp", "cdai", "sdai", "dapsa"].includes(a.index_type);
+                  const activeTh = therapiesActiveOn(a.date);
                   return (
                   <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`assessment-row-${a.id}`}>
                     <td className="px-4 py-3">
@@ -531,16 +546,44 @@ export default function PatientDetail() {
                     <td className="px-4 py-3 font-mono font-bold text-[#0A2540]">{a.score ?? "-"}</td>
                     <td className="px-4 py-3">{a.interpretation || "-"}</td>
                     <td className="px-4 py-3">
-                      {resp ? (
-                        <Badge className={responseColor(resp.level)} data-testid={`eular-${a.id}`}>
-                          <TrendingUp className="w-3 h-3 mr-1" /> {resp.label}
-                        </Badge>
+                      {isJointIdx ? (
+                        <div className="flex flex-col gap-1">
+                          {resp ? (
+                            <Badge className={responseColor(resp.level)} data-testid={`eular-${a.id}`}>
+                              <TrendingUp className="w-3 h-3 mr-1" /> {resp.label}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                          <span className="text-[11px] text-gray-600 font-mono">
+                            TJC {a.tender_joints?.length ?? 0} · SJC {a.swollen_joints?.length ?? 0}
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-xs text-gray-400">-</span>
+                        <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {(a.tender_joints?.length ?? 0)} / {(a.swollen_joints?.length ?? 0)}
+                    <td className="px-4 py-3">
+                      {activeTh.length === 0 ? (
+                        <span className="text-xs text-gray-400 italic">Nessuna</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1 max-w-[260px]" data-testid={`therapies-cell-${a.id}`}>
+                          {activeTh.slice(0, 4).map((t) => (
+                            <span
+                              key={t.id}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-gray-100 border border-gray-200"
+                              title={`${t.drug_name}${t.dose ? ` · ${t.dose}` : ""}${t.frequency ? ` · ${t.frequency}` : ""}`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: categoryColor(t.category) }} />
+                              <span className="font-medium">{t.drug_name}</span>
+                              {t.dose && <span className="text-gray-500">{t.dose}</span>}
+                            </span>
+                          ))}
+                          {activeTh.length > 4 && (
+                            <span className="text-[10px] text-gray-500 self-center">+{activeTh.length - 4}</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <Button variant="ghost" size="icon" onClick={() => startEdit(a)} data-testid={`edit-assessment-${a.id}`}>

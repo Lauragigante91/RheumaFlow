@@ -8,11 +8,12 @@ import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Plus, Pill, Trash2, Edit, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import { Plus, Pill, Trash2, Edit, CheckCircle2, XCircle, Sparkles, AlertTriangle, Info as InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import ItalianDatePicker from "./ItalianDatePicker";
 import { THERAPY_CATEGORIES, suggestTherapiesForDiagnosis } from "../lib/therapySuggestions";
 import { DRUGS, INDICATIONS, findDrug, formatRegimen } from "../lib/drugs";
+import { detectInteractions, SEVERITY } from "../lib/drugInteractions";
 
 const STATUS_LABELS = {
   active: "In corso",
@@ -106,6 +107,12 @@ export default function TherapySection({ patient }) {
   const active = therapies.filter((t) => t.status === "active");
   const past = therapies.filter((t) => t.status !== "active");
 
+  // Rilevamento interazioni farmacologiche (solo terapie in corso)
+  const interactions = useMemo(
+    () => detectInteractions(active.map((t) => t.drug_name).filter(Boolean)),
+    [active]
+  );
+
   return (
     <div className="space-y-4" data-testid="therapy-section">
       {/* Suggestions banner */}
@@ -134,6 +141,11 @@ export default function TherapySection({ patient }) {
           <Plus className="w-4 h-4 mr-2" /> Aggiungi terapia
         </Button>
       </div>
+
+      {/* Drug interaction alerts */}
+      {interactions.length > 0 && (
+        <InteractionAlerts interactions={interactions} />
+      )}
 
       {/* Active therapies */}
       <Card className="border-gray-200 shadow-sm overflow-hidden">
@@ -361,5 +373,102 @@ function TherapyRow({ t, onEdit, onRemove, dimmed }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function InteractionAlerts({ interactions }) {
+  const [expanded, setExpanded] = useState(new Set());
+  const counts = interactions.reduce((acc, i) => {
+    acc[i.severity] = (acc[i.severity] || 0) + 1;
+    return acc;
+  }, {});
+  const top = interactions[0].severity;
+  const topSev = SEVERITY[top];
+
+  const toggle = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <Card
+      className="p-4 border-2"
+      style={{
+        borderColor: topSev.border,
+        background: topSev.bg,
+      }}
+      data-testid="interactions-alert"
+    >
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: topSev.color }} />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-heading font-bold text-sm tracking-tight" style={{ color: topSev.color }}>
+            {interactions.length === 1
+              ? "1 interazione farmacologica rilevata"
+              : `${interactions.length} interazioni farmacologiche rilevate`}
+          </h4>
+          <div className="flex flex-wrap gap-2 mt-1 text-[11px]">
+            {counts.major && (
+              <span className="px-2 py-0.5 rounded-full font-semibold" style={{ background: SEVERITY.major.color, color: "white" }}>
+                {counts.major} Maggiore
+              </span>
+            )}
+            {counts.moderate && (
+              <span className="px-2 py-0.5 rounded-full font-semibold" style={{ background: SEVERITY.moderate.color, color: "white" }}>
+                {counts.moderate} Moderata
+              </span>
+            )}
+            {counts.minor && (
+              <span className="px-2 py-0.5 rounded-full font-semibold" style={{ background: SEVERITY.minor.color, color: "white" }}>
+                {counts.minor} Minore
+              </span>
+            )}
+          </div>
+          <ul className="mt-3 space-y-2">
+            {interactions.map((i) => {
+              const sev = SEVERITY[i.severity];
+              const isOpen = expanded.has(i.id);
+              return (
+                <li
+                  key={i.id}
+                  className="bg-white/80 border rounded-md overflow-hidden"
+                  style={{ borderColor: sev.border }}
+                  data-testid={`interaction-${i.id}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggle(i.id)}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-white transition"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                        style={{ background: sev.color, color: "white" }}
+                      >
+                        {sev.label}
+                      </span>
+                      <span className="text-sm font-semibold truncate">{i.title}</span>
+                    </div>
+                    <InfoIcon className={`w-4 h-4 flex-shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: sev.color }} />
+                  </button>
+                  {isOpen && (
+                    <div className="px-3 pb-3 text-xs text-gray-700 leading-relaxed border-t bg-white" style={{ borderColor: sev.border }}>
+                      {i.note}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-[10px] text-gray-500 italic mt-2">
+            Gli alert sono informativi e non sostituiscono il giudizio clinico.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }
