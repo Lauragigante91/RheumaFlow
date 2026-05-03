@@ -6,35 +6,38 @@
 //   note?: string
 
 export const CRITERIA = [
-  // ============ VEDOSS - Avouac 2011 / EUSTAR ============
+  // ============ VEDOSS - EUSTAR (2-level structure) ============
   {
     id: "vedoss_2011",
     name: "VEDOSS (Sclerodermia molto precoce)",
     disease: "Sclerosi Sistemica",
-    source: "Avouac/EUSTAR 2011",
-    intro: "Identifica i pazienti a rischio di sviluppare SSc prima che soddisfino i criteri ACR/EULAR 2013. Richiede il fenomeno di Raynaud (obbligatorio) PIÙ ≥1 marker tra: dita gonfie (puffy fingers), autoanticorpi SSc-specifici (ACA, anti-Scl70, anti-RNAP III) o capillaroscopia con pattern sclerodermico.",
+    source: "EUSTAR - Avouac et al.",
+    intro:
+      "I criteri VEDOSS (Very Early Diagnosis of Systemic Sclerosis) identificano i pazienti a rischio di sviluppare SSc PRIMA che soddisfino i criteri ACR/EULAR 2013. Struttura a 2 livelli: LIVELLO 1 richiede TUTTI E TRE i red flags (Raynaud + ANA + puffy fingers); LIVELLO 2 conferma la SSc molto precoce con ≥1 marker sclerodermico specifico.",
     sections: [
       {
-        title: "Criterio obbligatorio",
+        title: "LIVELLO 1 - Red flags (tutti e tre obbligatori per il sospetto)",
         type: "check",
         items: [
-          { key: "raynaud", label: "Fenomeno di Raynaud", points: 10 },
+          { key: "raynaud", label: "Fenomeno di Raynaud (criterio di ingresso obbligatorio)", points: 1 },
+          { key: "ana", label: "Positività ANA", points: 1 },
+          { key: "puffy", label: "Puffy fingers (dita edematose)", points: 1 },
         ],
       },
       {
-        title: "Marker aggiuntivi (≥1 necessario)",
+        title: "LIVELLO 2 - Conferma di SSc molto precoce (almeno UNO dei seguenti)",
         type: "check",
         items: [
-          { key: "puffy", label: "Dita gonfie (puffy fingers) / edema digitale", points: 1 },
-          { key: "aca", label: "Anti-centromero positivi", points: 1 },
-          { key: "scl70", label: "Anti-topoisomerasi I (Scl-70) positivi", points: 1 },
-          { key: "rnap3", label: "Anti-RNA polimerasi III positivi", points: 1 },
-          { key: "capillaroscopy_ssc", label: "Capillaroscopia con pattern sclerodermico (Early/Active/Late)", points: 1 },
+          { key: "aca", label: "Autoanticorpo SSc-specifico: anti-centromero (ACA)", points: 1 },
+          { key: "scl70", label: "Autoanticorpo SSc-specifico: anti-topoisomerasi I (Scl-70)", points: 1 },
+          { key: "rnap3", label: "Autoanticorpo SSc-specifico: anti-RNA polimerasi III", points: 1 },
+          { key: "capillaroscopy_ssc", label: "Capillaroscopia periungueale con pattern sclerodermico (Early/Active/Late)", points: 1 },
         ],
       },
     ],
-    threshold: { value: 11, label: "VEDOSS positivo (Raynaud + ≥1 marker SSc-specifico)" },
-    note: "L'ANA isolato (senza specificità SSc) NON costituisce criterio VEDOSS. Sono validi solo gli autoanticorpi SSc-specifici (ACA, anti-Scl70, anti-RNAP III) o la capillaroscopia con pattern sclerodermico.",
+    threshold: { value: 4, label: "VEDOSS positivo (3 red flags di Livello 1 + ≥1 marker Livello 2)" },
+    note:
+      "Interpretazione: il sospetto VEDOSS richiede tutti e tre i red flags del Livello 1 (Raynaud + ANA + puffy fingers). Il sospetto è confermato come 'SSc molto precoce' SOLO se coesiste almeno un marker del Livello 2 (autoanticorpo SSc-specifico o capillaroscopia sclerodermica). Uno score totale ≥4 è indicativo ma verifica manualmente che tutti i 3 red flags del Livello 1 siano positivi.",
   },
 
   // ============ ARTRITE REUMATOIDE ============

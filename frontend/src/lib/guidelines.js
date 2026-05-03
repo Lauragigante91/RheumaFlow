@@ -987,6 +987,391 @@ export const GUIDELINES = [
     ],
     note: "Le raccomandazioni ACR sono complementari alle EULAR 2018; differenze principali sull'uso di tocilizumab vs MTX e sull'aspirina.",
   },
+
+  // ============ EULAR 2025 - RA Update ============
+  {
+    id: "eular_2025_ra",
+    name: "Artrite Reumatoide (update 2025)",
+    disease: "Artrite Reumatoide",
+    source: "EULAR 2025 (Smolen)",
+    year: 2025,
+    url: "https://ard.bmj.com/content/early/2026/03/18/ard-2026-228134",
+    urls: [
+      { label: "PubMed", href: "https://pubmed.ncbi.nlm.nih.gov/41826212/" },
+      { label: "EULAR document download", href: "https://www.eular.org/document/download/1406/ec021a77-cdf3-4de3-ae72-57c1757db549/1325" },
+    ],
+    intro:
+      "Update 2025 delle raccomandazioni EULAR per il trattamento dell'AR (Smolen et al.). 5 principi generali invariati dal 2022 + 9 raccomandazioni (da 11 nel 2022) su DMARDs sintetici convenzionali (csDMARDs), biologici (bDMARDs inclusi biosimilari) e sintetici mirati (tsDMARDs/JAK-i), con nuove evidenze su sicurezza (MACE, neoplasie, TEV), costi e sequenziamento.",
+    sections: [
+      {
+        title: "Principi generali (invariati)",
+        items: [
+          "Iniziare i DMARDs immediatamente alla diagnosi di AR.",
+          "Target: remissione sostenuta o bassa attività di malattia in tutti i pazienti.",
+          "Monitoraggio frequente (ogni 1-3 mesi se attiva); adeguare la terapia se non miglioramento a 3 mesi o target non raggiunto a 6 mesi.",
+          "MTX come parte della prima strategia terapeutica (leflunomide o sulfasalazina se MTX controindicato).",
+          "Decisioni condivise con il paziente tenendo conto di preferenze, comorbidità, efficacia e sicurezza.",
+        ],
+      },
+      {
+        title: "Prima linea",
+        items: [
+          "MTX + glucocorticoidi a breve termine (bridging) al momento di inizio/cambio csDMARD, con rapido tapering e sospensione appena possibile.",
+          "Target primario: remissione clinica (DAS28 <2.6, SDAI ≤3.3, CDAI ≤2.8 o Boolean); alternativa accettabile: LDA.",
+          "Se MTX controindicato: leflunomide 20 mg/die o sulfasalazina 2-3 g/die.",
+        ],
+      },
+      {
+        title: "Risposta insufficiente dopo 3-6 mesi",
+        items: [
+          "Aggiungere un bDMARD (TNFi, IL-6i, abatacept, rituximab) al csDMARD.",
+          "In alternativa considerare un JAKi DOPO valutazione dei fattori di rischio (età >65 anni, fumo attuale/pregresso, altri fattori di rischio CV o neoplastico, TEV pregresso).",
+          "Nei pazienti ad alto rischio per MACE/malignità/TEV, preferire bDMARDs rispetto a JAKi (riferimento studio ORAL Surveillance).",
+        ],
+      },
+      {
+        title: "Sequenziamento dopo fallimento di bDMARD/JAKi",
+        items: [
+          "Cambio classe (es. da TNFi ad anti-IL-6 o abatacept) o stessa classe (secondo TNFi) sono entrambi validi.",
+          "Rituximab indicato specialmente dopo fallimento di TNFi o in presenza di controindicazioni ad altri biologici.",
+          "Preferire biosimilari per ridurre i costi a parità di efficacia e sicurezza.",
+        ],
+      },
+      {
+        title: "Remissione sostenuta: tapering",
+        items: [
+          "Dopo remissione sostenuta (≥6 mesi), considerare RIDUZIONE di dose/intervallo dei b/tsDMARDs piuttosto che sospensione completa (minor rischio di flare).",
+          "csDMARDs possono essere mantenuti come 'backbone' durante il tapering.",
+          "Sospensione completa possibile ma con monitoraggio stretto; ripristinare rapidamente in caso di flare.",
+        ],
+      },
+      {
+        title: "Glucocorticoidi",
+        items: [
+          "GC a breve termine al momento di inizio/cambio di csDMARD, con tapering rapido (obiettivo <7.5 mg/die di prednisone equivalente entro 3 mesi, sospensione entro 6 mesi).",
+          "Evitare GC cronici a qualsiasi dose come terapia di mantenimento.",
+        ],
+      },
+    ],
+    note: "Principale novità 2025: rafforzamento del messaggio di sicurezza sui JAK-i nei pazienti a rischio MACE/malignità; raccomandazione esplicita per biosimilari; target di tapering con preferenza per riduzione vs sospensione.",
+  },
+
+  // ============ EULAR 2025 - Behçet Update ============
+  {
+    id: "eular_2025_behcet",
+    name: "Malattia di Behçet (update 2025)",
+    disease: "Behçet",
+    source: "EULAR 2025 (update)",
+    year: 2025,
+    url: "https://ard.bmj.com/content/early/2026/03/23/ard-2026-228291",
+    urls: [
+      { label: "PubMed", href: "https://pubmed.ncbi.nlm.nih.gov/41876291/" },
+      { label: "EULAR recommendations", href: "https://www.eular.org/recommendations-management" },
+    ],
+    intro:
+      "Update EULAR 2025 per la gestione della sindrome di Behçet: 5 principi generali + 12 raccomandazioni organizzate per coinvolgimento d'organo. Rispetto al 2018: 1 raccomandazione interamente nuova, 7 con modifiche sostanziali, 4 con revisioni minori.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "La malattia di Behçet ha decorso recidivante-remittente, può essere organo- e life-threatening; le manifestazioni possono migliorare nel tempo.",
+          "Individualizzare il trattamento in base ad attività di malattia, fattori prognostici, presentazione d'organo.",
+          "Approccio multidisciplinare (reumatologo, oftalmologo, gastroenterologo, neurologo, vascular surgeon).",
+          "Educazione del paziente e decisione condivisa per prevenire il danno d'organo.",
+          "Obiettivo: massimizzare la qualità di vita e prevenire il danno d'organo irreversibile.",
+        ],
+      },
+      {
+        title: "Manifestazioni mucocutanee e articolari",
+        items: [
+          "Colchicina 1-2 mg/die come PRIMA linea per aftosi orale/genitale ricorrente, eritema nodoso, artrite acuta.",
+          "Glucocorticoidi topici per ulcere genitali (clobetasolo) e aftosi orale.",
+          "Casi refrattari: apremilast (approvato per aftosi orale) o anti-TNFα monoclonali (adalimumab, infliximab).",
+          "Artrite cronica/recidivante: immunosoppressori (AZA, ciclosporina) o anti-TNFα.",
+        ],
+      },
+      {
+        title: "Coinvolgimento oculare (uveite)",
+        items: [
+          "TUTTI i casi di uveite Behçet richiedono immunosoppressori per induzione/mantenimento della remissione.",
+          "Coinvolgimento posteriore vista-minacciante: anti-TNFα monoclonali (PREFERIBILMENTE INFLIXIMAB) + immunosoppressore (AZA).",
+          "EVITARE la monoterapia con glucocorticoidi in uveite posteriore/panuveite.",
+          "Alternative: interferon-α, adalimumab, ciclosporina.",
+          "Approccio steroid-sparing aggressivo per prevenire danno retinico cumulativo.",
+        ],
+      },
+      {
+        title: "Coinvolgimento vascolare",
+        items: [
+          "Trombosi venosa profonda o aneurismi: GC alte dosi + immunosoppressori (ciclofosfamide o AZA) come induzione.",
+          "Anti-TNFα MONOCLONALI precocemente in induzione e mantenimento, preferiti rispetto ad altri biologici.",
+          "Anticoagulazione: controversa; NON raccomandata di routine in assenza di alto rischio trombotico persistente o coinvolgimento cardiaco (evitare sanguinamento in aneurismi polmonari).",
+        ],
+      },
+      {
+        title: "Coinvolgimento neurologico (neuro-Behçet)",
+        items: [
+          "Parenchimale acuto: boli metilprednisolone + immunosoppressore (AZA, MMF o MTX).",
+          "Refrattario/ricorrente: anti-TNFα monoclonali (infliximab preferibile).",
+          "Trombosi dei seni venosi: GC ± anticoagulazione (controversa, valutare caso per caso).",
+          "EVITARE ciclosporina in neuro-Behçet (possibile neurotossicità).",
+        ],
+      },
+      {
+        title: "Coinvolgimento gastrointestinale",
+        items: [
+          "Induzione: GC + 5-ASA o AZA nei casi lievi-moderati.",
+          "Malattia severa o perforazione/emorragia: chirurgia + anti-TNFα.",
+          "Refrattario: infliximab o adalimumab + immunosoppressore.",
+        ],
+      },
+    ],
+    note: "Principale novità 2025: raccomandazione esplicita per TNFα monoclonali precocemente (non più solo in refrattari) nelle manifestazioni vascolari/neurologiche/oculari life-threatening, con preferenza per infliximab nell'uveite. Apremilast formalmente inserito per l'aftosi orale refrattaria.",
+  },
+
+  // ============ ERS/EULAR 2025 - CTD-ILD ============
+  {
+    id: "ers_eular_2025_ctd_ild",
+    name: "Interstiziopatia polmonare da malattie connettivali (CTD-ILD)",
+    disease: "Interstiziopatia polmonare (ILD)",
+    source: "ERS/EULAR 2025 (clinical practice guideline)",
+    year: 2025,
+    url: "https://doi.org/10.1016/j.ard.2025.08.021",
+    urls: [
+      { label: "DOI ARD 2025.08.021", href: "https://doi.org/10.1016/j.ard.2025.08.021" },
+      { label: "ERS guidelines page", href: "https://www.ersnet.org/guidelines/" },
+    ],
+    intro:
+      "Linee guida congiunte ERS/EULAR 2025 per la pratica clinica nelle CTD-ILD (Sclerosi sistemica, miositi, AR, Sjögren, MCTD, LES). Approccio sistematico a screening, diagnosi, stratificazione di gravità e terapia, con particolare enfasi sulla PPF (Progressive Pulmonary Fibrosis) come entità trasversale.",
+    sections: [
+      {
+        title: "Screening all'esordio della CTD",
+        items: [
+          "SSc: HRCT al basale per TUTTI i pazienti (qualunque subset, anche limitata); PFR (FVC + DLCO) baseline.",
+          "Miositi (soprattutto anti-MDA5, anti-sintetasi): HRCT + PFR all'esordio; allert a RP-ILD in MDA5.",
+          "AR: HRCT se sintomi respiratori persistenti, fattori di rischio (RF/ACPA alti, fumo, età avanzata, M) o crackles inspiratori.",
+          "Sjögren, MCTD, LES: HRCT su indicazione clinica; basso sospetto in LES pura isolata.",
+        ],
+      },
+      {
+        title: "Diagnosi e caratterizzazione",
+        items: [
+          "HRCT ad alta risoluzione: pattern (NSIP prevalente in SSc/miositi, UIP più comune in AR, OP possibile), estensione (Goh-Wells >20% = estesa).",
+          "Discussione multidisciplinare (MDD) con radiologo e pneumologo per casi atipici.",
+          "Biopsia polmonare chirurgica NON raccomandata di routine in CTD-ILD (rischio superiore al beneficio; fenotipo CTD già orientativo).",
+          "Profilo autoanticorpale completo: ANA, ENA (Scl-70, RNAP3, Jo-1, PL-7, MDA5, Ro52, PM-Scl), RF, anti-CCP.",
+        ],
+      },
+      {
+        title: "Stratificazione di gravità e rischio progressione",
+        items: [
+          "Gravità basale: FVC <70%, DLCO <60%, estensione HRCT >20%, desaturazione al 6MWT.",
+          "Criteri di progressione (PPF): declino FVC ≥5% in 1 anno, declino DLCO ≥10%, aumento estensione HRCT, peggioramento sintomatico.",
+          "Monitoraggio: PFR + sintomi ogni 3-6 mesi nel primo anno; HRCT annuale se progressione sospetta.",
+          "6-minute walk test: utile per monitoraggio e valutazione PH associata.",
+        ],
+      },
+      {
+        title: "Terapia di prima linea - SSc-ILD",
+        items: [
+          "Micofenolato mofetil 2-3 g/die come prima scelta (estensione HRCT ≥20% o FVC <80% o declino funzionale).",
+          "Alternativa: ciclofosfamide (e.v. cicli) nei casi rapidamente progressivi.",
+          "Tocilizumab (162 mg/sett s.c.): efficace nella stabilizzazione FVC, considerare in pazienti a rischio progressione.",
+          "Nintedanib: aggiungere se progressione nonostante terapia immunosoppressiva (PPF), trial SENSCIS.",
+        ],
+      },
+      {
+        title: "Terapia - Miosite-ILD",
+        items: [
+          "Prima linea: GC + MMF o azatioprina (tutte le miositi).",
+          "Anti-MDA5 con RP-ILD: terapia AGGRESSIVA precoce (triple therapy: GC alte dosi + tacrolimus + ciclofosfamide; plasmaferesi/IVIG nei casi severi).",
+          "Anti-sintetasi (Jo-1, PL-7, PL-12): MMF, ciclofosfamide o rituximab.",
+          "Tofacitinib o baricitinib: evidenza crescente in MDA5-ILD refrattaria.",
+        ],
+      },
+      {
+        title: "Terapia - AR-ILD",
+        items: [
+          "Sospendere MTX SOLO se sospetto danno polmonare iatrogeno (NON di routine, le evidenze 2023-2024 hanno riabilitato MTX).",
+          "Rituximab o abatacept preferibili a TNFi in AR-ILD nota (TNFi possono peggiorare ILD in alcuni casi).",
+          "Nintedanib: approvato per PPF-AR (trial INBUILD), aggiungere se progressione.",
+        ],
+      },
+      {
+        title: "PPF (Progressive Pulmonary Fibrosis) - approccio trasversale",
+        items: [
+          "Definizione: ≥2 criteri in 12 mesi tra: peggioramento sintomi respiratori, declino FVC ≥5%, declino DLCO ≥10%, aumento fibrosi/honeycombing su HRCT.",
+          "Nintedanib 150 mg x 2/die raccomandato in TUTTE le CTD-ILD con fenotipo PPF (SSc, AR, miositi, Sjögren, MCTD).",
+          "Continuare o aggiungere immunosoppressore appropriato alla CTD sottostante.",
+          "Pirfenidone: dati più limitati nelle CTD-ILD; considerare se nintedanib controindicato.",
+        ],
+      },
+      {
+        title: "Trapianto di polmone",
+        items: [
+          "Considerare precocemente in pazienti giovani con ILD progressiva nonostante terapia massimale.",
+          "SSc non è più controindicazione assoluta se GI/cardiaco/renale ben controllati.",
+          "Referral in centro di trapianto quando FVC <50% o DLCO <30% o desaturazione marcata al 6MWT.",
+        ],
+      },
+    ],
+    note: "Prima linea guida congiunta ERS/EULAR CTD-ILD; innovazioni chiave: stratificazione PPF, nintedanib esteso a tutte le CTD-ILD progressive, ruolo crescente tocilizumab in SSc-ILD, approccio più aggressivo in anti-MDA5 RP-ILD.",
+  },
+
+  // ============ EULAR 2019 - Vaccinazioni ============
+  {
+    id: "eular_2019_vaccination",
+    name: "Vaccinazioni nei pazienti con malattie reumatiche autoimmuni",
+    disease: "Vaccinazioni e profilassi",
+    source: "EULAR 2019 (Furer)",
+    year: 2019,
+    url: "https://ard.bmj.com/content/79/1/39",
+    urls: [
+      { label: "PubMed", href: "https://pubmed.ncbi.nlm.nih.gov/31413005/" },
+      { label: "PMC full text", href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10324938/" },
+    ],
+    intro:
+      "Raccomandazioni EULAR 2019 per la vaccinazione in pazienti adulti con AIIRD (Furer et al.): 6 principi generali + 9 raccomandazioni specifiche. Aggiornamento delle linee guida 2011 basato su revisioni sistematiche di rischio infettivo, efficacia e sicurezza vaccinale.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "Valutare annualmente lo stato vaccinale di ogni paziente con AIIRD.",
+          "Decisione condivisa con il paziente su benefici e rischi della vaccinazione.",
+          "Programmare le vaccinazioni quando la malattia è QUIESCENTE, idealmente PRIMA di iniziare immunosoppressori.",
+          "Vaccini NON VIVI sono sicuri in pazienti in qualunque terapia (csDMARD, bDMARD, tsDMARD, GC).",
+          "Vaccini VIVI ATTENUATI richiedono cautela; preferibilmente prima dell'inizio dei biologici.",
+          "Coinvolgere il medico di famiglia e coordinarsi con i centri vaccinali territoriali.",
+        ],
+      },
+      {
+        title: "Vaccini FORTEMENTE raccomandati",
+        items: [
+          "INFLUENZA: annuale, TUTTI i pazienti con AIIRD. Vaccino inattivato quadrivalente.",
+          "PNEUMOCOCCO: schema sequenziale PCV13 (Prevenar13) seguito da PPV23 (Pneumovax23) a distanza di 8 settimane. Richiamo PPV23 a 5 anni.",
+          "SARS-CoV-2: primario + richiami secondo raccomandazioni nazionali aggiornate.",
+        ],
+      },
+      {
+        title: "Altri vaccini non-vivi raccomandati",
+        items: [
+          "TETANO (Tdap): secondo schema generale della popolazione; in pazienti che hanno ricevuto rituximab negli ultimi 6 mesi, considerare immunoglobuline antitetano passive in caso di ferita a rischio.",
+          "HPV: somministrare secondo le indicazioni generali della popolazione; particolarmente incoraggiato nelle pazienti con LES (maggiore rischio di infezione HPV persistente).",
+          "EPATITE A e B: pazienti a rischio (viaggi, conviventi, tossicodipendenti, sanitari, pre-terapia con rituximab/biologici).",
+          "HERPES ZOSTER ricombinante (Shingrix): raccomandato in tutti i pazienti AIIRD >50 anni (vaccino NON vivo, sicuro anche in immunosoppressione).",
+          "Meningococco, Haemophilus influenzae B: nei pazienti con deficit del complemento o in terapia con eculizumab.",
+        ],
+      },
+      {
+        title: "Vaccini VIVI ATTENUATI - cautela",
+        items: [
+          "MMR (morbillo-parotite-rosolia): controindicato in immunosoppressione significativa; se possibile, somministrare prima dell'inizio del biologico.",
+          "Varicella: stessa cautela; verificare stato sierologico prima della terapia.",
+          "Febbre gialla: controindicata durante terapia biologica; se viaggio in area endemica è indispensabile, valutare sospensione temporanea (caso per caso).",
+          "BCG, rotavirus, polio orale: controindicati in immunosoppressione.",
+          "Herpes zoster VIVO (Zostavax): NON usare se disponibile Shingrix (ricombinante, sicuro).",
+        ],
+      },
+      {
+        title: "Contesti particolari",
+        items: [
+          "RITUXIMAB: vaccinare ALMENO 6 mesi dopo l'ultima infusione (ripresa linfociti B); meglio prima dell'induzione.",
+          "JAK inibitori e metotrexato: vaccini inattivati sicuri; possibile riduzione della risposta.",
+          "Gravidanza in AIIRD: influenza + Tdap raccomandati; evitare vivi.",
+          "Neonati esposti in utero a TNFi (soprattutto 3° trimestre) o rituximab: EVITARE vaccini vivi (BCG, rotavirus) per ALMENO 6 mesi.",
+          "Conviventi di paziente AIIRD: vaccinare come popolazione generale; EVITARE la polio orale; rotavirus nei neonati conviventi è sicuro.",
+        ],
+      },
+      {
+        title: "Monitoraggio risposta vaccinale",
+        items: [
+          "Titoli anticorpali post-vaccinazione utili in pazienti in rituximab o biologici intensi.",
+          "HBsAb quantitativo dopo ciclo epatite B.",
+          "Pneumococco: no monitoraggio di routine; richiamo PPV23 a 5 anni.",
+        ],
+      },
+    ],
+    note: "Le raccomandazioni sono state parzialmente aggiornate post-COVID-19 per includere vaccinazioni SARS-CoV-2; l'herpes zoster ricombinante Shingrix (non-vivo) ha reso obsoleta la controindicazione al vaccino vivo Zostavax negli immunosoppressi.",
+  },
+
+  // ============ ACR/AAHKS 2022 - Perioperatorio ============
+  {
+    id: "acr_aahks_2022_perioperative",
+    name: "Gestione perioperatoria dei farmaci antireumatici (chirurgia elettiva)",
+    disease: "Perioperatorio",
+    source: "ACR/AAHKS 2022 (Goodman)",
+    year: 2022,
+    url: "https://rheumatology.org/perioperative-management-guideline",
+    urls: [
+      { label: "PubMed", href: "https://pubmed.ncbi.nlm.nih.gov/35732511/" },
+      { label: "Full text Wiley", href: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/acr.24893" },
+      { label: "AAHKS page", href: "https://www.aahks.org/perioperative-management-guidelines/" },
+    ],
+    intro:
+      "Linee guida ACR/AAHKS 2022 (Goodman et al.) per la gestione perioperatoria dei farmaci antireumatici (DMARDs, biologici, tsDMARDs, glucocorticoidi) in pazienti con malattie reumatiche (AR, SpA, JIA, LES) sottoposti ad ARTROPLASTICA ELETTIVA dell'anca o ginocchio. Aggiornamento 2022 estende raccomandazioni a nuovi farmaci e al LES.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "Obiettivo: bilanciare rischio infezione peri-operatoria vs rischio di flare di malattia.",
+          "Le raccomandazioni si applicano a chirurgia elettiva; in urgenza prevale il giudizio clinico.",
+          "Coordinamento tra reumatologo, chirurgo ortopedico e paziente (decisione condivisa).",
+          "Le raccomandazioni 2022 si estendono anche al LES (non solo ad artrite infiammatoria).",
+        ],
+      },
+      {
+        title: "DMARDs convenzionali - CONTINUARE per tutta la perioperatoria",
+        items: [
+          "Methotrexato: CONTINUARE al dosaggio abituale (evidenza robusta: no aumento infezioni).",
+          "Leflunomide: CONTINUARE.",
+          "Sulfasalazina: CONTINUARE.",
+          "Idrossiclorochina: CONTINUARE (cardioprotettiva in LES).",
+          "Azatioprina, ciclosporina, tacrolimus: continuare in LES severo/attivo; valutare caso per caso in AR.",
+          "Apremilast (non-biologico tsDMARD): continuare.",
+        ],
+      },
+      {
+        title: "Biologici e JAK inibitori - SOSPENDERE preoperatoriamente",
+        items: [
+          "TNFi (adalimumab, etanercept, infliximab, golimumab, certolizumab): programmare chirurgia alla FINE dell'intervallo di somministrazione (es. adalimumab s.c. 40 mg ogni 2 sett → operare alla settimana 2, successiva dose post-operatoria).",
+          "Tocilizumab e.v. (ogni 4 sett) → operare a settimana 5; s.c. (settimanale) → saltare ultima dose.",
+          "Rituximab (ogni 4-6 mesi): operare al mese 7 (1 mese dopo l'inizio del nuovo ciclo).",
+          "Abatacept: s.c. settimanale → saltare ultima dose; e.v. ogni 4 sett → operare a settimana 5.",
+          "Ustekinumab: operare a settimana 13 (12 settimane tra le dosi + 1 settimana margine).",
+          "Secukinumab/Ixekizumab (IL-17i): saltare ultima dose prima della chirurgia.",
+          "JAK inibitori (tofacitinib, baricitinib, upadacitinib, filgotinib): SOSPENDERE 3 GIORNI prima della chirurgia.",
+          "RIPRESA post-operatoria: tutti i biologici/JAKi possono essere ripresi una volta che la guarigione della ferita è evidente (tipicamente 14 giorni) e in assenza di segni di infezione.",
+        ],
+      },
+      {
+        title: "Glucocorticoidi",
+        items: [
+          "Dose ≤10 mg/die prednisone equivalente: CONTINUARE la dose abituale (no stress dose di routine).",
+          "Dose 10-20 mg/die: continuare al dosaggio abituale senza supplementazione di routine.",
+          "Dose >20 mg/die: considerare STRESS DOSE perioperatoria (idrocortisone 50-100 mg e.v. all'induzione + tapering rapido nelle 24-48h).",
+          "Prima della chirurgia: se possibile, ottimizzare riducendo il GC a ≤10 mg/die durante la pianificazione preoperatoria.",
+        ],
+      },
+      {
+        title: "LES - indicazioni specifiche (nuove in 2022)",
+        items: [
+          "LES SEVERO ATTIVO (renale, SNC, cardiopolmonare): continuare tutti i farmaci (rituximab, belimumab, MMF, AZA) in consulto con il reumatologo. Rinviare chirurgia elettiva se possibile.",
+          "LES NON SEVERO: idrossiclorochina sempre continuata; MMF/AZA/MTX continuati; biologici (belimumab, rituximab) SOSPESI secondo i criteri dei biologici generali.",
+          "Anifrolumab: dati limitati; gestire come biologico (sospendere pre-operatoriamente e riprendere dopo guarigione ferita).",
+        ],
+      },
+      {
+        title: "Valutazione pre-operatoria",
+        items: [
+          "Controllare screening attivo: TBC latente (IGRA), epatiti B/C, HIV se non già fatto per l'inizio del biologico.",
+          "Ottimizzare comorbidità: diabete, BPCO, scompenso cardiaco, insufficienza renale.",
+          "Ridurre al minimo GC cronici, fumo, obesità grave (BMI>40) - fattori di rischio indipendenti di infezione protesi.",
+          "Screening nasale S. aureus e decolonizzazione con mupirocina + clorexidina nella settimana pre-operatoria.",
+        ],
+      },
+    ],
+    note: "Le raccomandazioni si applicano a chirurgia elettiva ortopedica maggiore (principalmente THA/TKA). In urgenza o per altri interventi (es. cardiochirurgia, chirurgia addominale maggiore) i principi sono estrapolabili ma la decisione è del team chirurgico.",
+  },
 ];
 
 export const GUIDELINE_GROUPS = Array.from(new Set(GUIDELINES.map((g) => g.disease)));

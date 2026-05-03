@@ -23,12 +23,12 @@ const PINNED_CRITERIA = [
 ];
 
 const PINNED_GUIDELINES = [
-  "ers_acr_eular_2023_ild",
+  "ers_eular_2025_ctd_ild",
+  "eular_2025_ra",
+  "eular_2025_behcet",
   "eular_2024_pregnancy",
-  "bsr_2022_pregnancy_drugs",
-  "eular_2018_lvv",
-  "eular_2019_aps",
-  "eular_2023_sle",
+  "eular_2019_vaccination",
+  "acr_aahks_2022_perioperative",
 ];
 
 export default function Dashboard() {
@@ -60,7 +60,7 @@ export default function Dashboard() {
     .map((id) => GUIDELINES.find((g) => g.id === id))
     .filter(Boolean);
 
-  const ildGuide = GUIDELINES.find((g) => g.id === "ers_acr_eular_2023_ild");
+  const ildGuide = GUIDELINES.find((g) => g.id === "ers_eular_2025_ctd_ild") || GUIDELINES.find((g) => g.id === "ers_acr_eular_2023_ild");
 
   return (
     <div className="space-y-8" data-testid="dashboard-page">
@@ -180,10 +180,13 @@ export default function Dashboard() {
           </div>
           <div className="divide-y divide-gray-200">
             {pinnedGuidelines.map((g) => {
-              const isILD = g.id === "ers_acr_eular_2023_ild";
+              const isILD = g.id === "ers_acr_eular_2023_ild" || g.id === "ers_eular_2025_ctd_ild";
               const isPreg = g.disease === "Gravidanza e RMD";
               const isAPS = g.disease === "APS";
               const isLVV = g.disease === "Vasculiti grandi vasi";
+              const isVacc = g.disease === "Vaccinazioni e profilassi";
+              const isPeriop = g.disease === "Perioperatorio";
+              const isNew = g.year === 2025;
               return (
                 <Link
                   key={g.id}
@@ -197,6 +200,9 @@ export default function Dashboard() {
                       {isPreg && <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-100 text-[10px] px-1.5 py-0">Gravidanza</Badge>}
                       {isAPS && <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-[10px] px-1.5 py-0">APS</Badge>}
                       {isLVV && <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 text-[10px] px-1.5 py-0">LVV</Badge>}
+                      {isVacc && <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 text-[10px] px-1.5 py-0">Vaccini</Badge>}
+                      {isPeriop && <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 text-[10px] px-1.5 py-0">Perioperatorio</Badge>}
+                      {isNew && <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] px-1.5 py-0">2025</Badge>}
                       {g.name}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">{g.source} · {g.year}</div>

@@ -42,6 +42,27 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v14)
+- [x] **FIX VEDOSS**: ristrutturato a 2 livelli secondo EUSTAR ufficiale.
+  LIVELLO 1 (3 red flags obbligatori: Raynaud + ANA + Puffy fingers).
+  LIVELLO 2 (≥1 marker specifico: ACA / Scl-70 / RNAP3 / capillaroscopia
+  sclerodermica).
+- [x] **EULAR 2025 Artrite Reumatoide update** (Smolen): 5 principi + 9
+  raccomandazioni, focus su sicurezza JAKi, biosimilari, tapering.
+- [x] **EULAR 2025 Behçet update**: 5 principi + 12 raccomandazioni per
+  organo (mucocutaneo, oculare, vascolare, neurologico, GI); TNFα
+  monoclonali precocemente in vascolare/neurologico, infliximab in uveite.
+- [x] **ERS/EULAR 2025 CTD-ILD** (clinical practice guideline,
+  DOI 10.1016/j.ard.2025.08.021): screening, diagnosi, stratificazione,
+  terapia per SSc/miositi/AR-ILD, PPF trasversale, nintedanib esteso.
+- [x] **EULAR 2019 Vaccinazioni** (Furer): 6 principi + 9 raccomandazioni
+  su influenza, pneumococco, HPV, Shingrix, COVID-19, vivi attenuati,
+  rituximab, gravidanza e conviventi.
+- [x] **ACR/AAHKS 2022 Perioperatorio** (Goodman): gestione DMARDs/
+  biologici/JAKi/GC per artroplastica elettiva THA/TKA + LES specifici.
+- [x] Dashboard: nuovi badge "Vaccini" (azzurro), "Perioperatorio"
+  (arancione), "2025" (verde). ILD spotlight ora preferisce la 2025.
+
 ## Implemented (2026-02-10 - v13)
 - [x] **GDPR-safe Mode - Pseudonimizzazione forte** per ridurre gli obblighi
   privacy ed eliminare la necessità di firma consenso del paziente.
