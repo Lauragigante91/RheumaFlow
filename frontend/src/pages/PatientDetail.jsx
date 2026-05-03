@@ -23,6 +23,7 @@ import TherapySection from "../components/TherapySection";
 import ExamsSection from "../components/ExamsSection";
 import RemindersSection from "../components/RemindersSection";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
+import VisitImportButton from "../components/VisitImportButton";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -38,6 +39,10 @@ export default function PatientDetail() {
   const [newType, setNewType] = useState("das28_esr");
   const [editingAssessment, setEditingAssessment] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState("all");
+  const [histFilterType, setHistFilterType] = useState("all");
+  const [histDateFrom, setHistDateFrom] = useState("");
+  const [histDateTo, setHistDateTo] = useState("");
+  const [histSort, setHistSort] = useState("date_desc");
 
   const load = async () => {
     const p = await patientsApi.get(id);
@@ -133,6 +138,40 @@ export default function PatientDetail() {
       }));
   }, [assessments, selectedIndex]);
 
+  const historyIndexOptions = useMemo(() => {
+    const set = new Set();
+    assessments.forEach((a) => set.add(a.index_type));
+    return Array.from(set);
+  }, [assessments]);
+
+  const filteredAssessments = useMemo(() => {
+    let result = assessments.filter((a) => {
+      if (histFilterType !== "all" && a.index_type !== histFilterType) return false;
+      if (histDateFrom && a.date < histDateFrom) return false;
+      if (histDateTo && a.date > histDateTo) return false;
+      return true;
+    });
+    result.sort((a, b) => {
+      switch (histSort) {
+        case "date_asc":
+          return (a.date || "").localeCompare(b.date || "");
+        case "date_desc":
+          return (b.date || "").localeCompare(a.date || "");
+        case "score_asc":
+          return (a.score ?? -Infinity) - (b.score ?? -Infinity);
+        case "score_desc":
+          return (b.score ?? -Infinity) - (a.score ?? -Infinity);
+        case "index":
+          return (INDEX_LABELS[a.index_type] || a.index_type).localeCompare(
+            INDEX_LABELS[b.index_type] || b.index_type, "it"
+          );
+        default:
+          return 0;
+      }
+    });
+    return result;
+  }, [assessments, histFilterType, histDateFrom, histDateTo, histSort]);
+
   if (!patient) {
     return <div className="p-10 text-gray-500">Caricamento...</div>;
   }
@@ -165,6 +204,7 @@ export default function PatientDetail() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <VisitImportButton patient={patient} onImported={load} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="new-assessment-btn">
@@ -337,14 +377,60 @@ export default function PatientDetail() {
       </Card>
 
       {/* History table */}
-      <Card className="border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="font-heading font-bold text-xl tracking-tight">Storico valutazioni</h2>
+      <Card className="border-gray-200 shadow-sm overflow-hidden" data-testid="assessment-history">
+        <div className="p-6 border-b border-gray-200 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="font-heading font-bold text-xl tracking-tight">Storico valutazioni</h2>
+            <span className="text-xs text-gray-500" data-testid="history-count">
+              {filteredAssessments.length} su {assessments.length}
+            </span>
+          </div>
+          {assessments.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Select value={histFilterType} onValueChange={setHistFilterType}>
+                <SelectTrigger className="h-8 text-xs" data-testid="history-filter-type"><SelectValue placeholder="Indice" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tutti gli indici</SelectItem>
+                  {historyIndexOptions.map((it) => (
+                    <SelectItem key={it} value={it}>{INDEX_LABELS[it] || it}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input
+                type="date"
+                value={histDateFrom}
+                onChange={(e) => setHistDateFrom(e.target.value)}
+                className="h-8 text-xs px-2 border border-gray-200 rounded-md bg-white"
+                placeholder="Da"
+                data-testid="history-from"
+              />
+              <input
+                type="date"
+                value={histDateTo}
+                onChange={(e) => setHistDateTo(e.target.value)}
+                className="h-8 text-xs px-2 border border-gray-200 rounded-md bg-white"
+                placeholder="A"
+                data-testid="history-to"
+              />
+              <Select value={histSort} onValueChange={setHistSort}>
+                <SelectTrigger className="h-8 text-xs" data-testid="history-sort"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Data ↓ (recenti)</SelectItem>
+                  <SelectItem value="date_asc">Data ↑ (vecchi)</SelectItem>
+                  <SelectItem value="score_desc">Score ↓</SelectItem>
+                  <SelectItem value="score_asc">Score ↑</SelectItem>
+                  <SelectItem value="index">Indice (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         {assessments.length === 0 ? (
           <div className="p-10 text-center text-gray-500" data-testid="empty-assessments">
             Nessuna valutazione. Clicca "Nuova valutazione" per iniziare.
           </div>
+        ) : filteredAssessments.length === 0 ? (
+          <div className="p-10 text-center text-gray-500">Nessun risultato per questi filtri.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -360,7 +446,7 @@ export default function PatientDetail() {
                 </tr>
               </thead>
               <tbody>
-                {assessments.map((a) => {
+                {filteredAssessments.map((a) => {
                   const resp = responseByAssessmentId[a.id];
                   return (
                   <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`assessment-row-${a.id}`}>

@@ -12,7 +12,12 @@ from typing import List, Optional, Dict, Any
 
 import bcrypt
 import jwt
+import json
+import csv
+import io
+import zipfile
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
+from fastapi.responses import StreamingResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
@@ -651,6 +656,209 @@ async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_use
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Reminder non trovato")
     return {"success": True}
+
+
+# ==================== EXPORT DATABASE ====================
+COLLECTIONS_TO_EXPORT = [
+    "patients", "assessments", "criteria_evaluations",
+    "therapies", "lab_exams", "reminders", "sclero_profiles",
+]
+
+
+async def _collect_org_data(organization_id: str) -> dict:
+    data = {}
+    for col in COLLECTIONS_TO_EXPORT:
+        docs = await db[col].find({"organization_id": organization_id}, {"_id": 0}).to_list(100000)
+        data[col] = docs
+    return data
+
+
+@api_router.get("/export/json")
+async def export_json(user: dict = Depends(get_current_user)):
+    """Export all org data as a single JSON file."""
+    data = await _collect_org_data(user["organization_id"])
+    payload = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_by": user.get("name"),
+        "organization_id": user["organization_id"],
+        "version": 1,
+        **data,
+    }
+    body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = f"clinimetria_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+def _flatten_for_csv(value):
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    return value if value is not None else ""
+
+
+@api_router.get("/export/csv-zip")
+async def export_csv_zip(user: dict = Depends(get_current_user)):
+    """Export all org data as a ZIP of CSV files (one per collection)."""
+    data = await _collect_org_data(user["organization_id"])
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for col, rows in data.items():
+            csv_buf = io.StringIO()
+            if rows:
+                # Union of all keys across rows for stable schema
+                keys = []
+                seen = set()
+                for r in rows:
+                    for k in r.keys():
+                        if k not in seen:
+                            seen.add(k)
+                            keys.append(k)
+                writer = csv.DictWriter(csv_buf, fieldnames=keys, extrasaction="ignore")
+                writer.writeheader()
+                for r in rows:
+                    writer.writerow({k: _flatten_for_csv(r.get(k)) for k in keys})
+            else:
+                csv_buf.write("(no records)\n")
+            zf.writestr(f"{col}.csv", csv_buf.getvalue())
+        # Manifest
+        manifest = {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_by": user.get("name"),
+            "organization_id": user["organization_id"],
+            "counts": {col: len(rows) for col, rows in data.items()},
+        }
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+
+    buf.seek(0)
+    fname = f"clinimetria_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.zip"
+    return Response(
+        content=buf.read(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ==================== AI VISIT PARSING ====================
+class ParseVisitRequest(BaseModel):
+    text: str
+    patient_id: Optional[str] = None  # if provided, scope to existing patient
+
+
+PARSING_SCHEMA_PROMPT = """Sei un assistente clinico esperto in REUMATOLOGIA. Estrai dati strutturati dal testo della visita medica in italiano.
+Restituisci ESCLUSIVAMENTE un oggetto JSON valido (no markdown, no commenti, no testo prima/dopo) con questa struttura:
+
+{
+  "patient": {
+    "nome": "string|null",
+    "cognome": "string|null",
+    "data_nascita": "YYYY-MM-DD|null",
+    "sesso": "M|F|null",
+    "codice_fiscale": "string|null",
+    "diagnosi": "string|null"
+  },
+  "assessments": [
+    {
+      "index_type": "das28_esr|das28_crp|cdai|sdai|basdai|asdas_crp|dapsa|sledai|haq|pasi|basfi|basmi|essdai|esspri|bvas|mmt8|fiqr|mrss|capillaroscopy|schober",
+      "date": "YYYY-MM-DD|null",
+      "score": "number|null",
+      "interpretation": "string|null",
+      "tender_count": "number|null",
+      "swollen_count": "number|null",
+      "inputs": {"any clinically relevant input fields key-value"}
+    }
+  ],
+  "lab_exams": [
+    {
+      "category": "autoanticorpi|complemento|fase_acuta|emocromo|funzione_organi|urine|altro",
+      "date": "YYYY-MM-DD|null",
+      "results": [
+        {"name": "string", "value": "string", "unit": "string|null", "qualitative": "positivo|negativo|borderline|null", "title": "string|null"}
+      ]
+    }
+  ],
+  "therapies": [
+    {
+      "drug_name": "string",
+      "category": "csDMARD|bDMARD|tsDMARD|glucocorticoid|NSAID|analgesic|supportive|other",
+      "dose": "string|null",
+      "frequency": "string|null",
+      "route": "string|null",
+      "start_date": "YYYY-MM-DD|null",
+      "status": "active|discontinued|completed",
+      "notes": "string|null"
+    }
+  ],
+  "sclero_profile": {
+    "cutaneous": {"subset": "sine_scleroderma|limited|diffuse|null", "mrss_score": "number|null", "sclerodactyly": "bool|null", "puffy_fingers": "bool|null", "telangiectasias": "bool|null", "calcinosis": "bool|null", "face_involvement": "bool|null"},
+    "antibody": {"ana": "string|null", "aca": "neg|pos|borderline|null", "scl70": "neg|pos|borderline|null", "rnap3": "neg|pos|borderline|null", "u3rnp_fibrillarin": "neg|pos|borderline|null", "th_to": "neg|pos|borderline|null", "pm_scl": "neg|pos|borderline|null", "ku": "neg|pos|borderline|null", "u1rnp": "neg|pos|borderline|null"},
+    "vascular": {"raynaud": "absent|primary|secondary|null", "raynaud_onset_year": "number|null", "digital_ulcers": "none|past|active_one|active_multiple|null", "capillaroscopy_pattern": "normal|non_specific|early|active|late|null", "pitting_scars": "bool|null", "gangrene": "bool|null", "renal_crisis": "bool|null", "therapy": "string|null"},
+    "ild": {"present": "no|yes_stable|yes_progressive|not_assessed|null", "hrct_pattern": "none|nsip|uip|op|mixed|null", "extent": "limited|extensive|null", "fvc_percent": "number|null", "dlco_percent": "number|null", "six_mwt": "number|null", "therapy": "string|null"},
+    "pah": {"status": "not_screened|negative|suspected|confirmed|null", "echo_psap": "number|null", "nt_probnp": "number|null", "rhc_done": "yes|no|null", "rhc_mpap": "number|null", "rhc_pcwp": "number|null", "rhc_pvr": "number|null", "who_class": "I|II|III|IV|null", "therapy": "string|null"},
+    "gi": {"gerd": "bool|null", "esophageal_dysmotility": "bool|null", "dysphagia": "bool|null", "gavedeformation": "bool|null", "sibo": "bool|null", "intestinal_pseudo_obstruction": "bool|null", "fecal_incontinence": "bool|null", "weight_loss": "bool|null", "therapy": "string|null"},
+    "msk": {"arthralgia": "bool|null", "synovitis": "bool|null", "tendon_friction_rubs": "bool|null", "contractures": "bool|null", "myalgia": "bool|null", "myositis": "bool|null", "weakness": "bool|null", "ck_value": "number|null", "therapy": "string|null"}
+  },
+  "summary": "breve riepilogo italiano della visita (max 3 righe)"
+}
+
+REGOLE:
+- Lascia i campi a null se non esplicitamente menzionati nel testo. NON inventare.
+- Date in formato ISO YYYY-MM-DD. Se solo l'anno è presente, ometti il campo.
+- Per "swollen_count" / "tender_count" estrai numeri di articolazioni se menzionati.
+- Per anticorpi: "pos" se positivo, "neg" se negativo, "borderline" se debole/dubbio.
+- Per "sclero_profile" compila SOLO se la diagnosi è sclerosi sistemica/sclerodermia/SSc/VEDOSS.
+- Output: solo JSON puro. Inizia con { e finisci con }. NIENTE altro."""
+
+
+async def _call_claude_extract(text: str) -> dict:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
+
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=f"parse-{uuid.uuid4()}",
+        system_message=PARSING_SCHEMA_PROMPT,
+    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+
+    user_message = UserMessage(text=f"Testo della visita:\n\n{text}\n\nRestituisci JSON.")
+    response = await chat.send_message(user_message)
+    raw = (response or "").strip()
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        # remove leading "json\n" if present
+        if raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
+    # Find first { and last }
+    if "{" in raw and "}" in raw:
+        raw = raw[raw.index("{"): raw.rindex("}") + 1]
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Risposta AI non valida: {e}")
+
+
+@api_router.post("/ai/parse-visit")
+async def parse_visit_text(payload: ParseVisitRequest, user: dict = Depends(get_current_user)):
+    text = (payload.text or "").strip()
+    if len(text) < 30:
+        raise HTTPException(status_code=400, detail="Testo troppo breve")
+    if len(text) > 25000:
+        raise HTTPException(status_code=400, detail="Testo troppo lungo (max 25000 caratteri)")
+
+    try:
+        data = await _call_claude_extract(text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("AI parse error")
+        raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
+
+    return {"extracted": data}
 
 
 # ==================== STATS ====================

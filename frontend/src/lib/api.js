@@ -82,3 +82,13 @@ export const scleroProfileApi = {
   upsert: (patientId, data) =>
     api.put(`/patients/${patientId}/sclero-profile`, { ...data, patient_id: patientId }).then((r) => r.data),
 };
+
+export const exportApi = {
+  json: () => `${API}/export/json`,
+  csvZip: () => `${API}/export/csv-zip`,
+};
+
+export const aiApi = {
+  parseVisit: (text, patientId = null) =>
+    api.post("/ai/parse-visit", { text, patient_id: patientId }).then((r) => r.data),
+};

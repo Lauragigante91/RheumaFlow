@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { patientsApi } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -8,15 +8,40 @@ import { Card } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Plus, Search, User, Trash2, Edit } from "lucide-react";
+import { Plus, Search, User, Trash2, Edit, ArrowUpDown, X } from "lucide-react";
 import { toast } from "sonner";
 import ItalianDatePicker from "../components/ItalianDatePicker";
 
 const emptyForm = { nome: "", cognome: "", data_nascita: "", sesso: "", codice_fiscale: "", diagnosi: "", note: "" };
 
+const SORT_OPTIONS = [
+  { value: "cognome_asc", label: "Cognome (A→Z)" },
+  { value: "cognome_desc", label: "Cognome (Z→A)" },
+  { value: "created_desc", label: "Più recenti" },
+  { value: "created_asc", label: "Più vecchi" },
+  { value: "age_asc", label: "Età crescente" },
+  { value: "age_desc", label: "Età decrescente" },
+];
+
+function calcAge(dataNascita) {
+  if (!dataNascita) return null;
+  const dob = new Date(dataNascita);
+  if (isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+
 export default function Patients() {
   const [patients, setPatients] = useState([]);
   const [filter, setFilter] = useState("");
+  const [sex, setSex] = useState("all");
+  const [diagnosis, setDiagnosis] = useState("all");
+  const [ageMin, setAgeMin] = useState("");
+  const [ageMax, setAgeMax] = useState("");
+  const [sortBy, setSortBy] = useState("cognome_asc");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -57,11 +82,58 @@ export default function Patients() {
     load();
   };
 
-  const filtered = patients.filter((p) =>
-    `${p.cognome} ${p.nome} ${p.codice_fiscale || ""} ${p.diagnosi || ""}`
-      .toLowerCase()
-      .includes(filter.toLowerCase())
-  );
+  const diagnosisOptions = useMemo(() => {
+    const set = new Set();
+    patients.forEach((p) => { if (p.diagnosi) set.add(p.diagnosi); });
+    return Array.from(set).sort();
+  }, [patients]);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    let result = patients.filter((p) => {
+      if (q) {
+        const text = `${p.cognome} ${p.nome} ${p.codice_fiscale || ""} ${p.diagnosi || ""}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      if (sex !== "all" && p.sesso !== sex) return false;
+      if (diagnosis !== "all") {
+        if (diagnosis === "_none" && p.diagnosi) return false;
+        if (diagnosis !== "_none" && p.diagnosi !== diagnosis) return false;
+      }
+      const age = calcAge(p.data_nascita);
+      if (ageMin !== "" && (age === null || age < Number(ageMin))) return false;
+      if (ageMax !== "" && (age === null || age > Number(ageMax))) return false;
+      return true;
+    });
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "cognome_asc":
+          return (a.cognome || "").localeCompare(b.cognome || "", "it");
+        case "cognome_desc":
+          return (b.cognome || "").localeCompare(a.cognome || "", "it");
+        case "created_desc":
+          return (b.created_at || "").localeCompare(a.created_at || "");
+        case "created_asc":
+          return (a.created_at || "").localeCompare(b.created_at || "");
+        case "age_asc":
+          return (calcAge(a.data_nascita) ?? 999) - (calcAge(b.data_nascita) ?? 999);
+        case "age_desc":
+          return (calcAge(b.data_nascita) ?? -1) - (calcAge(a.data_nascita) ?? -1);
+        default:
+          return 0;
+      }
+    });
+    return result;
+  }, [patients, filter, sex, diagnosis, ageMin, ageMax, sortBy]);
+
+  const hasActiveFilters = filter || sex !== "all" || diagnosis !== "all" || ageMin !== "" || ageMax !== "";
+  const clearFilters = () => {
+    setFilter("");
+    setSex("all");
+    setDiagnosis("all");
+    setAgeMin("");
+    setAgeMax("");
+  };
 
   return (
     <div className="space-y-6 fade-in" data-testid="patients-page">
@@ -128,17 +200,71 @@ export default function Patients() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input
-          className="pl-9"
-          placeholder="Cerca per cognome, nome, CF o diagnosi"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          data-testid="patient-search"
-        />
-      </div>
+      {/* Search & filters */}
+      <Card className="border-gray-200 shadow-sm p-4 space-y-3" data-testid="patients-filters">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[260px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              className="pl-9"
+              placeholder="Cerca per cognome, nome, CF o diagnosi"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              data-testid="patient-search"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-44" data-testid="patient-sort">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} data-testid="patient-clear-filters">
+              <X className="w-3.5 h-3.5 mr-1" /> Pulisci
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <Label className="text-[10px] uppercase tracking-[0.15em] text-gray-500">Sesso</Label>
+            <Select value={sex} onValueChange={setSex}>
+              <SelectTrigger className="mt-1" data-testid="filter-sex"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti</SelectItem>
+                <SelectItem value="M">M</SelectItem>
+                <SelectItem value="F">F</SelectItem>
+                <SelectItem value="Altro">Altro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase tracking-[0.15em] text-gray-500">Diagnosi</Label>
+            <Select value={diagnosis} onValueChange={setDiagnosis}>
+              <SelectTrigger className="mt-1" data-testid="filter-diagnosis"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutte</SelectItem>
+                <SelectItem value="_none">Senza diagnosi</SelectItem>
+                {diagnosisOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase tracking-[0.15em] text-gray-500">Età min</Label>
+            <Input type="number" min="0" max="120" value={ageMin} onChange={(e) => setAgeMin(e.target.value)} placeholder="es. 18" className="mt-1" data-testid="filter-age-min" />
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase tracking-[0.15em] text-gray-500">Età max</Label>
+            <Input type="number" min="0" max="120" value={ageMax} onChange={(e) => setAgeMax(e.target.value)} placeholder="es. 80" className="mt-1" data-testid="filter-age-max" />
+          </div>
+        </div>
+        <div className="text-xs text-gray-500" data-testid="patients-count">
+          {filtered.length} su {patients.length} pazienti
+        </div>
+      </Card>
 
       {/* Table */}
       <Card className="border-gray-200 shadow-sm overflow-hidden">

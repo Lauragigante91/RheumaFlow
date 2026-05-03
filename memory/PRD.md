@@ -42,6 +42,32 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v11)
+- [x] **Filtri/ordinamento storico valutazioni** in PatientDetail:
+  filtro per indice, range date (da/a), sort (data ↓/↑, score ↓/↑, indice A-Z),
+  conteggio "X su Y".
+- [x] **Ricerca avanzata pazienti** in Patients.jsx: ricerca testuale +
+  filtri sesso, diagnosi (con dropdown + opzione "Senza diagnosi"),
+  range età min/max, sort (Cognome A-Z/Z-A, più recenti/vecchi, età).
+  Conteggio risultati. Pulsante "Pulisci filtri" se attivi.
+- [x] **Export database** (Backend + Frontend):
+  - GET `/api/export/json` → JSON completo (tutte le collezioni org-scoped)
+  - GET `/api/export/csv-zip` → ZIP con 1 CSV per collezione + manifest.json
+  - Menu utente in sidebar con sezione "BACKUP DATABASE" e due opzioni
+    (Esporta JSON / Esporta CSV ZIP). Toast di conferma.
+- [x] **AI - Importa da testo visita** (Claude Sonnet 4.5 via Emergent LLM key):
+  - Backend: `POST /api/ai/parse-visit` con system prompt strutturato
+    estrae anagrafica, indici clinimetrici, terapie, esami lab, profilo SSc.
+  - Pulsante grande viola/fucsia "Importa da testo visita (AI)" in cima
+    alla scheda paziente.
+  - Dialog con textarea, esempio, pulsante "Estrai dati" → mostra preview
+    strutturata con checkbox per selezionare cosa applicare.
+  - Applicazione: aggiorna anagrafica, crea valutazioni/terapie/esami,
+    fa upsert+merge del profilo SSc.
+  - Gestione errore "Budget esaurito" con messaggio chiaro per top-up.
+- [x] EMERGENT_LLM_KEY aggiunto a backend/.env; emergentintegrations già
+  in requirements.txt.
+
 ## Implemented (2026-02-10 - v10)
 - [x] **Profilo Sclerodermia per paziente**: nuova sezione visibile solo
   per pazienti con diagnosi SSc/sclerodermia/VEDOSS in PatientDetail.

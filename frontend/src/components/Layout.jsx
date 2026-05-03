@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home, Database, FileJson, FileArchive } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import {
@@ -8,6 +8,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner";
+import { exportApi, api } from "../lib/api";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +25,28 @@ export default function Layout({ children }) {
     if (user?.invite_code) {
       navigator.clipboard.writeText(user.invite_code);
       toast.success("Codice invito copiato");
+    }
+  };
+
+  const downloadExport = async (kind) => {
+    try {
+      const url = kind === "json" ? exportApi.json() : exportApi.csvZip();
+      // Use axios with responseType blob to preserve cookies
+      const res = await api.get(url.replace(/^.*\/api/, ""), { responseType: "blob" });
+      const blob = new Blob([res.data]);
+      const filename =
+        res.headers["content-disposition"]?.match(/filename="([^"]+)"/)?.[1] ||
+        (kind === "json" ? "export.json" : "export.zip");
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      toast.success(`Database esportato (${kind.toUpperCase()})`);
+    } catch (e) {
+      toast.error("Errore durante l'export");
     }
   };
 
@@ -100,6 +123,16 @@ export default function Layout({ children }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>{user.role === "admin" ? "Admin" : "Membro"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">
+                    Backup database
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => downloadExport("json")} data-testid="export-json-btn">
+                    <FileJson className="w-4 h-4 mr-2" /> Esporta JSON
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadExport("csv")} data-testid="export-csv-btn">
+                    <FileArchive className="w-4 h-4 mr-2" /> Esporta CSV (ZIP)
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600" data-testid="logout-btn">
                     <LogOut className="w-4 h-4 mr-2" /> Esci
