@@ -329,6 +329,45 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-03 - v21 - Terapie & Storico intelligenti)
+- [x] **Alert interazioni farmacologiche** (`/app/frontend/src/lib/drugInteractions.js`):
+  database di 18 interazioni clinicamente rilevanti in reumatologia (MTX+TMP/SMX,
+  MTX+FANS, MTX+PPI, MTX+Leflunomide, Colchicina+Macrolidi, Colchicina+Ciclosporina,
+  Colchicina+Statine, Allopurinolo+Azatioprina/6-MP, Allopurinolo+Warfarin,
+  JAKi+Vaccini vivi, JAKi+Anticoagulanti, HCQ+farmaci QT, Biologici+Vaccini vivi,
+  Rituximab+Vaccini, GC+FANS, GC+Warfarin, Ciclofosfamide+Allopurinolo,
+  Tacrolimus/Ciclosporina+CYP3A4, FANS+Anticoagulanti, MMF+Antiacidi, Leflunomide+Warfarin).
+  Ogni interazione con livello di severità (Maggiore/Moderata/Minore), titolo e nota clinica.
+- [x] **Banner alert in TherapySection**: card colorata (rosso=Maggiore, ambra=Moderata,
+  blu=Minore) che compare automaticamente quando il paziente ha 2+ terapie attive
+  che attivano una regola. Click sulla riga → espande la nota clinica. Conteggio
+  per severità in badge circolari. Data-testid `interactions-alert` e
+  `interaction-{id}` per test.
+- [x] **Filtro clinimetrie per diagnosi**: il dropdown "Nuova valutazione" mostra
+  SOLO gli indici rilevanti per la diagnosi del paziente (es. SpA → BASDAI/ASDAS/
+  BASFI/BASMI/Schober; AR → DAS28/CDAI/SDAI/HAQ; SSc → mRSS/Capillaroscopia).
+  Toggle "Mostra tutti gli indici (avanzato)" (data-testid `toggle-all-indices`)
+  per casi fuori-quadro. Se la diagnosi non è mappata, mostra tutto.
+- [x] **Tabella storico valutazioni ristrutturata**: colonne EULAR e TJC/SJC unite
+  in un'unica colonna contestuale "Risposta / Dettagli" che mostra EULAR + joint
+  counts SOLO per indici articolari (DAS28/CDAI/SDAI/DAPSA), altrimenti "—".
+  Aggiunta nuova colonna "Terapia in corso" con pill colorate per categoria
+  (csDMARD/bDMARD/tsDMARD/GC/FANS) che mostra i farmaci attivi alla data di ogni
+  valutazione. Se nessuna terapia attiva a quella data, "Nessuna" in italico.
+  Data-testid `therapies-cell-{id}` per test.
+
+## Backlog aggiornato
+### P1
+- [ ] Refactor `AssessmentForm.jsx` (700 righe) in sotto-componenti per indice
+  in `components/forms/` — era già in backlog
+- [ ] Refactor `PatientDetail.jsx` (800 righe) in sotto-componenti (PatientHeader,
+  AssessmentHistoryTable, TrendChart, SuggestionsCard)
+- [ ] Espandere database interazioni farmacologiche con casi più rari
+  (cotrimoxazolo+warfarin, biologici+TB, ecc.)
+- [ ] Aggiungere drug interaction check anche all'atto dell'inserimento/modifica
+  di una nuova terapia (alert in tempo reale nel dialog)
+
+
 ## Backlog (Prioritized)
 ### P1
 - [ ] Date picker con locale it-IT (attualmente browser-native mm/dd/yyyy)
