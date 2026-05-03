@@ -42,6 +42,22 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v16)
+- [x] **Database farmaci con posologie standard** (`/app/frontend/src/lib/drugs.js`):
+  oltre 35 farmaci reumatologici (csDMARDs, GC, TNFi, IL-6/17/23, IL-1, CD20,
+  CTLA-4, JAKi, PDE4, antifibrotici, FANS, urico-abbassanti) con posologie
+  stratificate per indicazione (RA, PsA, axSpA, SLE, SSc, AAV, GCA/TAK,
+  Behçet, Sjögren, Uveite, IBD, PsO, HS, JIA, miositi, AOSD, CAPS/FMF, etc.).
+- [x] **Form terapia upgraded**:
+  - Dropdown "Farmaco" con lista completa + opzione "Altro (manuale)"
+  - Campo "Indicazione" che compare SOLO se il farmaco ha >1 regimen;
+    selezionando auto-compila dose/frequenza/via
+  - Auto-fill della categoria in base al farmaco
+  - Warning informativo per farmaci con dosaggi diversi per indicazione
+    (es. Secukinumab) o con posologia uniforme (es. Upadacitinib 15 mg/die)
+  - Mostra loading dose e note cliniche specifiche (es. MTX + folati,
+    HCQ max 5 mg/kg/die retinopatia, target INR DOAC, etc.)
+
 ## Implemented (2026-02-10 - v15)
 - [x] **Timeline clinimetrica con terapie in corso** in PatientDetail:
   - Toggle "Mostra terapie" (flaggabile/deflaggabile) sopra il grafico.

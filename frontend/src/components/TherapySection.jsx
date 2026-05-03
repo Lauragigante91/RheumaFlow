@@ -12,6 +12,7 @@ import { Plus, Pill, Trash2, Edit, CheckCircle2, XCircle, Sparkles } from "lucid
 import { toast } from "sonner";
 import ItalianDatePicker from "./ItalianDatePicker";
 import { THERAPY_CATEGORIES, suggestTherapiesForDiagnosis } from "../lib/therapySuggestions";
+import { DRUGS, INDICATIONS, findDrug, formatRegimen } from "../lib/drugs";
 
 const STATUS_LABELS = {
   active: "In corso",
@@ -28,6 +29,7 @@ const STATUS_COLORS = {
 const emptyForm = {
   drug_name: "",
   category: "csDMARD",
+  indication: "",
   dose: "",
   frequency: "",
   route: "",
@@ -67,21 +69,24 @@ export default function TherapySection({ patient }) {
 
   const openEdit = (t) => {
     setEditing(t);
-    setForm({ ...emptyForm, ...t });
+    const isCustom = t.drug_name && !findDrug(t.drug_name);
+    setForm({ ...emptyForm, ...t, _isCustom: isCustom });
     setOpen(true);
   };
 
   const save = async () => {
-    if (!form.drug_name) {
+    if (!form.drug_name || form.drug_name === "__custom__") {
       toast.error("Specifica il nome del farmaco");
       return;
     }
+    // Strip UI-only fields
+    const { _isCustom, _customName, ...payload } = form;
     try {
       if (editing) {
-        await therapiesApi.update(editing.id, form);
+        await therapiesApi.update(editing.id, payload);
         toast.success("Terapia aggiornata");
       } else {
-        await therapiesApi.create({ ...form, patient_id: patient.id });
+        await therapiesApi.create({ ...payload, patient_id: patient.id });
         toast.success("Terapia aggiunta");
       }
       setOpen(false);
@@ -168,8 +173,97 @@ export default function TherapySection({ patient }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Label className="text-xs uppercase tracking-[0.15em] text-gray-600">Farmaco *</Label>
-              <Input value={form.drug_name} onChange={(e) => setForm({ ...form, drug_name: e.target.value })} data-testid="therapy-drug" />
+              <Select
+                value={form._isCustom ? "__custom__" : form.drug_name}
+                onValueChange={(drugName) => {
+                  if (drugName === "__custom__") {
+                    setForm({ ...form, _isCustom: true, drug_name: "", indication: "" });
+                    return;
+                  }
+                  const d = findDrug(drugName);
+                  const newForm = { ...form, _isCustom: false, drug_name: drugName };
+                  if (d) {
+                    newForm.category = d.category || form.category;
+                    if (d.regimens && d.regimens.length === 1) {
+                      const r = d.regimens[0];
+                      newForm.indication = r.indication;
+                      newForm.dose = r.dose;
+                      newForm.frequency = r.frequency;
+                      newForm.route = r.route;
+                    } else {
+                      newForm.indication = "";
+                    }
+                  }
+                  setForm(newForm);
+                }}
+              >
+                <SelectTrigger data-testid="therapy-drug"><SelectValue placeholder="Seleziona farmaco o digita..." /></SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {DRUGS.map((d) => (
+                    <SelectItem key={d.name} value={d.name}>{d.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">Altro (inserisci manualmente)</SelectItem>
+                </SelectContent>
+              </Select>
+              {form._isCustom && (
+                <Input
+                  className="mt-2"
+                  placeholder="Nome farmaco"
+                  value={form.drug_name || ""}
+                  onChange={(e) => setForm({ ...form, drug_name: e.target.value })}
+                  data-testid="therapy-drug-custom"
+                />
+              )}
+              {(() => {
+                const d = findDrug(form.drug_name);
+                return d?.notes ? (
+                  <div className="mt-1.5 text-[11px] text-amber-700 italic">⚠ {d.notes}</div>
+                ) : null;
+              })()}
             </div>
+
+            {/* Indication */}
+            {(() => {
+              const d = findDrug(form.drug_name);
+              if (!d || !d.regimens || d.regimens.length <= 1) return null;
+              return (
+                <div className="md:col-span-2">
+                  <Label className="text-xs uppercase tracking-[0.15em] text-gray-600">Indicazione</Label>
+                  <Select
+                    value={form.indication || ""}
+                    onValueChange={(ind) => {
+                      const r = d.regimens.find((x) => x.indication === ind);
+                      setForm({
+                        ...form,
+                        indication: ind,
+                        dose: r?.dose || form.dose,
+                        frequency: r?.frequency || form.frequency,
+                        route: r?.route || form.route,
+                      });
+                    }}
+                  >
+                    <SelectTrigger data-testid="therapy-indication"><SelectValue placeholder="Scegli indicazione per auto-posologia" /></SelectTrigger>
+                    <SelectContent>
+                      {d.regimens.map((r) => (
+                        <SelectItem key={`${d.name}-${r.indication}-${r.dose}`} value={r.indication}>
+                          {INDICATIONS[r.indication] || r.indication} — {formatRegimen(r)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.indication && (() => {
+                    const r = d.regimens.find((x) => x.indication === form.indication);
+                    return r?.loading || r?.note ? (
+                      <div className="mt-1.5 text-[11px] text-gray-600 italic">
+                        {r.loading && <div>↻ Carico: {r.loading}</div>}
+                        {r.note && <div>{r.note}</div>}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              );
+            })()}
+
             <div>
               <Label className="text-xs uppercase tracking-[0.15em] text-gray-600">Categoria</Label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
