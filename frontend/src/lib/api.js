@@ -29,6 +29,11 @@ export const patientsApi = {
   create: (data) => api.post("/patients", data).then((r) => r.data),
   update: (id, data) => api.put(`/patients/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/patients/${id}`).then((r) => r.data),
+  anonymize: (id) => api.post(`/patients/${id}/anonymize`).then((r) => r.data),
+};
+
+export const orgApi = {
+  updateSettings: (data) => api.put("/organization/settings", data).then((r) => r.data),
 };
 
 export const assessmentsApi = {

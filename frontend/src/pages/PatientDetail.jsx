@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import TherapySection from "../components/TherapySection";
@@ -187,10 +187,12 @@ export default function PatientDetail() {
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Paziente</div>
           <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter text-[#0A2540]">
-            {patient.cognome} {patient.nome}
+            {(patient.cognome || patient.nome) ? `${patient.cognome || ""} ${patient.nome || ""}`.trim() : (patient.codice_paziente || "Paziente")}
           </h1>
           <div className="mt-3 flex flex-wrap gap-6 text-sm text-gray-700">
+            {patient.codice_paziente && <Info label="Codice" value={patient.codice_paziente} />}
             {patient.data_nascita && <Info label="Nato il" value={new Date(patient.data_nascita).toLocaleDateString("it-IT")} />}
+            {!patient.data_nascita && patient.anno_nascita && <Info label="Nato nel" value={String(patient.anno_nascita)} />}
             {patient.sesso && <Info label="Sesso" value={patient.sesso} />}
             {patient.codice_fiscale && <Info label="CF" value={patient.codice_fiscale} />}
             {patient.diagnosi && <Info label="Diagnosi" value={patient.diagnosi} />}
@@ -205,6 +207,27 @@ export default function PatientDetail() {
 
         <div className="flex flex-wrap gap-2">
           <VisitImportButton patient={patient} onImported={load} />
+          {(patient.nome || patient.cognome || patient.codice_fiscale || patient.data_nascita) && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!window.confirm(
+                  "Conferma anonimizzazione?\n\nVerranno RIMOSSI definitivamente: nome, cognome, codice fiscale, data di nascita.\n\nResteranno: codice paziente, anno di nascita, sesso, diagnosi, tutti i dati clinici.\n\nOperazione NON reversibile."
+                )) return;
+                try {
+                  await patientsApi.anonymize(patient.id);
+                  await load();
+                  toast.success("Paziente anonimizzato");
+                } catch (e) {
+                  toast.error(e.response?.data?.detail || "Errore");
+                }
+              }}
+              className="border-amber-400 text-amber-700 hover:bg-amber-50"
+              data-testid="anonymize-btn"
+            >
+              <ShieldCheck className="w-4 h-4 mr-2" /> Anonimizza
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="new-assessment-btn">

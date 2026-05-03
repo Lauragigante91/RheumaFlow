@@ -100,6 +100,11 @@ class Organization(BaseModel):
     name: str
     invite_code: str = Field(default_factory=lambda: secrets.token_urlsafe(8))
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    pseudonymized_mode: bool = False  # se True l'UI nasconde nome/cognome/CF/data_nascita
+
+
+class OrganizationSettings(BaseModel):
+    pseudonymized_mode: Optional[bool] = None
 
 
 class UserPublic(BaseModel):
@@ -125,8 +130,12 @@ class LoginRequest(BaseModel):
 
 
 class PatientBase(BaseModel):
-    nome: str
-    cognome: str
+    # Pseudonimizzazione: il codice_paziente è sempre preferito.
+    # Se modalità pseudonimizzata attiva nell'org, i campi nominativi NON devono essere inviati dall'UI.
+    codice_paziente: Optional[str] = None  # identificatore scelto dall'utente (es. RX-2026-001)
+    nome: Optional[str] = None
+    cognome: Optional[str] = None
+    anno_nascita: Optional[int] = None  # alternativa meno identificante a data_nascita
     data_nascita: Optional[str] = None
     sesso: Optional[str] = None
     codice_fiscale: Optional[str] = None
@@ -144,8 +153,10 @@ class Patient(PatientBase):
 
 
 class PatientUpdate(BaseModel):
+    codice_paziente: Optional[str] = None
     nome: Optional[str] = None
     cognome: Optional[str] = None
+    anno_nascita: Optional[int] = None
     data_nascita: Optional[str] = None
     sesso: Optional[str] = None
     codice_fiscale: Optional[str] = None
@@ -387,7 +398,19 @@ async def me(user: dict = Depends(get_current_user)):
         "id": user["id"], "email": user["email"], "name": user["name"], "role": user.get("role", "member"),
         "organization_id": user["organization_id"], "organization_name": org["name"] if org else None,
         "invite_code": org["invite_code"] if org else None,
+        "pseudonymized_mode": bool(org.get("pseudonymized_mode", False)) if org else False,
     }
+
+
+@api_router.put("/organization/settings")
+async def update_org_settings(payload: OrganizationSettings, user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo gli amministratori possono modificare le impostazioni")
+    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="Nessuna modifica")
+    await db.organizations.update_one({"id": user["organization_id"]}, {"$set": update})
+    return {"success": True, **update}
 
 
 @api_router.post("/auth/refresh")
@@ -417,14 +440,57 @@ async def root():
 
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(payload: PatientBase, user: dict = Depends(get_current_user)):
+    # Require at least codice_paziente OR (nome + cognome) to identify the patient
+    has_code = bool((payload.codice_paziente or "").strip())
+    has_name = bool((payload.nome or "").strip() and (payload.cognome or "").strip())
+    if not has_code and not has_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Fornire almeno il codice paziente o nome+cognome",
+        )
+    # Enforce uniqueness of codice_paziente within the org
+    if has_code:
+        existing = await db.patients.find_one({
+            "organization_id": user["organization_id"],
+            "codice_paziente": payload.codice_paziente.strip(),
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Codice paziente già esistente nell'UO")
     p = Patient(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.patients.insert_one(p.model_dump())
     return p
 
 
+@api_router.post("/patients/{patient_id}/anonymize", response_model=Patient)
+async def anonymize_patient(patient_id: str, user: dict = Depends(get_current_user)):
+    """Rimuove i dati identificativi (nome, cognome, CF, data_nascita) lasciando solo
+    codice paziente + anno di nascita + sesso + diagnosi."""
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    patient = await db.patients.find_one(
+        {"id": patient_id, "organization_id": user["organization_id"]}, {"_id": 0}
+    )
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paziente non trovato")
+
+    # Compute anno_nascita from data_nascita if present and not already set
+    update = {"nome": None, "cognome": None, "codice_fiscale": None, "data_nascita": None}
+    if patient.get("data_nascita") and not patient.get("anno_nascita"):
+        try:
+            update["anno_nascita"] = int(patient["data_nascita"][:4])
+        except (ValueError, TypeError):
+            pass
+    # Ensure codice_paziente exists; if not, generate one
+    if not patient.get("codice_paziente"):
+        update["codice_paziente"] = f"PZ-{patient_id[:8].upper()}"
+    await db.patients.update_one({"id": patient_id}, {"$set": update})
+    return await db.patients.find_one({"id": patient_id}, {"_id": 0})
+
+
 @api_router.get("/patients", response_model=List[Patient])
 async def list_patients(user: dict = Depends(get_current_user)):
-    docs = await db.patients.find({"organization_id": user["organization_id"]}, {"_id": 0}).sort("cognome", 1).to_list(2000)
+    docs = await db.patients.find({"organization_id": user["organization_id"]}, {"_id": 0}).to_list(2000)
+    # Sort in Python to tolerate missing cognome (pseudonymized patients)
+    docs.sort(key=lambda p: (p.get("cognome") or p.get("codice_paziente") or "").lower())
     return docs
 
 

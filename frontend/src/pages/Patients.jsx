@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { patientsApi } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -8,11 +9,15 @@ import { Card } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Plus, Search, User, Trash2, Edit, ArrowUpDown, X } from "lucide-react";
+import { Plus, Search, User, Trash2, Edit, ArrowUpDown, X, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import ItalianDatePicker from "../components/ItalianDatePicker";
 
-const emptyForm = { nome: "", cognome: "", data_nascita: "", sesso: "", codice_fiscale: "", diagnosi: "", note: "" };
+const emptyForm = {
+  codice_paziente: "", nome: "", cognome: "",
+  anno_nascita: "", data_nascita: "", sesso: "",
+  codice_fiscale: "", diagnosi: "", note: "",
+};
 
 const SORT_OPTIONS = [
   { value: "cognome_asc", label: "Cognome (A→Z)" },
@@ -23,18 +28,26 @@ const SORT_OPTIONS = [
   { value: "age_desc", label: "Età decrescente" },
 ];
 
-function calcAge(dataNascita) {
-  if (!dataNascita) return null;
-  const dob = new Date(dataNascita);
-  if (isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  const m = now.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
-  return age;
+function calcAge(p) {
+  if (p?.data_nascita) {
+    const dob = new Date(p.data_nascita);
+    if (!isNaN(dob.getTime())) {
+      const now = new Date();
+      let age = now.getFullYear() - dob.getFullYear();
+      const m = now.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+      return age;
+    }
+  }
+  if (p?.anno_nascita) {
+    return new Date().getFullYear() - Number(p.anno_nascita);
+  }
+  return null;
 }
 
 export default function Patients() {
+  const { user } = useAuth();
+  const pseudo = user?.pseudonymized_mode === true;
   const [patients, setPatients] = useState([]);
   const [filter, setFilter] = useState("");
   const [sex, setSex] = useState("all");
@@ -56,16 +69,27 @@ export default function Patients() {
   const openEdit = (p) => { setEditing(p); setForm({ ...emptyForm, ...p }); setOpen(true); };
 
   const save = async () => {
-    if (!form.nome || !form.cognome) {
-      toast.error("Nome e cognome sono obbligatori");
+    const hasCode = !!(form.codice_paziente || "").trim();
+    const hasName = !!(form.nome || "").trim() && !!(form.cognome || "").trim();
+    if (!hasCode && !hasName) {
+      toast.error(pseudo
+        ? "Codice paziente obbligatorio in modalità pseudonimizzata"
+        : "Fornisci almeno il codice paziente oppure nome + cognome"
+      );
       return;
     }
+    // Normalize payload: convert empty strings to null; anno_nascita to number
+    const payload = { ...form };
+    ["nome", "cognome", "data_nascita", "codice_fiscale", "diagnosi", "note", "sesso", "codice_paziente"].forEach((k) => {
+      if (!payload[k]) payload[k] = null;
+    });
+    payload.anno_nascita = form.anno_nascita ? Number(form.anno_nascita) : null;
     try {
       if (editing) {
-        await patientsApi.update(editing.id, form);
+        await patientsApi.update(editing.id, payload);
         toast.success("Paziente aggiornato");
       } else {
-        await patientsApi.create(form);
+        await patientsApi.create(payload);
         toast.success("Paziente creato");
       }
       setOpen(false);
@@ -92,7 +116,7 @@ export default function Patients() {
     const q = filter.trim().toLowerCase();
     let result = patients.filter((p) => {
       if (q) {
-        const text = `${p.cognome} ${p.nome} ${p.codice_fiscale || ""} ${p.diagnosi || ""}`.toLowerCase();
+        const text = `${p.cognome || ""} ${p.nome || ""} ${p.codice_paziente || ""} ${p.codice_fiscale || ""} ${p.diagnosi || ""}`.toLowerCase();
         if (!text.includes(q)) return false;
       }
       if (sex !== "all" && p.sesso !== sex) return false;
@@ -100,7 +124,7 @@ export default function Patients() {
         if (diagnosis === "_none" && p.diagnosi) return false;
         if (diagnosis !== "_none" && p.diagnosi !== diagnosis) return false;
       }
-      const age = calcAge(p.data_nascita);
+      const age = calcAge(p);
       if (ageMin !== "" && (age === null || age < Number(ageMin))) return false;
       if (ageMax !== "" && (age === null || age > Number(ageMax))) return false;
       return true;
@@ -116,9 +140,9 @@ export default function Patients() {
         case "created_asc":
           return (a.created_at || "").localeCompare(b.created_at || "");
         case "age_asc":
-          return (calcAge(a.data_nascita) ?? 999) - (calcAge(b.data_nascita) ?? 999);
+          return (calcAge(a) ?? 999) - (calcAge(b) ?? 999);
         case "age_desc":
-          return (calcAge(b.data_nascita) ?? -1) - (calcAge(a.data_nascita) ?? -1);
+          return (calcAge(b) ?? -1) - (calcAge(a) ?? -1);
         default:
           return 0;
       }
@@ -158,16 +182,55 @@ export default function Patients() {
                 {editing ? "Modifica paziente" : "Nuovo paziente"}
               </DialogTitle>
             </DialogHeader>
+            {pseudo && (
+              <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-md text-xs text-emerald-900">
+                <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold">Modalità pseudonimizzata attiva</div>
+                  Inserisci solo il <strong>codice paziente</strong>, anno di nascita, sesso e diagnosi. Mantieni la corrispondenza codice↔identità offline.
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Nome *" required>
-                <Input data-testid="patient-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-              </Field>
-              <Field label="Cognome *" required>
-                <Input data-testid="patient-cognome" value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} />
-              </Field>
-              <Field label="Data di nascita">
-                <ItalianDatePicker value={form.data_nascita || ""} onChange={(v) => setForm({ ...form, data_nascita: v })} testid="patient-data-nascita" />
-              </Field>
+              <div className="md:col-span-2">
+                <Field label={pseudo ? "Codice paziente *" : "Codice paziente"} required={pseudo}>
+                  <Input
+                    data-testid="patient-codice"
+                    value={form.codice_paziente || ""}
+                    onChange={(e) => setForm({ ...form, codice_paziente: e.target.value })}
+                    placeholder="es. RX-2026-001"
+                  />
+                </Field>
+              </div>
+              {!pseudo && (
+                <>
+                  <Field label="Nome *">
+                    <Input data-testid="patient-nome" value={form.nome || ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+                  </Field>
+                  <Field label="Cognome *">
+                    <Input data-testid="patient-cognome" value={form.cognome || ""} onChange={(e) => setForm({ ...form, cognome: e.target.value })} />
+                  </Field>
+                  <Field label="Data di nascita">
+                    <ItalianDatePicker value={form.data_nascita || ""} onChange={(v) => setForm({ ...form, data_nascita: v })} testid="patient-data-nascita" />
+                  </Field>
+                  <Field label="Codice Fiscale">
+                    <Input data-testid="patient-cf" value={form.codice_fiscale || ""} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value.toUpperCase() })} />
+                  </Field>
+                </>
+              )}
+              {pseudo && (
+                <Field label="Anno di nascita">
+                  <Input
+                    type="number"
+                    min="1900"
+                    max={new Date().getFullYear()}
+                    data-testid="patient-anno-nascita"
+                    value={form.anno_nascita || ""}
+                    onChange={(e) => setForm({ ...form, anno_nascita: e.target.value })}
+                    placeholder="es. 1965"
+                  />
+                </Field>
+              )}
               <Field label="Sesso">
                 <Select value={form.sesso || ""} onValueChange={(v) => setForm({ ...form, sesso: v })}>
                   <SelectTrigger data-testid="patient-sesso"><SelectValue placeholder="Seleziona..." /></SelectTrigger>
@@ -177,9 +240,6 @@ export default function Patients() {
                     <SelectItem value="Altro">Altro</SelectItem>
                   </SelectContent>
                 </Select>
-              </Field>
-              <Field label="Codice Fiscale">
-                <Input data-testid="patient-cf" value={form.codice_fiscale || ""} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value.toUpperCase() })} />
               </Field>
               <Field label="Diagnosi">
                 <Input data-testid="patient-diagnosi" value={form.diagnosi || ""} onChange={(e) => setForm({ ...form, diagnosi: e.target.value })} />
@@ -277,37 +337,55 @@ export default function Patients() {
             <table className="w-full text-sm">
               <thead className="bg-[#F9FAFB] border-b border-gray-200">
                 <tr className="text-left">
-                  <Th>Cognome / Nome</Th>
-                  <Th>Data nascita</Th>
+                  <Th>{pseudo ? "Codice" : "Cognome / Nome"}</Th>
+                  <Th>{pseudo ? "Età" : "Data nascita"}</Th>
                   <Th>Sesso</Th>
                   <Th>Diagnosi</Th>
                   <Th className="text-right">Azioni</Th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link to={`/pazienti/${p.id}`} className="flex items-center gap-3 font-medium text-[#0A2540] hover:underline" data-testid={`patient-row-${p.id}`}>
-                        <div className="w-8 h-8 rounded-full bg-[#0A2540] text-white flex items-center justify-center text-xs font-bold">
-                          {(p.cognome?.[0] || "") + (p.nome?.[0] || "")}
-                        </div>
-                        {p.cognome} {p.nome}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{p.data_nascita ? new Date(p.data_nascita).toLocaleDateString("it-IT") : "-"}</td>
-                    <td className="px-4 py-3 text-gray-700">{p.sesso || "-"}</td>
-                    <td className="px-4 py-3 text-gray-700">{p.diagnosi || "-"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} data-testid={`edit-${p.id}`}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove(p)} data-testid={`delete-${p.id}`}>
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((p) => {
+                  const age = calcAge(p);
+                  const displayName = pseudo
+                    ? (p.codice_paziente || "—")
+                    : (`${p.cognome || ""} ${p.nome || ""}`.trim() || p.codice_paziente || "—");
+                  const initials = pseudo
+                    ? (p.codice_paziente?.slice(0, 2).toUpperCase() || "PZ")
+                    : ((p.cognome?.[0] || "") + (p.nome?.[0] || "") || "PZ");
+                  return (
+                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <Link to={`/pazienti/${p.id}`} className="flex items-center gap-3 font-medium text-[#0A2540] hover:underline" data-testid={`patient-row-${p.id}`}>
+                          <div className="w-8 h-8 rounded-full bg-[#0A2540] text-white flex items-center justify-center text-xs font-bold">
+                            {initials}
+                          </div>
+                          <div>
+                            <div>{displayName}</div>
+                            {!pseudo && p.codice_paziente && (
+                              <div className="text-[10px] text-gray-400 font-mono">{p.codice_paziente}</div>
+                            )}
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {pseudo
+                          ? (age !== null ? `${age} anni` : "-")
+                          : (p.data_nascita ? new Date(p.data_nascita).toLocaleDateString("it-IT") : "-")}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{p.sesso || "-"}</td>
+                      <td className="px-4 py-3 text-gray-700">{p.diagnosi || "-"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)} data-testid={`edit-${p.id}`}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => remove(p)} data-testid={`delete-${p.id}`}>
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -321,9 +399,9 @@ const Th = ({ children, className = "" }) => (
   <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 ${className}`}>{children}</th>
 );
 
-const Field = ({ label, children }) => (
+const Field = ({ label, children, required }) => (
   <div className="space-y-1.5">
-    <Label className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-600">{label}</Label>
+    <Label className={`text-xs font-semibold uppercase tracking-[0.15em] ${required ? "text-red-700" : "text-gray-600"}`}>{label}</Label>
     {children}
   </div>
 );

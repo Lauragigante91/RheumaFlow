@@ -42,6 +42,29 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v13)
+- [x] **GDPR-safe Mode - Pseudonimizzazione forte** per ridurre gli obblighi
+  privacy ed eliminare la necessità di firma consenso del paziente.
+  Backend: campo `pseudonymized_mode` su Organization, campo `codice_paziente`
+  (unique per org) e `anno_nascita` su Patient, nome/cognome ora opzionali.
+  Endpoint: `PUT /api/organization/settings` (solo admin),
+  `POST /api/patients/{id}/anonymize` (rimuove nome/cognome/CF/data_nascita,
+  genera codice PZ-xxxxx se mancante, deriva anno da data_nascita se presente).
+- [x] **Pagina Privacy / GDPR** (`/privacy`) in sidebar con:
+  - Toggle modalità pseudonimizzata (admin only) con descrizione legale
+  - Download PDF Informativa privacy (Art. 13 GDPR) precompilata con nome UO
+  - Download PDF Registro dei trattamenti (Art. 30 GDPR)
+  - Download PDF Etichette "corrispondenza codice↔identità" per fascicolo cartaceo
+- [x] **Form paziente pseudonymization-aware**: se modalità attiva,
+  l'UI mostra solo codice_paziente (obbligatorio) + anno_nascita + sesso +
+  diagnosi + note; altrimenti mostra anche nome/cognome/CF/data_nascita.
+- [x] **Pulsante Anonimizza** in PatientDetail (mostrato solo se il paziente
+  ha ancora dati identificativi) con conferma e feedback toast.
+- [x] Tabella pazienti: in modalità pseudonimizzata mostra CODICE ed ETÀ
+  (calcolata da anno_nascita), altrimenti Cognome/Nome + data nascita + codice
+  come secondary.
+- [x] AuthContext/auth/me: espone `pseudonymized_mode` al frontend.
+
 ## Implemented (2026-02-10 - v12)
 - [x] **Sezione "Miscellanea"** in sidebar con icona FlaskConical, tabelle sinottiche e algoritmi diagnostici.
 - [x] **Tabella Anticorpi miosite-specifici**: 13 MSAs con fenotipo + coinvolgimento muscolo/cute/polmone/cuore/GI/tumore
