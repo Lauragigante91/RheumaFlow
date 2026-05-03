@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
 import Criteria from "./pages/Criteria";
+import Guidelines from "./pages/Guidelines";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -49,6 +50,7 @@ function AppRoutes() {
                 <Route path="/pazienti" element={<Patients />} />
                 <Route path="/pazienti/:id" element={<PatientDetail />} />
                 <Route path="/criteri" element={<Criteria />} />
+                <Route path="/linee-guida" element={<Guidelines />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

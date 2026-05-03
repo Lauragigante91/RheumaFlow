@@ -4,8 +4,30 @@ import { statsApi, patientsApi, remindersApi } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Users, Activity, Plus, TrendingUp, Bell, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Users, Activity, TrendingUp, Bell, Calendar as CalendarIcon,
+  FileCheck2, BookOpen, ChevronRight, Stethoscope,
+} from "lucide-react";
 import { INDEX_LABELS } from "../lib/clinimetrics";
+import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
+import { GUIDELINES } from "../lib/guidelines";
+
+// Pinned items shown on dashboard for quick access
+const PINNED_CRITERIA = [
+  "acr_eular_2010_ra",
+  "acr_eular_2019_sle",
+  "acr_eular_2013_ssc",
+  "vedoss_2011",
+  "icbd_2014_behcet",
+  "acr_eular_2019_igg4",
+];
+
+const PINNED_GUIDELINES = [
+  "ers_acr_eular_2023_ild",
+  "eular_2022_ra",
+  "eular_2023_sle",
+  "eular_2023_ssc",
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ patients: 0, assessments: 0, recent_assessments: [] });
@@ -27,6 +49,16 @@ export default function Dashboard() {
   };
 
   const overdueCount = upcoming.filter((r) => daysUntil(r.due_date) < 0).length;
+
+  const pinnedCriteria = PINNED_CRITERIA
+    .map((id) => CRITERIA.find((c) => c.id === id))
+    .filter(Boolean);
+
+  const pinnedGuidelines = PINNED_GUIDELINES
+    .map((id) => GUIDELINES.find((g) => g.id === id))
+    .filter(Boolean);
+
+  const ildGuide = GUIDELINES.find((g) => g.id === "ers_acr_eular_2023_ild");
 
   return (
     <div className="space-y-8" data-testid="dashboard-page">
@@ -58,6 +90,118 @@ export default function Dashboard() {
         <StatCard icon={Bell} label="Reminder attivi" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
       </div>
 
+      {/* ILD Spotlight - feature card prominently because user explicitly requested it */}
+      {ildGuide && (
+        <Link
+          to="/linee-guida"
+          className="block group"
+          data-testid="dashboard-ild-spotlight"
+        >
+          <Card className="relative overflow-hidden border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white p-6 hover:shadow-lg transition-shadow">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200/30 rounded-full -translate-y-20 translate-x-20 blur-3xl pointer-events-none" />
+            <div className="relative flex items-start gap-4">
+              <div className="w-12 h-12 rounded-sm bg-amber-600 text-white flex items-center justify-center flex-shrink-0">
+                <Stethoscope className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-amber-800 font-semibold">
+                  {ildGuide.source} · {ildGuide.year}
+                </div>
+                <h3 className="font-heading text-xl md:text-2xl font-black tracking-tight text-[#0A2540] mt-1">
+                  {ildGuide.name}
+                </h3>
+                <p className="mt-1.5 text-sm text-gray-700 line-clamp-2">{ildGuide.intro}</p>
+                <div className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-800 group-hover:text-amber-900">
+                  Apri linee guida ILD <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+      )}
+
+      {/* Criteria + Guidelines widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Criteria classificativi */}
+        <Card className="border-gray-200 shadow-sm" data-testid="dashboard-criteria-widget">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-sm bg-[#0A2540] flex items-center justify-center">
+                <FileCheck2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-heading text-xl font-bold tracking-tight">Criteri Classificativi</h2>
+                <div className="text-xs text-gray-500">{CRITERIA.length} criteri · {CRITERIA_GROUPS.length} malattie</div>
+              </div>
+            </div>
+            <Link to="/criteri">
+              <Button variant="outline" size="sm" data-testid="dashboard-criteria-all-btn">
+                Tutti <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {pinnedCriteria.map((c) => (
+              <Link
+                key={c.id}
+                to={`/criteri?open=${c.id}`}
+                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
+                data-testid={`dashboard-criterion-${c.id}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-[#0A2540] truncate">{c.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{c.source} · {c.disease}</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A2540] flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        {/* Guidelines */}
+        <Card className="border-gray-200 shadow-sm" data-testid="dashboard-guidelines-widget">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-sm bg-[#0A2540] flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-heading text-xl font-bold tracking-tight">Linee Guida ACR/EULAR/ERS</h2>
+                <div className="text-xs text-gray-500">{GUIDELINES.length} documenti di sintesi</div>
+              </div>
+            </div>
+            <Link to="/linee-guida">
+              <Button variant="outline" size="sm" data-testid="dashboard-guidelines-all-btn">
+                Tutte <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {pinnedGuidelines.map((g) => {
+              const isILD = g.id === "ers_acr_eular_2023_ild";
+              return (
+                <Link
+                  key={g.id}
+                  to="/linee-guida"
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
+                  data-testid={`dashboard-guideline-${g.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[#0A2540] truncate flex items-center gap-2">
+                      {isILD && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] px-1.5 py-0">ILD</Badge>}
+                      {g.name}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">{g.source} · {g.year}</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A2540] flex-shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* Reminders + Recent assessments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming reminders */}
         <Card className="border-gray-200 shadow-sm" data-testid="upcoming-reminders-card">

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity, FileCheck2, LogOut, User, Copy } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import {
@@ -13,6 +13,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pazienti", label: "Pazienti", icon: Users },
   { to: "/criteri", label: "Criteri", icon: FileCheck2 },
+  { to: "/linee-guida", label: "Linee Guida", icon: BookOpen },
 ];
 
 export default function Layout({ children }) {

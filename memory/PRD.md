@@ -42,6 +42,19 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v7)
+- [x] **Linee Guida ACR/EULAR/ERS**: nuova pagina `/linee-guida` con 12
+  documenti di sintesi (ILD ERS-EULAR/ACR 2023 in evidenza, AR 2022, AP 2023,
+  axSpA 2022, LES 2023, SSc 2023, AAV 2022, Sjögren 2019, gotta 2020,
+  PMR 2015, Behçet 2018, fibromialgia 2016). Filtri per malattia, ricerca
+  testuale, dialog con sezioni numerate e bullet points.
+- [x] **Voce di navigazione "Linee Guida"** in sidebar (Layout.jsx) +
+  rotta in App.js
+- [x] **Dashboard widget redesign**: spotlight ILD prominente in alto +
+  due card affiancate "Criteri Classificativi" (6 criteri pinnati) e
+  "Linee Guida ACR/EULAR/ERS" (4 linee pinnate con badge ILD). I criteri
+  pinnati linkano direttamente al criterio aperto via URL `?open=...`.
+
 ## Implemented (2026-02-10 - v6)
 - [x] **Sezione Esami di laboratorio** completa con 6 pannelli predefiniti:
   Autoanticorpi (29 test), Complemento (3), Fase acuta (5), Emocromo (7),
