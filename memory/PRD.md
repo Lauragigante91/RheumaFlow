@@ -42,6 +42,23 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v8)
+- [x] **Criteri ACR/EULAR 2023 APS** (Barbhaiya): 8 domini (D1-D6 clinici + D7-D8 lab),
+  entry criterion + scoring stratificato per profilo di rischio. Aggiunto a
+  CRITERIA_GROUPS (APS) e a CRITERIA_DIAGNOSIS_MAP per auto-aggiornamento diagnosi.
+- [x] **Linee Guida EULAR 2019 APS** (Tektonidou): profilassi primaria, trombotica
+  venosa/arteriosa, CAPS, ostetrica + monito DOAC.
+- [x] **Linee Guida EULAR 2024 update Gravidanza & RMD** (Andreoli/Russell):
+  principi, pre-concepimento, gravidanza, allattamento, esposizione paterna,
+  vaccinazioni.
+- [x] **Tabella farmaci BSR 2022** in gravidanza/allattamento: 7 sezioni
+  (compatibili/condizionali/da evitare in gravidanza, compatibili/da evitare
+  in allattamento, esposizione paterna, vaccinazioni). Con link al full text PMC.
+- [x] **Auto-suggestion** per diagnosi "antifosfolipidi/APS" → suggerisce
+  criteri ACR/EULAR 2023 APS.
+- [x] **Dashboard pinning aggiornato**: aggiunti criteri APS e linee guida
+  Gravidanza/APS con badge colorati (rosa per Gravidanza, viola per APS).
+
 ## Implemented (2026-02-10 - v7)
 - [x] **Linee Guida ACR/EULAR/ERS**: nuova pagina `/linee-guida` con 12
   documenti di sintesi (ILD ERS-EULAR/ACR 2023 in evidenza, AR 2022, AP 2023,

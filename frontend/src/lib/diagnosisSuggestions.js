@@ -92,6 +92,12 @@ const RULES = [
     criteria: [],
     diseaseLabel: "Psoriasi",
   },
+  {
+    keywords: ["antifosfolipid", "antiphospholipid", "aps", "apl ", "anti-fosfolipid", "trombofilia autoimmune"],
+    indices: [],
+    criteria: ["acr_eular_2023_aps"],
+    diseaseLabel: "Sindrome da anticorpi antifosfolipidi",
+  },
 ];
 
 export function suggestForDiagnosis(diagnosis) {

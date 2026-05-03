@@ -17,16 +17,18 @@ const PINNED_CRITERIA = [
   "acr_eular_2010_ra",
   "acr_eular_2019_sle",
   "acr_eular_2013_ssc",
+  "acr_eular_2023_aps",
   "vedoss_2011",
   "icbd_2014_behcet",
-  "acr_eular_2019_igg4",
 ];
 
 const PINNED_GUIDELINES = [
   "ers_acr_eular_2023_ild",
+  "eular_2024_pregnancy",
+  "bsr_2022_pregnancy_drugs",
+  "eular_2019_aps",
   "eular_2022_ra",
   "eular_2023_sle",
-  "eular_2023_ssc",
 ];
 
 export default function Dashboard() {
@@ -179,6 +181,8 @@ export default function Dashboard() {
           <div className="divide-y divide-gray-200">
             {pinnedGuidelines.map((g) => {
               const isILD = g.id === "ers_acr_eular_2023_ild";
+              const isPreg = g.disease === "Gravidanza e RMD";
+              const isAPS = g.disease === "APS";
               return (
                 <Link
                   key={g.id}
@@ -189,6 +193,8 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-[#0A2540] truncate flex items-center gap-2">
                       {isILD && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] px-1.5 py-0">ILD</Badge>}
+                      {isPreg && <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-100 text-[10px] px-1.5 py-0">Gravidanza</Badge>}
+                      {isAPS && <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-[10px] px-1.5 py-0">APS</Badge>}
                       {g.name}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">{g.source} · {g.year}</div>

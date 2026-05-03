@@ -819,6 +819,110 @@ export const CRITERIA = [
     threshold: { value: 20, label: "IgG4-RD classificata (score ≥ 20 e nessuna esclusione)" },
     note: "Verifica obbligatoriamente che i criteri di entry e nessuna esclusione siano soddisfatti.",
   },
+
+  // ============ APS - ACR/EULAR 2023 (Barbhaiya) ============
+  {
+    id: "acr_eular_2023_aps",
+    name: "Sindrome da anticorpi antifosfolipidi (APS)",
+    disease: "APS",
+    source: "ACR/EULAR 2023",
+    intro:
+      "Criteri di classificazione 2023 (Barbhaiya et al.). ENTRY criterion: ≥1 aPL test positivo (LA, aCL IgG/IgM o aβ2GPI IgG/IgM) entro 3 anni da un evento clinico aPL-associato. CLASSIFICAZIONE: ≥3 punti nel dominio CLINICO (D1-D6) E ≥3 punti nel dominio LABORATORISTICO (D7-D8). I valori sono stratificati per profilo di rischio.",
+    sections: [
+      {
+        title: "Entry criterion (obbligatorio)",
+        type: "check",
+        items: [
+          { key: "entry_apl", label: "Almeno un test aPL positivo (LA, aCL o aβ2GPI IgG/IgM) entro 3 anni da un evento clinico", points: 0 },
+          { key: "entry_event", label: "Almeno un evento clinico aPL-associato documentato", points: 0 },
+        ],
+      },
+      {
+        title: "D1 - Macrovascolare: tromboembolismo venoso (VTE)",
+        type: "radio",
+        groupKey: "d1_vte",
+        options: [
+          { value: "none", label: "Nessuno", points: 0 },
+          { value: "high_risk", label: "VTE in paziente con profilo VTE ad alto rischio", points: 1 },
+          { value: "low_risk", label: "VTE in paziente senza profilo VTE ad alto rischio", points: 3 },
+        ],
+      },
+      {
+        title: "D2 - Macrovascolare: trombosi arteriosa (AT)",
+        type: "radio",
+        groupKey: "d2_at",
+        options: [
+          { value: "none", label: "Nessuna", points: 0 },
+          { value: "high_risk", label: "AT in paziente con profilo CVD ad alto rischio", points: 2 },
+          { value: "low_risk", label: "AT in paziente senza profilo CVD ad alto rischio", points: 4 },
+        ],
+      },
+      {
+        title: "D3 - Microvascolare",
+        type: "radio",
+        groupKey: "d3_micro",
+        options: [
+          { value: "none", label: "Nessuna", points: 0 },
+          { value: "suspected", label: "Sospetta (livedo racemosa, ulcere cutanee, microematuria, ecc.)", points: 2 },
+          { value: "established", label: "Documentata (biopsia, RM, angio, retinopatia aPL, nefropatia aPL)", points: 5 },
+        ],
+      },
+      {
+        title: "D4 - Ostetrico",
+        type: "radio",
+        groupKey: "d4_obst",
+        options: [
+          { value: "none", label: "Nessuno", points: 0 },
+          { value: "early_loss", label: "≥3 perdite consecutive pre-fetali (<10w) e/o early fetal (10–15w 6/7)", points: 1 },
+          { value: "fetal_death", label: "Morte fetale (16–33w 6/7) senza preeclampsia o insufficienza placentare", points: 1 },
+          { value: "pe_severe", label: "Preeclampsia severa O insufficienza placentare severa <34w (con/senza morte fetale)", points: 3 },
+          { value: "pe_pi", label: "Preeclampsia severa AND insufficienza placentare severa <34w (con/senza morte fetale)", points: 4 },
+        ],
+      },
+      {
+        title: "D5 - Valvulopatia cardiaca",
+        type: "radio",
+        groupKey: "d5_valve",
+        options: [
+          { value: "none", label: "Nessuna", points: 0 },
+          { value: "thickening", label: "Ispessimento valvolare", points: 2 },
+          { value: "vegetation", label: "Vegetazione (endocardite di Libman-Sacks)", points: 4 },
+        ],
+      },
+      {
+        title: "D6 - Ematologico",
+        type: "check",
+        items: [
+          { key: "d6_thrombocytopenia", label: "Trombocitopenia (piastrine 20–130 × 10⁹/L) attribuibile ad APS", points: 2 },
+        ],
+      },
+      {
+        title: "D7 - LA (Lupus Anticoagulant) - dosaggio funzionale",
+        type: "radio",
+        groupKey: "d7_la",
+        options: [
+          { value: "none", label: "Negativo", points: 0 },
+          { value: "single", label: "Positivo singolo (una sola occasione)", points: 1 },
+          { value: "persistent", label: "Persistentemente positivo (≥2 occasioni a distanza ≥12 settimane)", points: 5 },
+        ],
+      },
+      {
+        title: "D8 - aPL su fase solida (aCL/aβ2GPI ELISA, isotipi IgG/IgM)",
+        type: "radio",
+        groupKey: "d8_solid",
+        options: [
+          { value: "none", label: "Negativo", points: 0 },
+          { value: "mod_igm", label: "Moderato-alto positivo IgM (aCL o aβ2GPI ≥40 unità)", points: 1 },
+          { value: "mod_igg", label: "Moderato positivo IgG aCL OR aβ2GPI (40–79 unità)", points: 4 },
+          { value: "high_igg_single", label: "Alto positivo IgG aCL OR aβ2GPI (≥80 unità) - singolo test", points: 5 },
+          { value: "high_igg_both", label: "Alto positivo IgG aCL AND aβ2GPI (≥80 unità entrambi)", points: 7 },
+        ],
+      },
+    ],
+    threshold: { value: 6, label: "Soddisfatti i criteri APS (verificare ≥3 clinici E ≥3 laboratorio)" },
+    note:
+      "ATTENZIONE: la classificazione richiede ≥3 punti nel dominio CLINICO (D1–D6) E SEPARATAMENTE ≥3 punti nel dominio LABORATORIO (D7–D8). Il punteggio totale ≥6 è solo indicativo: verifica manualmente che entrambi i sotto-domini raggiungano ≥3. Ogni dominio contribuisce con il valore più alto raggiunto nel suo gruppo (nessuna sommatoria intra-dominio).",
+  },
 ];
 
 export const CRITERIA_GROUPS = [
@@ -836,4 +940,5 @@ export const CRITERIA_GROUPS = [
   "Fibromialgia",
   "Behçet",
   "IgG4-RD",
+  "APS",
 ];

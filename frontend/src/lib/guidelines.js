@@ -589,6 +589,244 @@ export const GUIDELINES = [
       },
     ],
   },
+
+  // ============ APS - Management EULAR 2019 ============
+  {
+    id: "eular_2019_aps",
+    name: "Sindrome da anticorpi antifosfolipidi (gestione)",
+    disease: "APS",
+    source: "EULAR 2019 (Tektonidou)",
+    year: 2019,
+    url: "https://ard.bmj.com/content/78/10/1296",
+    intro:
+      "Raccomandazioni EULAR 2019 per la gestione dell'APS nell'adulto. Definizione di profilo aPL ad alto rischio: LA persistente positivo, doppia o tripla positività (LA + aCL + aβ2GPI), oppure titoli alti persistenti.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "Stratificare il paziente per profilo aPL (alto rischio = LA persistente, doppia/tripla positività, titoli persistenti elevati).",
+          "Trattare aggressivamente i fattori di rischio cardiovascolare e venoso (ipertensione, dislipidemia, fumo, obesità, immobilità).",
+          "Tromboprofilassi con eparina LMWH in situazioni ad alto rischio (chirurgia, immobilizzazione prolungata, puerperio).",
+          "Idrossiclorochina (HCQ) raccomandata in tutti i pazienti con LES + aPL.",
+        ],
+      },
+      {
+        title: "Profilassi primaria (asintomatici aPL+)",
+        items: [
+          "Aspirina a basse dosi (75–100 mg/die) in pazienti con profilo aPL ad alto rischio, con o senza LES.",
+          "Aspirina a basse dosi nelle donne con APS ostetrica isolata (senza eventi trombotici) ad alto rischio.",
+          "Non raccomandata di routine nei portatori a basso rischio asintomatici.",
+        ],
+      },
+      {
+        title: "APS trombotica - venosa (TEV non provocato)",
+        items: [
+          "Anticoagulazione orale a lungo termine con VKA (warfarin) target INR 2–3.",
+          "DOAC (rivaroxaban, apixaban) NON raccomandati di routine, soprattutto in tripla positività (rischio aumentato di trombosi arteriose).",
+          "In caso di recidiva nonostante INR 2–3 in target: aumentare INR a 3–4 oppure aggiungere LDA o passare a LMWH.",
+        ],
+      },
+      {
+        title: "APS trombotica - arteriosa",
+        items: [
+          "VKA con target INR 2–3 oppure 3–4 (più comune dopo evento ischemico cerebrale), in base al rischio di sanguinamento.",
+          "Combinazione VKA + LDA come alternativa.",
+          "Evitare i DOAC in pazienti con eventi arteriosi.",
+        ],
+      },
+      {
+        title: "APS catastrofica (CAPS)",
+        items: [
+          "Terapia di prima linea combinata: glucocorticoidi alte dosi (boli MP 500–1000 mg x 3 gg) + eparina + plasmaferesi e/o IVIg.",
+          "Trattare l'evento scatenante (infezione, chirurgia, sospensione anticoagulante).",
+          "Casi refrattari: rituximab (B-cell depletion) o eculizumab (inibizione del complemento).",
+        ],
+      },
+      {
+        title: "APS ostetrica",
+        items: [
+          "Storia di solo abortività ricorrente / morti fetali: LDA pre-concezionale + LMWH profilattica dopo positività β-hCG.",
+          "Storia di APS trombotica: LDA + LMWH terapeutica per tutta la gravidanza e il puerperio.",
+          "Aggiunta di HCQ e/o GC a basse dosi nei casi refrattari (recidiva nonostante terapia standard).",
+          "Considerare IVIg in casi refrattari severi.",
+        ],
+      },
+    ],
+    note: "Le DOAC (rivaroxaban, apixaban) non sono raccomandate in APS, soprattutto in pazienti tripla positività, sulla base del trial TRAPS.",
+  },
+
+  // ============ EULAR 2024 Gravidanza & RMD ============
+  {
+    id: "eular_2024_pregnancy",
+    name: "Farmaci antireumatici in riproduzione, gravidanza e allattamento",
+    disease: "Gravidanza e RMD",
+    source: "EULAR 2024 update (Andreoli/Russell) + ACR points-to-consider",
+    year: 2024,
+    url: "https://acrjournals.onlinelibrary.wiley.com/doi/10.1002/acr.25558",
+    urls: [
+      { label: "EULAR 2024 update (PubMed)", href: "https://pubmed.ncbi.nlm.nih.gov/40287311/" },
+      { label: "EULAR 2016 PtC originali (ARD)", href: "https://ard.bmj.com/content/76/3/476" },
+    ],
+    intro:
+      "Update EULAR 2024 sulle raccomandazioni per l'uso dei farmaci antireumatici prima del concepimento, in gravidanza, allattamento ed esposizione paterna. 5 principi generali + 12 raccomandazioni.",
+    sections: [
+      {
+        title: "Principi generali",
+        items: [
+          "Counselling riproduttivo precoce in TUTTI i pazienti con malattia reumatica (donne E uomini) a partire dall'adolescenza.",
+          "Pianificare la gravidanza in fase di remissione o bassa attività di malattia stabile da ≥6 mesi.",
+          "Bilanciare il rischio del farmaco vs il rischio di malattia non controllata sulla madre e sul feto: una malattia attiva è essa stessa un fattore di rischio.",
+          "Coinvolgere reumatologo + ginecologo (centri di gravidanza ad alto rischio se autoanticorpi anti-Ro/La, APS, LES attivo).",
+          "Continuare i farmaci compatibili anche in allattamento per evitare flares.",
+        ],
+      },
+      {
+        title: "Pre-concezionale",
+        items: [
+          "Sospendere methotrexato ≥1 mese (donne) e ≥3 mesi (uomini, dato controverso, dati recenti tranquillizzanti).",
+          "Sospendere micofenolato mofetil ≥6 settimane prima del concepimento.",
+          "Sospendere ciclofosfamide ≥3 mesi (offrire crioconservazione gameti).",
+          "Sospendere leflunomide e fare wash-out con colestiramina (verificare livello plasmatico <0.02 mg/L).",
+          "Continuare HCQ (raccomandato), azatioprina, ciclosporina, tacrolimus, sulfasalazina (con folati).",
+        ],
+      },
+      {
+        title: "In gravidanza - raccomandazioni chiave",
+        items: [
+          "HCQ: continuare in tutte le pazienti con LES, APS o malattia attiva (effetto protettivo sulla riacutizzazione e sulla preeclampsia).",
+          "Aspirina a basse dosi (75–100 mg) raccomandata in pazienti con LES, APS o storia di preeclampsia, dal primo trimestre fino a 36w.",
+          "GC: prednisone/prednisolone come scelta di prima linea (metabolizzati dalla placenta); minima dose efficace; evitare desametasone/betametasone (passano la placenta) salvo per maturazione polmonare fetale.",
+          "FANS: solo intermittente nel 1°-2° trimestre; SOSPENDERE entro 28 settimane (rischio di chiusura prematura del dotto di Botallo, oligoidramnios).",
+          "TNFi: certolizumab pegol può essere continuato per tutta la gravidanza (basso passaggio transplacentare); altri TNFi (infliximab, adalimumab, etanercept, golimumab) possono essere proseguiti almeno fino a 20–32w in base al rischio.",
+        ],
+      },
+      {
+        title: "Allattamento",
+        items: [
+          "Compatibili: HCQ, azatioprina, ciclosporina, tacrolimus, sulfasalazina, GC <20 mg/die, certolizumab pegol e altri TNFi, colchicina, IVIg.",
+          "Probabile compatibilità (passaggio minimo nel latte): rituximab, abatacept, tocilizumab, anakinra, secukinumab.",
+          "Da evitare: methotrexato, ciclofosfamide, micofenolato, leflunomide.",
+          "JAK inibitori (tofacitinib, baricitinib, upadacitinib): dati insufficienti, scoraggiare l'allattamento.",
+        ],
+      },
+      {
+        title: "Esposizione paterna",
+        items: [
+          "Compatibili: TNFi, MTX a basse dosi (dati recenti rassicuranti), azatioprina, sulfasalazina, ciclosporina, tacrolimus, HCQ.",
+          "Da evitare/cautela: ciclofosfamide (offrire crioconservazione), talidomide.",
+          "Sulfasalazina: può ridurre transitoriamente la spermatogenesi (oligospermia reversibile).",
+        ],
+      },
+      {
+        title: "Vaccinazioni in gravidanza/allattamento",
+        items: [
+          "Vaccini inattivati sicuri (influenza, COVID, pneumococco, Tdap raccomandato a 27–36w).",
+          "Vaccini vivi attenuati controindicati in gravidanza; in allattamento possibili (MMR, varicella).",
+          "Neonati esposti in utero a biologici (TNFi, rituximab nel 3° trimestre): differire vaccini vivi (BCG, rotavirus) di almeno 6 mesi.",
+        ],
+      },
+    ],
+    note: "Le decisioni vanno individualizzate; in caso di dubbi consultare un centro di riferimento.",
+  },
+
+  // ============ Tabella farmaci in gravidanza/allattamento (BSR 2022) ============
+  {
+    id: "bsr_2022_pregnancy_drugs",
+    name: "Farmaci reumatologici in gravidanza e allattamento - Tabella di sicurezza",
+    disease: "Gravidanza e RMD",
+    source: "BSR 2022 (Russell et al.) + EULAR 2024",
+    year: 2022,
+    url: "https://academic.oup.com/rheumatology/article/62/4/e48/6783012",
+    urls: [
+      { label: "BSR 2022 - Full text (PMC)", href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10070067/" },
+      { label: "BSR Pregnancy guideline PDF", href: "https://www.rheumatology.org.uk/Portals/0/Documents/Practice/BSR_pregnancy_guideline_summary.pdf" },
+    ],
+    intro:
+      "Tabella sintetica derivata dalle linee guida BSR 2022 (NICE-accredited) e dall'update EULAR 2024 per l'uso dei farmaci antireumatici in donne in età fertile, in gravidanza e in allattamento.",
+    sections: [
+      {
+        title: "✅ COMPATIBILI in gravidanza (continuare se necessario)",
+        items: [
+          "Idrossiclorochina (≤400 mg/die) - raccomandata, effetto protettivo in LES/APS.",
+          "Sulfasalazina (≤2 g/die) - aggiungere folati 5 mg/die nel 1° trimestre.",
+          "Azatioprina (≤2 mg/kg/die).",
+          "Ciclosporina e tacrolimus (monitorare livelli, BP, funzione renale).",
+          "Colchicina (sicura in FMF e Behçet).",
+          "Prednisone/prednisolone (minima dose efficace, preferiti rispetto a desametasone).",
+          "Aspirina a basse dosi (75-100 mg) - raccomandata in LES, APS, storia di preeclampsia.",
+          "LMWH (eparina a basso peso molecolare) - profilassi/terapia trombosi.",
+          "IVIg.",
+        ],
+      },
+      {
+        title: "⚠️ CONDIZIONALI in gravidanza",
+        items: [
+          "FANS: solo intermittenti, SOSPENDERE entro 28 settimane (chiusura precoce dotto di Botallo, oligoidramnios). Preferire ibuprofene a breve emivita.",
+          "TNF inibitori: certolizumab pegol (sicuro per tutta la gravidanza, minimo passaggio placentare). Altri TNFi (adalimumab, infliximab, etanercept, golimumab) - continuare fino a 20-32w in base ad attività; etanercept fino al 3° trimestre se necessario.",
+          "Rituximab: evitare nel 2°-3° trimestre (deplezione B nel neonato); accettabile pre-concepimento e nel 1° trimestre se necessario.",
+          "Anakinra, canakinumab, tocilizumab, abatacept, ustekinumab, secukinumab, ixekizumab: dati limitati ma generalmente sicuri se beneficio supera rischio.",
+          "Belimumab, anifrolumab: dati limitati, sospendere se possibile pre-concepimento.",
+          "Tacrolimus, ciclosporina: monitorare livelli e funzione renale (raccomandati in trapianto/SLE renale).",
+        ],
+      },
+      {
+        title: "❌ DA EVITARE in gravidanza (teratogeni o ad alto rischio)",
+        items: [
+          "Methotrexato - TERATOGENO. Sospendere ≥1 mese pre-concepimento; folati 5 mg/die per 12 settimane.",
+          "Micofenolato mofetil/sodico - TERATOGENO (malformazioni cranio-facciali e cardiache). Sospendere ≥6 settimane pre-concepimento.",
+          "Leflunomide - TERATOGENO. Wash-out con colestiramina (8 g x 3/die per 11 giorni); verificare livello plasmatico <0.02 mg/L.",
+          "Ciclofosfamide - TERATOGENO e gonadotossico. Sospendere ≥3 mesi pre-concepimento. Offrire crioconservazione.",
+          "JAK inibitori (tofacitinib, baricitinib, upadacitinib, filgotinib) - dati insufficienti; sospendere prima del concepimento.",
+          "Bosentan, macitentan, ambrisentan (ERA per PAH) - teratogeni.",
+          "Warfarin nel 1° trimestre (embriopatia warfarinica) e a fine gravidanza.",
+          "DOAC (rivaroxaban, apixaban, dabigatran) - dati insufficienti, evitare.",
+          "Talidomide - teratogeno noto.",
+        ],
+      },
+      {
+        title: "✅ COMPATIBILI in allattamento",
+        items: [
+          "Idrossiclorochina, sulfasalazina, azatioprina, ciclosporina, tacrolimus.",
+          "Prednisone/prednisolone (≤20 mg/die senza precauzioni; >20 mg/die: aspettare 4 ore tra dose e poppata).",
+          "FANS a breve emivita (ibuprofene preferito); evitare aspirina ad alte dosi.",
+          "Colchicina, IVIg.",
+          "TNFi (certolizumab, adalimumab, infliximab, etanercept, golimumab) - passaggio minimo nel latte e degradati nel tratto GI del neonato.",
+          "Rituximab, abatacept, tocilizumab, anakinra, ustekinumab, secukinumab - probabile compatibilità (molecole grandi, scarsamente assorbite).",
+        ],
+      },
+      {
+        title: "❌ DA EVITARE in allattamento",
+        items: [
+          "Methotrexato (passaggio nel latte; dati insufficienti su sicurezza neonatale).",
+          "Micofenolato mofetil/sodico.",
+          "Ciclofosfamide.",
+          "Leflunomide.",
+          "JAK inibitori - dati insufficienti, sconsigliati.",
+          "Apremilast - dati insufficienti.",
+          "Warfarin: compatibile (passa minimamente nel latte). DOAC: evitare.",
+        ],
+      },
+      {
+        title: "Esposizione paterna - prima del concepimento",
+        items: [
+          "Compatibili: TNFi, azatioprina, ciclosporina, tacrolimus, HCQ, sulfasalazina (può causare oligospermia reversibile - sospendere 3 mesi se infertilità).",
+          "Methotrexato a basse dosi: dati recenti (CRIB study) tranquillizzanti, BSR ammette continuazione; alcuni esperti suggeriscono ancora wash-out di 3 mesi per cautela.",
+          "Da evitare/cautela: ciclofosfamide (gonadotossica, offrire crioconservazione), talidomide (teratogena anche per via paterna).",
+          "JAK inibitori, micofenolato: dati insufficienti, preferibile wash-out.",
+        ],
+      },
+      {
+        title: "Vaccinazioni",
+        items: [
+          "Donna in età fertile: aggiornare vaccinazioni vivi (MMR, varicella) PRIMA del concepimento (almeno 4 settimane).",
+          "In gravidanza: SICURI inattivati (influenza ogni anno, COVID-19, Tdap a 27-36w). CONTROINDICATI vivi attenuati.",
+          "In allattamento: tutti i vaccini sicuri inclusi i vivi (MMR, varicella, febbre gialla con cautela).",
+          "Neonato esposto in utero a biologici (specialmente TNFi 3° trimestre, rituximab): NO vaccini vivi (BCG, rotavirus) per ≥6 mesi; controllare livelli farmaco se necessario.",
+        ],
+      },
+    ],
+    note: "Tabella di sintesi a scopo orientativo. Decisioni terapeutiche individualizzate; consultare le linee guida complete e centri di riferimento per gravidanza ad alto rischio.",
+  },
 ];
 
 export const GUIDELINE_GROUPS = Array.from(new Set(GUIDELINES.map((g) => g.disease)));

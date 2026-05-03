@@ -33,6 +33,7 @@ const CRITERIA_DIAGNOSIS_MAP = {
   acr_2016_fm: "Fibromialgia",
   icbd_2014_behcet: "Malattia di Behçet",
   acr_eular_2019_igg4: "Malattia IgG4-correlata",
+  acr_eular_2023_aps: "Sindrome da anticorpi antifosfolipidi (APS)",
 };
 
 export default function Criteria() {
