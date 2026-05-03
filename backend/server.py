@@ -314,6 +314,7 @@ async def register(payload: RegisterRequest, response: Response):
     # Determine organization
     org_id = None
     org_name = None
+    role = "member"
     if payload.invite_code:
         org = await db.organizations.find_one({"invite_code": payload.invite_code.strip()}, {"_id": 0})
         if not org:
@@ -850,6 +851,7 @@ async def parse_visit_text(payload: ParseVisitRequest, user: dict = Depends(get_
     if len(text) > 25000:
         raise HTTPException(status_code=400, detail="Testo troppo lungo (max 25000 caratteri)")
 
+    data = None
     try:
         data = await _call_claude_extract(text)
     except HTTPException:
