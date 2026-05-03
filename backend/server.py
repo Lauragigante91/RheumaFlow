@@ -989,7 +989,7 @@ async def upsert_sclero_profile(
 
 
 # ==================== GENERIC DISEASE PROFILE (RA / SpA / ...) ====================
-ALLOWED_DISEASE_TYPES = {"ra", "spa"}
+ALLOWED_DISEASE_TYPES = {"ra", "spa", "sle", "aav", "sjogren", "myositis"}
 
 
 class DiseaseProfileBase(BaseModel):

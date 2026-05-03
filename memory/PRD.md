@@ -329,7 +329,42 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-03 - v22 - Profili malattia-specifici AR/SpA + legenda grafico per farmaco)
+## Implemented (2026-05-03 - v23 - Profili specifici LES/AAV/Sjögren/Miositi + riepilogo vasculite)
+- [x] **Estensione collection generica `disease_profiles`** — ALLOWED_DISEASE_TYPES
+  ora include: ra, spa, sle, aav, sjogren, myositis (ssc ha ancora il suo
+  endpoint dedicato). Nessuna migrazione necessaria grazie allo schema flessibile.
+- [x] **Profilo LES** (`SleProfileSection.jsx`): anticorpi (ANA + pattern/titolo,
+  anti-dsDNA + titolo, Sm, Ro/SSA, La/SSB, RNP, aCL, anti-β2GPI, LAC), complemento
+  (C3, C4), nefrite lupica con flag + classe ISN/RPS (I-VI + III+V, IV+V) +
+  proteinuria 24h, altro.
+- [x] **Profilo Vasculite ANCA** (`AavProfileSection.jsx`): pattern ANCA (cANCA/
+  pANCA/atipico/negativo/non testato), specificità antigenica (PR3/MPO/entrambe),
+  titolo, 10 organi coinvolti (Rene, Polmone, ORL, Cute, Neuro periferico, SNC,
+  Occhio, GI, Cardiaco, MSK) con descrizione, base diagnostica multi-check (10
+  opzioni: biopsie specifiche per organo, imaging TC/RMN/angio, clinica+ANCA,
+  eosinofilia+asma EGPA), altro.
+- [x] **Riepilogo vasculite in intestazione** (`AavSummaryHeader.jsx`): card
+  condensata mostrata in cima alla scheda paziente vasculite che espone a colpo
+  d'occhio: ANCA pattern + specificità antigenica (badge rosso), organi coinvolti
+  (pill rossi), diagnosi basata su (pill grigi). Se profilo vuoto mostra messaggio
+  ambra "compila profilo qui sotto". Data-testid `aav-header-summary/organs/basis/
+  pattern/spec`.
+- [x] **Profilo Sjögren** (`SjogrenProfileSection.jsx`): anticorpi (Ro/SSA +
+  titolo, La/SSB + titolo, ANA, FR), test di Schirmer dx/sx (mm con flag ≤5
+  patologico), flusso salivare non stimolato, biopsia ghiandole salivari minori
+  con focus score (flag ≥1 patologico) + descrizione, altro.
+- [x] **Profilo Miositi** (`MyositisProfileSection.jsx`): sottotipo (DM/CADM/PM/
+  IBM/IMNM/ASyS/Overlap/JDM), CK max, aldolasi, ILD flag, 17 anticorpi miosite-
+  specifici e associati raggruppati per categoria: MSA-ASyS (Jo1/PL-7/PL-12/EJ/
+  OJ/KS), MSA-DM (Mi2/MDA5/TIF1γ/NXP2/SAE), MSA-IMNM (SRP/HMGCR), MAA-overlap
+  (PM-Scl/Ku/U1-RNP/Ro52), altro.
+- [x] **Modulo condiviso `/app/frontend/src/lib/diseaseDetection.js`**: funzioni
+  `isRaDiagnosis/isSpaDiagnosis/isSleDiagnosis/isAavDiagnosis/isSjogrenDiagnosis/
+  isMyositisDiagnosis` per evitare duplicazione nei componenti.
+- [x] **Componente condiviso `TriState`** (`/app/frontend/src/components/ui/TriState.jsx`):
+  selettore Positivo/Negativo/Non testato usato da tutti i profili con anticorpi.
+
+
 - [x] **Puntini grafico per singolo farmaco** (non più per categoria):
   palette dedicata (`DRUG_PALETTE`, 18 colori), `buildDrugColorMap(chartData)`
   assegna un colore stabile a ogni farmaco in base all'ordine di comparsa.

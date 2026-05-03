@@ -8,43 +8,7 @@ import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
 import { Save, Beaker, Bone, Wind, FileText } from "lucide-react";
 import { toast } from "sonner";
-
-// Detect Rheumatoid Arthritis diagnosis
-export function isRaDiagnosis(diagnosi) {
-  if (!diagnosi) return false;
-  const d = String(diagnosi).toLowerCase();
-  return (
-    d.includes("artrite reumatoide") ||
-    /(^|\s)ar(\s|,|\.|$)/.test(d) ||
-    d.includes("rheumatoid")
-  );
-}
-
-const TRISTATE = [
-  { value: "positive", label: "Positivo", cls: "bg-red-100 text-red-800 border-red-300" },
-  { value: "negative", label: "Negativo", cls: "bg-green-100 text-green-800 border-green-300" },
-  { value: "unknown", label: "Non testato", cls: "bg-gray-100 text-gray-700 border-gray-300" },
-];
-
-function TriState({ value, onChange, testid }) {
-  return (
-    <div className="flex gap-1" data-testid={testid}>
-      {TRISTATE.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={`px-2.5 py-1 text-xs rounded-md border transition ${
-            value === o.value ? o.cls + " font-semibold" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-          }`}
-          data-testid={`${testid}-${o.value}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { TriState } from "./ui/TriState";
 
 export default function RaProfileSection({ patient }) {
   const [data, setData] = useState({

@@ -8,23 +8,6 @@ import { Checkbox } from "./ui/checkbox";
 import { Save, User, Eye, Stethoscope, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-// Detect axial/peripheral Spondyloarthritis diagnosis (excluding pure PsA when already profiled elsewhere)
-export function isSpaDiagnosis(diagnosi) {
-  if (!diagnosi) return false;
-  const d = String(diagnosi).toLowerCase();
-  return (
-    d.includes("spondilo") ||
-    d.includes("spondilite anchilosante") ||
-    d.includes("anchilosante") ||
-    d.includes("axspa") ||
-    /(^|\s)spa(\s|,|\.|$)/.test(d) ||
-    /(^|\s)as(\s|,|\.|$)/.test(d) ||
-    d.includes("artrite psoriasica") ||
-    d.includes("psa") ||
-    d.includes("artrite psor")
-  );
-}
-
 const FLAGS = [
   {
     key: "psoriasis",

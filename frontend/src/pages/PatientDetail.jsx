@@ -23,8 +23,14 @@ import TherapySection from "../components/TherapySection";
 import ExamsSection from "../components/ExamsSection";
 import RemindersSection from "../components/RemindersSection";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
-import RaProfileSection, { isRaDiagnosis } from "../components/RaProfileSection";
-import SpaProfileSection, { isSpaDiagnosis } from "../components/SpaProfileSection";
+import RaProfileSection from "../components/RaProfileSection";
+import SpaProfileSection from "../components/SpaProfileSection";
+import SleProfileSection from "../components/SleProfileSection";
+import AavProfileSection from "../components/AavProfileSection";
+import AavSummaryHeader from "../components/AavSummaryHeader";
+import SjogrenProfileSection from "../components/SjogrenProfileSection";
+import MyositisProfileSection from "../components/MyositisProfileSection";
+import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
 import VisitImportButton from "../components/VisitImportButton";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
@@ -400,6 +406,9 @@ export default function PatientDetail() {
         </Card>
       )}
 
+      {/* Vasculitis header summary (organs & diagnostic basis) */}
+      {isAavDiagnosis(patient.diagnosi) && <AavSummaryHeader patient={patient} />}
+
       {/* Therapy section */}
       <TherapySection patient={patient} />
 
@@ -408,6 +417,18 @@ export default function PatientDetail() {
 
       {/* Spondyloarthritis profile (incl. PsA) */}
       {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} />}
+
+      {/* SLE profile */}
+      {isSleDiagnosis(patient.diagnosi) && <SleProfileSection patient={patient} />}
+
+      {/* ANCA Vasculitis profile */}
+      {isAavDiagnosis(patient.diagnosi) && <AavProfileSection patient={patient} />}
+
+      {/* Sjögren profile */}
+      {isSjogrenDiagnosis(patient.diagnosi) && <SjogrenProfileSection patient={patient} />}
+
+      {/* Myositis profile */}
+      {isMyositisDiagnosis(patient.diagnosi) && <MyositisProfileSection patient={patient} />}
 
       {/* Scleroderma profile - only if SSc diagnosis */}
       {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
