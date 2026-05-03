@@ -81,6 +81,9 @@ async def get_current_user(request: Request) -> dict:
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    # Cancella eventuali cookie obsoleti (es. con SameSite/Secure differenti) prima di settare i nuovi
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=28800, path="/")
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
 
