@@ -20,6 +20,8 @@ import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, Fil
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import TherapySection from "../components/TherapySection";
+import ExamsSection from "../components/ExamsSection";
+import RemindersSection from "../components/RemindersSection";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -292,6 +294,12 @@ export default function PatientDetail() {
       {/* Therapy section */}
       <TherapySection patient={patient} />
 
+      {/* Lab exams */}
+      <ExamsSection patient={patient} />
+
+      {/* Reminders */}
+      <RemindersSection patient={patient} />
+
       {/* Trend chart */}
       <Card className="border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -352,7 +360,10 @@ export default function PatientDetail() {
                   const resp = responseByAssessmentId[a.id];
                   return (
                   <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`assessment-row-${a.id}`}>
-                    <td className="px-4 py-3 font-medium">{new Date(a.date).toLocaleDateString("it-IT")}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{new Date(a.date).toLocaleDateString("it-IT")}</div>
+                      {a.created_by_name && <div className="text-[10px] text-gray-500 mt-0.5">da {a.created_by_name}</div>}
+                    </td>
                     <td className="px-4 py-3">{INDEX_LABELS[a.index_type] || a.index_type}</td>
                     <td className="px-4 py-3 font-mono font-bold text-[#0A2540]">{a.score ?? "-"}</td>
                     <td className="px-4 py-3">{a.interpretation || "-"}</td>

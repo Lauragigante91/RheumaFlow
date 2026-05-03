@@ -58,3 +58,20 @@ export const therapiesApi = {
   update: (id, data) => api.put(`/therapies/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/therapies/${id}`).then((r) => r.data),
 };
+
+export const labExamsApi = {
+  create: (data) => api.post("/lab-exams", data).then((r) => r.data),
+  listByPatient: (patientId) =>
+    api.get(`/patients/${patientId}/lab-exams`).then((r) => r.data),
+  update: (id, data) => api.put(`/lab-exams/${id}`, data).then((r) => r.data),
+  remove: (id) => api.delete(`/lab-exams/${id}`).then((r) => r.data),
+};
+
+export const remindersApi = {
+  create: (data) => api.post("/reminders", data).then((r) => r.data),
+  listByPatient: (patientId) =>
+    api.get(`/patients/${patientId}/reminders`).then((r) => r.data),
+  upcoming: () => api.get("/reminders/upcoming").then((r) => r.data),
+  update: (id, data) => api.put(`/reminders/${id}`, data).then((r) => r.data),
+  remove: (id) => api.delete(`/reminders/${id}`).then((r) => r.data),
+};

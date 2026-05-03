@@ -42,6 +42,31 @@ User requirements:
 - [x] Export CSV
 - [x] UI in italiano
 
+## Implemented (2026-02-10 - v6)
+- [x] **Sezione Esami di laboratorio** completa con 6 pannelli predefiniti:
+  Autoanticorpi (29 test), Complemento (3), Fase acuta (5), Emocromo (7),
+  Funzione organi (10), Urine (6); supporta valori numerici, qualitativi
+  (positivo/negativo/borderline) e testuali (titolo ANA, pattern). Backend
+  CRUD `/api/lab-exams` + UI con accordion per pannello + storico in linea
+  + evidenziazione automatica fuori range (↑ rosso / ↓ blu)
+- [x] **Reminder/notifiche follow-up**: nuovo modello backend, endpoint
+  `/api/reminders` + `/api/reminders/upcoming`. Per paziente: aggiungi
+  reminder con tipo (visita controllo/lab/imaging/terapia/capillaroscopia),
+  data, note. Quick presets +1/3/6/12 mesi. Badge urgenza (Scaduto rosso /
+  ≤7gg arancione / ≤30gg blu). Dashboard mostra widget "Prossimi reminder"
+  + StatCard "Reminder attivi" con highlight rosso se ci sono scaduti
+- [x] **Audit "creato da"**: tutti i modelli (Patient/Assessment/
+  CriteriaEvaluation/Therapy/LabExam/Reminder) salvano `created_by_name`
+  al momento della creazione. Visualizzato come badge:
+  - Tabella valutazioni: "da Dr. Rossi" sotto la data
+  - Card terapia: "prescritto da Dr. Rossi"
+  - Esami: "Dr. Rossi" con icona utente
+  - Reminder: "Dr. Rossi" nella riga
+  - Dashboard valutazioni recenti: mostra il medico
+- [x] **Fix login**: cookie ora con `Secure=True; SameSite=None` per
+  funzionare in ambiente HTTPS (precedentemente Lax + non-Secure causava
+  blocco dei cookie sui browser moderni)
+
 ## Implemented (2026-02-10 - v5)
 - [x] **Multi-utente con autenticazione JWT** + organizzazioni (UO):
   - Backend: bcrypt password hash, JWT in httpOnly cookie, /api/auth/*

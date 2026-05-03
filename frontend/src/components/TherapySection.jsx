@@ -256,6 +256,7 @@ function TherapyRow({ t, onEdit, onRemove, dimmed }) {
           <div className="text-xs text-red-600 mt-1"><strong>Motivo sospensione:</strong> {t.discontinuation_reason}</div>
         )}
         {t.notes && <div className="text-xs text-gray-500 mt-1">{t.notes}</div>}
+        {t.created_by_name && <div className="text-[10px] text-gray-500 mt-1">prescritto da {t.created_by_name}</div>}
       </div>
       <div className="flex gap-1">
         <Button variant="ghost" size="icon" onClick={() => onEdit(t)} data-testid={`edit-therapy-${t.id}`}>

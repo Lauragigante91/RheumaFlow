@@ -81,8 +81,8 @@ async def get_current_user(request: Request) -> dict:
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=28800, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800, path="/")
 
 
 # ==================== MODELS ====================
@@ -131,6 +131,7 @@ class Patient(PatientBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     organization_id: str
     created_by: str
+    created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -161,6 +162,7 @@ class Assessment(AssessmentBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     organization_id: str
     created_by: str
+    created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -182,6 +184,7 @@ class CriteriaEvaluation(CriteriaEvaluationBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     organization_id: str
     created_by: str
+    created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -204,6 +207,7 @@ class Therapy(TherapyBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     organization_id: str
     created_by: str
+    created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -218,6 +222,49 @@ class TherapyUpdate(BaseModel):
     status: Optional[str] = None
     discontinuation_reason: Optional[str] = None
     notes: Optional[str] = None
+
+
+class LabExamBase(BaseModel):
+    patient_id: str
+    date: str
+    panel: str  # autoanticorpi, complemento, fase_acuta, emocromo, funzione, urine, custom
+    values: Dict[str, Any] = {}  # { test_key: { value, unit, status (positive/negative/normal/high/low), notes? } }
+    notes: Optional[str] = None
+
+
+class LabExam(LabExamBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class ReminderBase(BaseModel):
+    patient_id: str
+    due_date: str
+    title: str
+    type: Optional[str] = None  # follow_up, lab, imaging, therapy, other
+    notes: Optional[str] = None
+    completed: bool = False
+
+
+class Reminder(ReminderBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class ReminderUpdate(BaseModel):
+    due_date: Optional[str] = None
+    title: Optional[str] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+    completed: Optional[bool] = None
 
 
 # ==================== APP ====================
@@ -323,7 +370,7 @@ async def refresh_token(request: Request, response: Response):
         if not user:
             raise HTTPException(status_code=401, detail="Utente non trovato")
         access = create_access_token(user["id"], user["email"], user["organization_id"])
-        response.set_cookie(key="access_token", value=access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
+        response.set_cookie(key="access_token", value=access, httponly=True, secure=True, samesite="none", max_age=28800, path="/")
         return {"success": True}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token non valido")
@@ -337,7 +384,7 @@ async def root():
 
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(payload: PatientBase, user: dict = Depends(get_current_user)):
-    p = Patient(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"])
+    p = Patient(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.patients.insert_one(p.model_dump())
     return p
 
@@ -378,6 +425,8 @@ async def delete_patient(patient_id: str, user: dict = Depends(get_current_user)
     await db.assessments.delete_many({"patient_id": patient_id})
     await db.criteria_evaluations.delete_many({"patient_id": patient_id})
     await db.therapies.delete_many({"patient_id": patient_id})
+    await db.lab_exams.delete_many({"patient_id": patient_id})
+    await db.reminders.delete_many({"patient_id": patient_id})
     return {"success": True}
 
 
@@ -391,7 +440,7 @@ async def _verify_patient_in_org(patient_id: str, organization_id: str):
 @api_router.post("/assessments", response_model=Assessment)
 async def create_assessment(payload: AssessmentBase, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(payload.patient_id, user["organization_id"])
-    a = Assessment(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"])
+    a = Assessment(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.assessments.insert_one(a.model_dump())
     return a
 
@@ -435,7 +484,7 @@ async def delete_assessment(assessment_id: str, user: dict = Depends(get_current
 @api_router.post("/criteria-evaluations", response_model=CriteriaEvaluation)
 async def create_criteria_evaluation(payload: CriteriaEvaluationBase, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(payload.patient_id, user["organization_id"])
-    ev = CriteriaEvaluation(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"])
+    ev = CriteriaEvaluation(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.criteria_evaluations.insert_one(ev.model_dump())
     return ev
 
@@ -459,7 +508,7 @@ async def delete_criteria_evaluation(evaluation_id: str, user: dict = Depends(ge
 @api_router.post("/therapies", response_model=Therapy)
 async def create_therapy(payload: TherapyBase, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(payload.patient_id, user["organization_id"])
-    t = Therapy(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"])
+    t = Therapy(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.therapies.insert_one(t.model_dump())
     return t
 
@@ -490,6 +539,89 @@ async def delete_therapy(therapy_id: str, user: dict = Depends(get_current_user)
     result = await db.therapies.delete_one({"id": therapy_id, "organization_id": user["organization_id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Terapia non trovata")
+    return {"success": True}
+
+
+# ==================== LAB EXAMS ====================
+@api_router.post("/lab-exams", response_model=LabExam)
+async def create_lab_exam(payload: LabExamBase, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    e = LabExam(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
+    await db.lab_exams.insert_one(e.model_dump())
+    return e
+
+
+@api_router.get("/patients/{patient_id}/lab-exams", response_model=List[LabExam])
+async def list_patient_lab_exams(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.lab_exams.find({"patient_id": patient_id}, {"_id": 0}).sort("date", -1).to_list(2000)
+    return docs
+
+
+@api_router.put("/lab-exams/{exam_id}", response_model=LabExam)
+async def update_lab_exam(exam_id: str, payload: LabExamBase, user: dict = Depends(get_current_user)):
+    update_data = payload.model_dump()
+    result = await db.lab_exams.update_one(
+        {"id": exam_id, "organization_id": user["organization_id"]},
+        {"$set": update_data},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Esame non trovato")
+    return await db.lab_exams.find_one({"id": exam_id}, {"_id": 0})
+
+
+@api_router.delete("/lab-exams/{exam_id}")
+async def delete_lab_exam(exam_id: str, user: dict = Depends(get_current_user)):
+    result = await db.lab_exams.delete_one({"id": exam_id, "organization_id": user["organization_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Esame non trovato")
+    return {"success": True}
+
+
+# ==================== REMINDERS ====================
+@api_router.post("/reminders", response_model=Reminder)
+async def create_reminder(payload: ReminderBase, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    r = Reminder(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
+    await db.reminders.insert_one(r.model_dump())
+    return r
+
+
+@api_router.get("/patients/{patient_id}/reminders", response_model=List[Reminder])
+async def list_patient_reminders(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.reminders.find({"patient_id": patient_id}, {"_id": 0}).sort("due_date", 1).to_list(2000)
+    return docs
+
+
+@api_router.get("/reminders/upcoming", response_model=List[Reminder])
+async def upcoming_reminders(user: dict = Depends(get_current_user)):
+    docs = await db.reminders.find(
+        {"organization_id": user["organization_id"], "completed": False},
+        {"_id": 0},
+    ).sort("due_date", 1).limit(20).to_list(20)
+    return docs
+
+
+@api_router.put("/reminders/{reminder_id}", response_model=Reminder)
+async def update_reminder(reminder_id: str, payload: ReminderUpdate, user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nessun campo da aggiornare")
+    result = await db.reminders.update_one(
+        {"id": reminder_id, "organization_id": user["organization_id"]},
+        {"$set": update_data},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Reminder non trovato")
+    return await db.reminders.find_one({"id": reminder_id}, {"_id": 0})
+
+
+@api_router.delete("/reminders/{reminder_id}")
+async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_user)):
+    result = await db.reminders.delete_one({"id": reminder_id, "organization_id": user["organization_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Reminder non trovato")
     return {"success": True}
 
 

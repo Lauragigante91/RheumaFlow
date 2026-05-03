@@ -1,0 +1,96 @@
+// Pannelli di esami laboratorio reumatologico predefiniti
+
+export const LAB_PANELS = {
+  autoanticorpi: {
+    label: "Autoanticorpi",
+    tests: [
+      { key: "ana_titolo", label: "ANA - Titolo", unit: "1:n", type: "text", placeholder: "es. 1:320" },
+      { key: "ana_pattern", label: "ANA - Pattern", unit: "", type: "text", placeholder: "omogeneo, granulare, nucleolare, centromerico..." },
+      { key: "anti_dsdna", label: "Anti-dsDNA", unit: "UI/mL", type: "number" },
+      { key: "anti_sm", label: "Anti-Sm", unit: "", type: "qual" },
+      { key: "anti_rnp", label: "Anti-RNP/U1RNP", unit: "", type: "qual" },
+      { key: "anti_ssa_ro", label: "Anti-SSA/Ro", unit: "", type: "qual" },
+      { key: "anti_ssb_la", label: "Anti-SSB/La", unit: "", type: "qual" },
+      { key: "anti_scl70", label: "Anti-Scl-70 (topoisomerasi I)", unit: "", type: "qual" },
+      { key: "anti_centromero", label: "Anti-centromero (ACA)", unit: "", type: "qual" },
+      { key: "anti_rnap3", label: "Anti-RNA polimerasi III", unit: "", type: "qual" },
+      { key: "anti_pmscl", label: "Anti-PM/Scl", unit: "", type: "qual" },
+      { key: "anti_ku", label: "Anti-Ku", unit: "", type: "qual" },
+      { key: "anti_jo1", label: "Anti-Jo-1", unit: "", type: "qual" },
+      { key: "anti_mi2", label: "Anti-Mi-2", unit: "", type: "qual" },
+      { key: "anti_mda5", label: "Anti-MDA5", unit: "", type: "qual" },
+      { key: "anti_tif1g", label: "Anti-TIF1γ", unit: "", type: "qual" },
+      { key: "anti_nxp2", label: "Anti-NXP2", unit: "", type: "qual" },
+      { key: "anti_srp", label: "Anti-SRP", unit: "", type: "qual" },
+      { key: "anti_hmgcr", label: "Anti-HMGCR", unit: "", type: "qual" },
+      { key: "anca_pr3", label: "ANCA / Anti-PR3 (c-ANCA)", unit: "UI/mL", type: "number" },
+      { key: "anca_mpo", label: "ANCA / Anti-MPO (p-ANCA)", unit: "UI/mL", type: "number" },
+      { key: "fr", label: "Fattore Reumatoide (FR)", unit: "UI/mL", type: "number", refMax: 14 },
+      { key: "acpa_anti_ccp", label: "Anti-CCP (ACPA)", unit: "U/mL", type: "number", refMax: 17 },
+      { key: "anti_mcv", label: "Anti-MCV", unit: "U/mL", type: "number" },
+      { key: "lac", label: "Lupus Anticoagulant (LAC)", unit: "", type: "qual" },
+      { key: "acl_igg", label: "Anti-cardiolipina IgG", unit: "GPL/mL", type: "number" },
+      { key: "acl_igm", label: "Anti-cardiolipina IgM", unit: "MPL/mL", type: "number" },
+      { key: "b2gp1_igg", label: "Anti-β2GP1 IgG", unit: "U/mL", type: "number" },
+      { key: "b2gp1_igm", label: "Anti-β2GP1 IgM", unit: "U/mL", type: "number" },
+    ],
+  },
+  complemento: {
+    label: "Complemento",
+    tests: [
+      { key: "c3", label: "C3", unit: "mg/dL", type: "number", refMin: 90, refMax: 180 },
+      { key: "c4", label: "C4", unit: "mg/dL", type: "number", refMin: 10, refMax: 40 },
+      { key: "ch50", label: "CH50", unit: "U/mL", type: "number", refMin: 60, refMax: 144 },
+    ],
+  },
+  fase_acuta: {
+    label: "Fase acuta",
+    tests: [
+      { key: "ves", label: "VES", unit: "mm/h", type: "number", refMax: 30 },
+      { key: "pcr", label: "PCR", unit: "mg/L", type: "number", refMax: 5 },
+      { key: "fibrinogeno", label: "Fibrinogeno", unit: "mg/dL", type: "number", refMin: 200, refMax: 400 },
+      { key: "ferritina", label: "Ferritina", unit: "ng/mL", type: "number" },
+      { key: "saa", label: "SAA (Amiloide A sierica)", unit: "mg/L", type: "number" },
+    ],
+  },
+  emocromo: {
+    label: "Emocromo",
+    tests: [
+      { key: "wbc", label: "Leucociti", unit: "x10⁹/L", type: "number", refMin: 4, refMax: 10 },
+      { key: "neutrophils", label: "Neutrofili", unit: "%", type: "number" },
+      { key: "lymphocytes", label: "Linfociti", unit: "%", type: "number" },
+      { key: "eosinophils", label: "Eosinofili", unit: "x10⁹/L", type: "number" },
+      { key: "monocytes", label: "Monociti", unit: "%", type: "number" },
+      { key: "hb", label: "Emoglobina", unit: "g/dL", type: "number", refMin: 12, refMax: 17 },
+      { key: "plt", label: "Piastrine", unit: "x10⁹/L", type: "number", refMin: 150, refMax: 450 },
+    ],
+  },
+  funzione: {
+    label: "Funzione organi / chimica",
+    tests: [
+      { key: "creatinina", label: "Creatinina", unit: "mg/dL", type: "number" },
+      { key: "egfr", label: "eGFR (CKD-EPI)", unit: "mL/min/1.73m²", type: "number" },
+      { key: "ast", label: "AST (GOT)", unit: "U/L", type: "number", refMax: 40 },
+      { key: "alt", label: "ALT (GPT)", unit: "U/L", type: "number", refMax: 40 },
+      { key: "ggt", label: "GGT", unit: "U/L", type: "number", refMax: 60 },
+      { key: "ldh", label: "LDH", unit: "U/L", type: "number" },
+      { key: "ck", label: "CPK / CK", unit: "U/L", type: "number", refMax: 200 },
+      { key: "aldolasi", label: "Aldolasi", unit: "U/L", type: "number" },
+      { key: "urato", label: "Acido urico", unit: "mg/dL", type: "number", refMax: 7 },
+      { key: "vit_d", label: "25-OH Vitamina D", unit: "ng/mL", type: "number", refMin: 30 },
+    ],
+  },
+  urine: {
+    label: "Urine",
+    tests: [
+      { key: "proteinuria_24h", label: "Proteinuria 24h", unit: "g/24h", type: "number", refMax: 0.15 },
+      { key: "albuminuria", label: "Albuminuria 24h", unit: "mg/24h", type: "number" },
+      { key: "uacr", label: "Rapporto albumina/creatinina", unit: "mg/g", type: "number" },
+      { key: "urinary_casts", label: "Cilindri urinari", unit: "", type: "qual" },
+      { key: "hematuria", label: "Ematuria (sedimento)", unit: "", type: "qual" },
+      { key: "sedimento_note", label: "Note sedimento", unit: "", type: "text" },
+    ],
+  },
+};
+
+export const LAB_PANEL_KEYS = Object.keys(LAB_PANELS);
