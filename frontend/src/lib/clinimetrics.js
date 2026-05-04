@@ -576,6 +576,7 @@ export const INDEX_LABELS = {
   mrss: "mRSS",
   schober: "Schöber mod.",
   capillaroscopy: "Capillaroscopia",
+  lei: "LEI (entesiti)",
 };
 
 export const INDEX_DISEASES = {
@@ -599,4 +600,30 @@ export const INDEX_DISEASES = {
   pasi: "Psoriasi",
   mrss: "Sclerosi Sistemica",
   capillaroscopy: "Sclerosi Sistemica",
+  lei: "Spondiloartrite / AP",
 };
+
+// ============ LEI (Leeds Enthesitis Index) ============
+// 6 sites bilaterally: lateral epicondyle, medial femoral condyle, Achilles
+// Each scored 0/1 (tender/non-tender). Total 0-6.
+export const LEI_SITES = [
+  { key: "lat_epicondyle_l", label: "Epicondilo laterale (gomito) — sinistro" },
+  { key: "lat_epicondyle_r", label: "Epicondilo laterale (gomito) — destro" },
+  { key: "med_femoral_l", label: "Condilo femorale mediale (ginocchio) — sinistro" },
+  { key: "med_femoral_r", label: "Condilo femorale mediale (ginocchio) — destro" },
+  { key: "achilles_l", label: "Inserzione tendine d'Achille — sinistra" },
+  { key: "achilles_r", label: "Inserzione tendine d'Achille — destra" },
+];
+
+export function calcLEI(sites) {
+  if (!sites) return 0;
+  return LEI_SITES.reduce((acc, s) => acc + (sites[s.key] ? 1 : 0), 0);
+}
+
+export function interpretLEI(score) {
+  if (score == null || isNaN(score)) return "-";
+  if (score === 0) return "Nessuna entesite";
+  if (score <= 2) return "Entesite lieve";
+  if (score <= 4) return "Entesite moderata";
+  return "Entesite severa";
+}

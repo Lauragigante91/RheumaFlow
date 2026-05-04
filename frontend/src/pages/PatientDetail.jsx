@@ -307,7 +307,7 @@ export default function PatientDetail() {
                   ))}
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
-                  {["basdai", "asdas_crp", "basfi", "basmi", "schober"].map((k) => (
+                  {["basdai", "asdas_crp", "basfi", "basmi", "schober", "lei"].map((k) => (
                     <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
                       {INDEX_LABELS[k]}
                     </DropdownMenuItem>

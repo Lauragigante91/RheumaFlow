@@ -329,7 +329,24 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-03 - v23 - Profili specifici LES/AAV/Sjögren/Miositi + riepilogo vasculite)
+## Implemented (2026-05-04 - v24 - Conta articolare 66/68 unificata + LEI per entesiti)
+- [x] **Conta articolare 66/68 unificata** per tutti gli indici articolari
+  (DAS28-ESR/CRP, CDAI, SDAI, DAPSA): l'homunculus mostra sempre tutte le 66/68
+  articolazioni; per DAS28/CDAI/SDAI il sistema estrae automaticamente il subset
+  di 28 articolazioni (spalle, gomiti, polsi, MCP, PIP, ginocchia) per il calcolo
+  dello score, ma le altre articolazioni vengono comunque salvate. Nuovo helper
+  `countTenderIn(joints, allowedKeys)` / `countSwollenIn` in `Homunculus.jsx`.
+  Form mostra contemporaneamente TJC28/SJC28 (usati per il calcolo) e TJC totale/
+  SJC totale (info aggiuntiva). Banner blu informativo nel form.
+- [x] **LEI (Leeds Enthesitis Index)**: nuovo indice per entesiti in spondiloartrite
+  e artrite psoriasica. 6 siti bilaterali (epicondilo laterale, condilo femorale
+  mediale, inserzione tendine d'Achille), scoring binario 0/1, range totale 0-6.
+  Interpretazione: 0 nessuna entesite, 1-2 lieve, 3-4 moderata, 5-6 severa.
+  Aggiunto a `INDEX_LABELS`/`INDEX_DISEASES`, integrato nel form `AssessmentForm`,
+  consigliato automaticamente per pazienti SpA/PsA via `diagnosisSuggestions.js`,
+  esposto nel dropdown "Nuova valutazione" sotto sezione Spondiloartrite.
+
+
 - [x] **Estensione collection generica `disease_profiles`** — ALLOWED_DISEASE_TYPES
   ora include: ra, spa, sle, aav, sjogren, myositis (ssc ha ancora il suo
   endpoint dedicato). Nessuna migrazione necessaria grazie allo schema flessibile.

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Homunculus, { countTender, countSwollen, getTenderKeys, getSwollenKeys, JOINT_LABELS_IT } from "./Homunculus";
+import Homunculus, { countTender, countSwollen, countTenderIn, countSwollenIn, getTenderKeys, getSwollenKeys, JOINT_LABELS_IT } from "./Homunculus";
 import MRSSHomunculus from "./MRSSHomunculus";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -13,13 +13,15 @@ import ItalianDatePicker from "./ItalianDatePicker";
 import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
   calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
-  calcMRSS, calcSchober, calcCapillaroscopy,
+  calcMRSS, calcSchober, calcCapillaroscopy, calcLEI,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
   interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
   interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR, interpretMRSS, interpretSchober, interpretCapillaroscopy,
+  interpretLEI,
   SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS, BASFI_QUESTIONS, BASMI_MEASURES, ESSDAI_DOMAINS,
   BVAS_SYSTEMS, MMT8_GROUPS, FIQR_FUNCTION, FIQR_OVERALL, FIQR_SYMPTOMS,
-  MRSS_AREAS, CAPILLAROSCOPY_PATTERNS, CAPILLAROSCOPY_FEATURES,
+  MRSS_AREAS, CAPILLAROSCOPY_PATTERNS, CAPILLAROSCOPY_FEATURES, LEI_SITES,
+  JOINTS_DAS28,
   INDEX_LABELS,
 } from "../lib/clinimetrics";
 
@@ -55,33 +57,39 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
   const [fiqrData, setFiqrData] = useState(() => initial?.inputs?.function ? { function: initial.inputs.function, overall: initial.inputs.overall || {}, symptoms: initial.inputs.symptoms || {} } : { function: {}, overall: {}, symptoms: {} });
   const [mrssData, setMrssData] = useState(() => initial?.inputs?.areas || {});
   const [capData, setCapData] = useState(() => initial?.inputs?.pattern ? { pattern: initial.inputs.pattern, features: initial.inputs.features || {} } : { pattern: "", features: {} });
+  const [leiSites, setLeiSites] = useState(() => initial?.inputs?.sites || {});
   const [notes, setNotes] = useState(() => initial?.notes || "");
   const [date, setDate] = useState(() => initial?.date || new Date().toISOString().slice(0, 10));
 
   const set = (k, v) => setInputs((p) => ({ ...p, [k]: v }));
 
   const computeScore = () => {
-    const tjc = countTender(joints);
-    const sjc = countSwollen(joints);
+    // Ora il homunculus è sempre 66/68: per DAS28/CDAI/SDAI estraiamo il subset 28
+    const tjc28 = countTenderIn(joints, JOINTS_DAS28);
+    const sjc28 = countSwollenIn(joints, JOINTS_DAS28);
+    const tjcAll = countTender(joints);
+    const sjcAll = countSwollen(joints);
     switch (indexType) {
       case "das28_esr":
-        return { score: calcDAS28_ESR({ tjc, sjc, esr: inputs.esr, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc, sjc } };
+        return { score: calcDAS28_ESR({ tjc: tjc28, sjc: sjc28, esr: inputs.esr, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc: tjc28, sjc: sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
       case "das28_crp":
-        return { score: calcDAS28_CRP({ tjc, sjc, crp: inputs.crp, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc, sjc } };
+        return { score: calcDAS28_CRP({ tjc: tjc28, sjc: sjc28, crp: inputs.crp, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc: tjc28, sjc: sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
       case "cdai": {
-        const s = calcCDAI({ tjc28: tjc, sjc28: sjc, pga: inputs.pga, ega: inputs.ega });
-        return { score: s, interp: interpretCDAI, ins: { ...inputs, tjc28: tjc, sjc28: sjc } };
+        const s = calcCDAI({ tjc28, sjc28, pga: inputs.pga, ega: inputs.ega });
+        return { score: s, interp: interpretCDAI, ins: { ...inputs, tjc28, sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
       }
       case "sdai": {
-        const s = calcSDAI({ tjc28: tjc, sjc28: sjc, pga: inputs.pga, ega: inputs.ega, crp: inputs.crp });
-        return { score: s, interp: interpretSDAI, ins: { ...inputs, tjc28: tjc, sjc28: sjc } };
+        const s = calcSDAI({ tjc28, sjc28, pga: inputs.pga, ega: inputs.ega, crp: inputs.crp });
+        return { score: s, interp: interpretSDAI, ins: { ...inputs, tjc28, sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
       }
       case "basdai":
         return { score: calcBASDAI(inputs), interp: interpretBASDAI, ins: { ...inputs } };
       case "asdas_crp":
         return { score: calcASDAS_CRP(inputs), interp: interpretASDAS, ins: { ...inputs } };
       case "dapsa":
-        return { score: calcDAPSA({ tjc68: tjc, sjc66: sjc, pga: inputs.pga, patientPain: inputs.patientPain, crp: inputs.crp }), interp: interpretDAPSA, ins: { ...inputs, tjc68: tjc, sjc66: sjc } };
+        return { score: calcDAPSA({ tjc68: tjcAll, sjc66: sjcAll, pga: inputs.pga, patientPain: inputs.patientPain, crp: inputs.crp }), interp: interpretDAPSA, ins: { ...inputs, tjc68: tjcAll, sjc66: sjcAll } };
+      case "lei":
+        return { score: calcLEI(leiSites), interp: interpretLEI, ins: { sites: leiSites } };
       case "sledai":
         return { score: calcSLEDAI(sledaiData), interp: interpretSLEDAI, ins: { items: sledaiData } };
       case "haq":
@@ -139,8 +147,10 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
     setJoints({ ...(lastWithJoints.inputs.joints_state || {}) });
   };
 
-  const jointMode = ["das28_esr", "das28_crp", "cdai", "sdai"].includes(indexType) ? "28"
-    : indexType === "dapsa" ? "66_68" : null;
+  // Conta articolare unificata: sempre 66/68 quando un indice articolare è in uso.
+  // Per DAS28/CDAI/SDAI estraiamo automaticamente il subset 28.
+  const jointMode = ["das28_esr", "das28_crp", "cdai", "sdai", "dapsa"].includes(indexType) ? "66_68" : null;
+  const showDas28Subset = ["das28_esr", "das28_crp", "cdai", "sdai"].includes(indexType);
 
   return (
     <div className="space-y-6">
@@ -182,9 +192,27 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
               Clicca sull'articolazione per ciclare: nessuno → dolente → tumefatta → entrambe.
             </p>
             <Homunculus mode={jointMode} joints={joints} onChange={setJoints} title="Visita corrente" />
+            {showDas28Subset && (
+              <div className="mt-3 text-[11px] text-gray-600 bg-blue-50/60 border border-blue-100 rounded-md p-2 leading-relaxed">
+                <strong>Conta unificata 66/68:</strong> il punteggio DAS28/CDAI/SDAI usa
+                automaticamente il subset 28 articolazioni (spalle, gomiti, polsi, MCP, PIP,
+                ginocchia). Le altre articolazioni vengono salvate ma non entrano nel calcolo.
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <StatBox label="Dolenti (TJC)" value={countTender(joints)} color="#0055FF" testid="tjc-count" />
-              <StatBox label="Tumefatte (SJC)" value={countSwollen(joints)} color="#FF3333" testid="sjc-count" />
+              {showDas28Subset ? (
+                <>
+                  <StatBox label="TJC28 (calcolo)" value={countTenderIn(joints, JOINTS_DAS28)} color="#0055FF" testid="tjc28-count" />
+                  <StatBox label="SJC28 (calcolo)" value={countSwollenIn(joints, JOINTS_DAS28)} color="#FF3333" testid="sjc28-count" />
+                  <StatBox label="TJC totale" value={countTender(joints)} color="#0055FF" testid="tjc-total-count" />
+                  <StatBox label="SJC totale" value={countSwollen(joints)} color="#FF3333" testid="sjc-total-count" />
+                </>
+              ) : (
+                <>
+                  <StatBox label="Dolenti (TJC)" value={countTender(joints)} color="#0055FF" testid="tjc-count" />
+                  <StatBox label="Tumefatte (SJC)" value={countSwollen(joints)} color="#FF3333" testid="sjc-count" />
+                </>
+              )}
             </div>
 
             {lastWithJoints && (
@@ -231,6 +259,8 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
             setMrssData={setMrssData}
             capData={capData}
             setCapData={setCapData}
+            leiSites={leiSites}
+            setLeiSites={setLeiSites}
           />
 
           {/* Score summary */}
@@ -315,7 +345,7 @@ function VASSlider({ label, value, onChange, testid }) {
   );
 }
 
-function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData, essdaiData, setEssdaiData, bvasData, setBvasData, mmtData, setMmtData, fiqrData, setFiqrData, mrssData, setMrssData, capData, setCapData }) {
+function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData, setHaqData, pasiData, setPasiData, essdaiData, setEssdaiData, bvasData, setBvasData, mmtData, setMmtData, fiqrData, setFiqrData, mrssData, setMrssData, capData, setCapData, leiSites, setLeiSites }) {
   switch (indexType) {
     case "das28_esr":
       return (
@@ -578,6 +608,42 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
             Clicca su ogni regione corporea per ciclare lo spessore cutaneo: 0 (normale) → 1 (lieve) → 2 (moderato) → 3 (severo). Massimo 51.
           </p>
           <MRSSHomunculus values={mrssData} onChange={setMrssData} />
+        </div>
+      );
+    case "lei":
+      return (
+        <div className="space-y-3" data-testid="lei-form">
+          <p className="text-sm text-gray-600">
+            <strong>LEI (Leeds Enthesitis Index)</strong> — entesite presente (1) o assente (0)
+            in 6 siti: epicondilo laterale, condilo femorale mediale, inserzione del tendine
+            d&apos;Achille (bilaterale). Range 0–6.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {LEI_SITES.map((s) => {
+              const checked = !!leiSites[s.key];
+              return (
+                <label
+                  key={s.key}
+                  className={`flex items-center gap-3 border rounded-md p-3 cursor-pointer transition ${
+                    checked ? "border-red-300 bg-red-50/60" : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                  data-testid={`lei-${s.key}`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => setLeiSites((p) => ({ ...p, [s.key]: !!v }))}
+                    data-testid={`lei-${s.key}-checkbox`}
+                  />
+                  <span className="text-sm font-medium flex-1">{s.label}</span>
+                  {checked && (
+                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-700 text-white font-bold">
+                      Doloroso
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
         </div>
       );
     case "schober":

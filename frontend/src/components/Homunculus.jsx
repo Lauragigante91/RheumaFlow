@@ -252,3 +252,12 @@ export function getTenderKeys(joints) {
 export function getSwollenKeys(joints) {
   return Object.entries(joints || {}).filter(([_, v]) => v === "swollen" || v === "both").map(([k]) => k);
 }
+// Count tender/swollen restricted to a subset of joint keys (for DAS28 extraction from 66/68 state)
+export function countTenderIn(joints, allowedKeys) {
+  const set = new Set(allowedKeys);
+  return Object.entries(joints || {}).filter(([k, v]) => set.has(k) && (v === "tender" || v === "both")).length;
+}
+export function countSwollenIn(joints, allowedKeys) {
+  const set = new Set(allowedKeys);
+  return Object.entries(joints || {}).filter(([k, v]) => set.has(k) && (v === "swollen" || v === "both")).length;
+}

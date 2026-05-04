@@ -10,13 +10,13 @@ const RULES = [
   },
   {
     keywords: ["psoriasica", "psoriasic", "psa", "artrite psor"],
-    indices: ["dapsa", "pasi", "haq", "das28_esr"],
+    indices: ["dapsa", "pasi", "haq", "das28_esr", "lei"],
     criteria: ["caspar_psa"],
     diseaseLabel: "Artrite Psoriasica",
   },
   {
     keywords: ["spondilo", "spondilite anchilosante", "axspa", "spa ", "anchilosante", "as "],
-    indices: ["basdai", "asdas_crp", "basfi", "basmi", "schober"],
+    indices: ["basdai", "asdas_crp", "basfi", "basmi", "schober", "lei"],
     criteria: ["asas_axspa", "asas_ibp"],
     diseaseLabel: "Spondiloartrite",
   },
