@@ -161,6 +161,7 @@ export default function PatientDetail() {
         return {
           date: new Date(a.date).toLocaleDateString("it-IT"),
           rawDate: a.date,
+          ts: Date.parse(a.date),
           score: a.score,
           type: INDEX_LABELS[a.index_type] || a.index_type,
           therapies: active.map((t) => ({
@@ -176,6 +177,25 @@ export default function PatientDetail() {
   }, [assessments, selectedIndex, therapies]);
 
   const drugColorMap = useMemo(() => buildDrugColorMap(chartData), [chartData]);
+
+  // Time domain comune per chart e timeline terapie (allineati orizzontalmente)
+  const timelineDomain = useMemo(() => {
+    const tsList = [];
+    chartData.forEach((d) => { if (d.rawDate) tsList.push(Date.parse(d.rawDate)); });
+    therapies.forEach((t) => {
+      if (t.start_date) tsList.push(Date.parse(t.start_date));
+      if (t.end_date) tsList.push(Date.parse(t.end_date));
+    });
+    if (tsList.length === 0) return null;
+    let min = Math.min(...tsList);
+    let max = Math.max(...tsList);
+    // Estendi a "oggi" se ci sono terapie attive
+    const hasActive = therapies.some((t) => t.status === "active");
+    if (hasActive) max = Math.max(max, Date.now());
+    // Padding ±2.5% per leggibilità
+    const span = max - min || 86400000;
+    return { min: min - span * 0.025, max: max + span * 0.025 };
+  }, [chartData, therapies]);
 
   const historyIndexOptions = useMemo(() => {
     const set = new Set();
@@ -471,24 +491,34 @@ export default function PatientDetail() {
           </div>
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={showTherapies ? 320 : 280}>
-              <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: showTherapies ? 60 : 0 }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis
-                  dataKey="date"
+                  type="number"
+                  dataKey="ts"
+                  scale="time"
+                  domain={timelineDomain ? [timelineDomain.min, timelineDomain.max] : ["dataMin", "dataMax"]}
+                  tickFormatter={fmtTickDate}
                   fontSize={11}
                   stroke="#6B7280"
-                  tick={showTherapies ? <TherapyAwareTick data={chartData} drugColorMap={drugColorMap} /> : undefined}
-                  interval={0}
-                  height={showTherapies ? 80 : 30}
+                  height={28}
                 />
-                <YAxis fontSize={11} stroke="#6B7280" />
+                <YAxis fontSize={11} stroke="#6B7280" width={CHART_LEFT_AXIS_W} />
                 <Tooltip content={<TrendTooltip showTherapies={showTherapies} drugColorMap={drugColorMap} />} />
                 <Legend verticalAlign="top" height={24} />
                 <Line type="monotone" dataKey="score" stroke="#0A2540" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Punteggio" />
               </LineChart>
             </ResponsiveContainer>
-            {showTherapies && <TherapyLegend chartData={chartData} drugColorMap={drugColorMap} />}
+            {showTherapies && timelineDomain && (
+              <TherapyGantt
+                therapies={therapies}
+                domain={timelineDomain}
+                drugColorMap={drugColorMap}
+                leftAxisWidth={CHART_LEFT_AXIS_W}
+                rightMargin={24}
+              />
+            )}
           </>
         )}
       </Card>
@@ -756,6 +786,22 @@ function buildDrugColorMap(chartData) {
   return map;
 }
 
+// Costanti chart
+const CHART_LEFT_AXIS_W = 60;
+
+function fmtTickDate(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  // gg/mm/aa breve
+  return d.toLocaleDateString("it-IT", { month: "2-digit", year: "2-digit", day: "2-digit" });
+}
+
+function fmtFullDate(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("it-IT");
+}
+
 function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
@@ -794,59 +840,140 @@ function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
   );
 }
 
-// Custom X axis tick that shows date + small colored dots per active drug
-function TherapyAwareTick({ x, y, payload, data, drugColorMap }) {
-  const entry = (data || []).find((d) => d.date === payload.value);
-  const drugs = Array.from(new Set((entry?.therapies || []).map((t) => t.name))).filter(Boolean);
-  const maxDots = 6;
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={12} textAnchor="middle" fontSize={10} fill="#6B7280">
-        {payload.value}
-      </text>
-      {drugs.slice(0, maxDots).map((name, i) => (
-        <circle
-          key={name}
-          cx={(i - (Math.min(drugs.length, maxDots) - 1) / 2) * 7}
-          cy={26}
-          r={2.8}
-          fill={(drugColorMap && drugColorMap[name]) || "#6B7280"}
-        >
-          <title>{name}</title>
-        </circle>
-      ))}
-      {drugs.length > maxDots && (
-        <text x={(maxDots / 2) * 7 + 4} y={29} fontSize={9} fill="#6B7280">+{drugs.length - maxDots}</text>
-      )}
-    </g>
-  );
-}
+// ============ Gantt-style timeline of therapies ============
+// Rendered immediately below the line chart, sharing the same horizontal time domain.
+function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMargin }) {
+  const [hover, setHover] = useState(null); // {therapy, x, y}
 
-function TherapyLegend({ chartData, drugColorMap }) {
-  // Collect all unique drug names shown across the chart
-  const names = new Set();
-  (chartData || []).forEach((d) =>
-    (d.therapies || []).forEach((t) => { if (t.name) names.add(t.name); })
-  );
-  if (names.size === 0) {
+  // Sort by start_date ascending; group overlapping therapies into stacked rows
+  const rows = useMemo(() => {
+    const ts = (s) => Date.parse(s);
+    const valid = (therapies || []).filter((t) => t.drug_name && t.start_date);
+    return [...valid].sort((a, b) => ts(a.start_date) - ts(b.start_date));
+  }, [therapies]);
+
+  if (rows.length === 0) {
     return (
-      <div className="mt-3 text-[11px] text-gray-500 italic">
-        Nessuna terapia registrata per le date delle valutazioni.
+      <div
+        className="text-[11px] text-gray-500 italic mt-2"
+        style={{ paddingLeft: leftAxisWidth + 4 }}
+      >
+        Nessuna terapia registrata.
       </div>
     );
   }
+
+  const ROW_H = 22;
+  const ROW_GAP = 2;
+  const HEADER_H = 18;
+  const totalH = HEADER_H + rows.length * (ROW_H + ROW_GAP) + 4;
+  const span = domain.max - domain.min;
+  const pct = (ts) => Math.max(0, Math.min(100, ((ts - domain.min) / span) * 100));
+
+  const today = Date.now();
+
   return (
-    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-gray-700 items-center pl-4">
-      <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">Farmaci</span>
-      {[...names].map((name) => (
-        <span key={name} className="inline-flex items-center gap-1.5" data-testid={`chart-legend-${name}`}>
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: (drugColorMap && drugColorMap[name]) || "#6B7280" }}
-          />
-          {name}
-        </span>
-      ))}
+    <div className="mt-1 select-none" data-testid="therapy-gantt">
+      {/* Header label row */}
+      <div className="flex items-center" style={{ paddingLeft: leftAxisWidth, paddingRight: rightMargin }}>
+        <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">
+          Linea del tempo terapie
+        </div>
+      </div>
+      <div
+        className="relative"
+        style={{ height: totalH, paddingLeft: leftAxisWidth, paddingRight: rightMargin }}
+      >
+        {/* Plot area background with light grid (vertical lines reuse chart's grid spacing pattern) */}
+        <div className="absolute inset-y-0 border-l border-r border-gray-100 bg-gray-50/40" style={{ left: leftAxisWidth, right: rightMargin }}>
+          {/* "Today" marker */}
+          {today >= domain.min && today <= domain.max && (
+            <div
+              className="absolute top-0 bottom-0 border-l border-dashed border-gray-400"
+              style={{ left: `${pct(today)}%` }}
+              title="Oggi"
+            />
+          )}
+        </div>
+
+        {/* Therapy bars */}
+        {rows.map((t, idx) => {
+          const startTs = Date.parse(t.start_date);
+          const endTs = t.end_date ? Date.parse(t.end_date) : today;
+          const left = pct(startTs);
+          const width = Math.max(0.4, pct(endTs) - left);
+          const color = drugColorMap?.[t.drug_name] || "#6B7280";
+          const isActive = t.status === "active";
+          const top = HEADER_H + idx * (ROW_H + ROW_GAP);
+          const drugLabel = `${t.drug_name}${t.dose ? ` ${t.dose}` : ""}`;
+          return (
+            <React.Fragment key={t.id || idx}>
+              {/* Drug name on the left, fixed-width label */}
+              <div
+                className="absolute text-[11px] font-medium text-gray-700 truncate text-right pr-2"
+                style={{
+                  left: 0,
+                  top: top + (ROW_H - 14) / 2,
+                  height: 14,
+                  width: leftAxisWidth - 4,
+                }}
+                title={drugLabel}
+              >
+                <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: color }} />
+                {t.drug_name}
+              </div>
+              {/* Bar */}
+              <div
+                className="absolute rounded-sm border cursor-pointer"
+                style={{
+                  left: `calc(${leftAxisWidth}px + (100% - ${leftAxisWidth + rightMargin}px) * ${left / 100})`,
+                  width: `calc((100% - ${leftAxisWidth + rightMargin}px) * ${width / 100})`,
+                  top: top,
+                  height: ROW_H,
+                  background: color,
+                  borderColor: color,
+                  opacity: isActive ? 1 : 0.65,
+                }}
+                data-testid={`gantt-bar-${t.id || idx}`}
+                onMouseEnter={(e) => setHover({ t, x: e.clientX, y: e.clientY })}
+                onMouseMove={(e) => setHover({ t, x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setHover(null)}
+              >
+                {width > 6 && (
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white px-1.5 truncate">
+                    {drugLabel}
+                  </span>
+                )}
+                {!isActive && (
+                  <span className="absolute -right-1 top-0 bottom-0 w-1 bg-gray-700 rounded-r-sm" title="Sospesa" />
+                )}
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Floating tooltip */}
+      {hover && (
+        <div
+          className="fixed z-50 pointer-events-none bg-white border border-gray-200 rounded-md shadow-lg p-2 text-xs max-w-xs"
+          style={{ left: hover.x + 12, top: hover.y + 12 }}
+        >
+          <div className="font-bold text-[#0A2540]">{hover.t.drug_name}{hover.t.dose ? ` · ${hover.t.dose}` : ""}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">
+            {hover.t.category}
+            {hover.t.frequency ? ` · ${hover.t.frequency}` : ""}
+          </div>
+          <div className="mt-1 text-gray-700">
+            {fmtFullDate(Date.parse(hover.t.start_date))} → {hover.t.end_date ? fmtFullDate(Date.parse(hover.t.end_date)) : "in corso"}
+          </div>
+          {hover.t.status !== "active" && (
+            <div className="text-[10px] text-amber-700 italic mt-0.5">
+              Sospesa{hover.t.discontinuation_reason ? ` — ${hover.t.discontinuation_reason}` : hover.t.auto_discontinued ? " automaticamente (nuovo biologico)" : ""}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -218,6 +218,7 @@ class TherapyBase(BaseModel):
     end_date: Optional[str] = None
     status: str = "active"  # active, discontinued, completed
     discontinuation_reason: Optional[str] = None
+    auto_discontinued: Optional[bool] = None
     notes: Optional[str] = None
 
 
@@ -606,9 +607,41 @@ async def delete_criteria_evaluation(evaluation_id: str, user: dict = Depends(ge
 
 
 # ==================== THERAPIES ====================
+# Categorie che richiedono esclusione (un solo farmaco di queste categorie attivo per volta)
+EXCLUSIVE_CATEGORIES = {"bDMARD", "tsDMARD"}
+
+
+async def _auto_discontinue_competing(patient_id: str, organization_id: str, new_category: str, new_start_date: Optional[str], exclude_id: Optional[str] = None) -> int:
+    """If new therapy is in EXCLUSIVE_CATEGORIES (biologic/tsDMARD), discontinue any
+    other active therapy of those categories for the same patient. Sets end_date to
+    the new therapy's start_date (or today) and status='discontinued'.
+    Returns the number of therapies auto-discontinued."""
+    if new_category not in EXCLUSIVE_CATEGORIES:
+        return 0
+    end_date = new_start_date or datetime.now(timezone.utc).date().isoformat()
+    query = {
+        "patient_id": patient_id,
+        "organization_id": organization_id,
+        "category": {"$in": list(EXCLUSIVE_CATEGORIES)},
+        "status": "active",
+    }
+    if exclude_id:
+        query["id"] = {"$ne": exclude_id}
+    result = await db.therapies.update_many(
+        query,
+        {"$set": {"status": "discontinued", "end_date": end_date, "auto_discontinued": True}},
+    )
+    return result.modified_count
+
+
 @api_router.post("/therapies", response_model=Therapy)
 async def create_therapy(payload: TherapyBase, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    # Apply exclusivity rule for biologics/tsDMARDs BEFORE inserting the new one
+    if (payload.status or "active") == "active":
+        await _auto_discontinue_competing(
+            payload.patient_id, user["organization_id"], payload.category, payload.start_date
+        )
     t = Therapy(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.therapies.insert_one(t.model_dump())
     return t
@@ -626,6 +659,18 @@ async def update_therapy(therapy_id: str, payload: TherapyUpdate, user: dict = D
     update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="Nessun campo da aggiornare")
+    # Fetch current therapy to know patient/category
+    current = await db.therapies.find_one({"id": therapy_id, "organization_id": user["organization_id"]}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="Terapia non trovata")
+    # Apply exclusivity if the (resulting) therapy is an active biologic/tsDMARD
+    new_status = update_data.get("status", current.get("status"))
+    new_category = update_data.get("category", current.get("category"))
+    new_start = update_data.get("start_date", current.get("start_date"))
+    if new_status == "active":
+        await _auto_discontinue_competing(
+            current["patient_id"], user["organization_id"], new_category, new_start, exclude_id=therapy_id
+        )
     result = await db.therapies.update_one(
         {"id": therapy_id, "organization_id": user["organization_id"]},
         {"$set": update_data},

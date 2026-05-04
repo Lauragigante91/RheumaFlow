@@ -329,7 +329,33 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-04 - v25 - LEI body chart + Criteri IPAF Fischer + AI parse LEI)
+## Implemented (2026-05-04 - v26 - Linea del tempo terapie + regola anti-doppio biologico)
+- [x] **Linea del tempo terapie (Gantt)** sotto al grafico clinimetrie:
+  visualizzazione orizzontale stile Gantt che mostra una riga per farmaco con
+  nome esplicito (non più "categoria"). Le barre sono colorate per farmaco
+  (palette stabile dal precedente `drugColorMap`), opache per terapie attive,
+  semi-trasparenti per terapie sospese (con piccolo border destro grigio).
+  Tooltip al hover con dettaglio: nome+dose, categoria, frequenza, range date,
+  motivo di sospensione (incl. badge "automaticamente — nuovo biologico").
+  Linea verticale tratteggiata "Oggi" e bordi sincronizzati con plot area.
+- [x] **Conversione asse X grafico clinimetrie a time-scale**: il LineChart usa
+  ora `scale="time"` con domain `[min, max]` calcolato dall'unione delle date
+  delle valutazioni e delle terapie (esteso a "oggi" se ci sono terapie attive),
+  così i punti del grafico sono posizionati proporzionalmente nel tempo e
+  perfettamente allineati con le barre Gantt sottostanti. Stesso `width` di
+  Y-axis (60px) su entrambi per allineamento orizzontale pixel-perfect.
+- [x] **Regola anti-doppio biologico** (backend): nuova helper
+  `_auto_discontinue_competing` invocata su POST e PUT di `/api/therapies`.
+  Quando viene aggiunta o riattivata una terapia di categoria `bDMARD` o `tsDMARD`
+  con `status=active`, qualsiasi altra terapia attiva di queste categorie per lo
+  stesso paziente viene automaticamente sospesa (`status="discontinued"`,
+  `end_date` impostato alla `start_date` del nuovo farmaco, flag
+  `auto_discontinued=true`). Test verificato: Adalimumab attivo dal 2025-01-15 +
+  POST Tocilizumab dal 2025-09-10 → Adalimumab passa a discontinued/end=2025-09-10/auto=true.
+- [x] **Tooltip Gantt mostra causa di sospensione automatica** "Sospesa
+  automaticamente (nuovo biologico)" quando flag `auto_discontinued`.
+
+
 - [x] **Body chart entesiti per LEI** (`/app/frontend/src/components/EnthesisBodyChart.jsx`):
   SVG silhouette con 6 punti cliccabili posizionati anatomicamente (epicondilo
   laterale gomito sx/dx, condilo femorale mediale sx/dx, Achille calcagno sx/dx),
