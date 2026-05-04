@@ -329,7 +329,34 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-04 - v24 - Conta articolare 66/68 unificata + LEI per entesiti)
+## Implemented (2026-05-04 - v25 - LEI body chart + Criteri IPAF Fischer + AI parse LEI)
+- [x] **Body chart entesiti per LEI** (`/app/frontend/src/components/EnthesisBodyChart.jsx`):
+  SVG silhouette con 6 punti cliccabili posizionati anatomicamente (epicondilo
+  laterale gomito sx/dx, condilo femorale mediale sx/dx, Achille calcagno sx/dx),
+  etichette dei 3 gruppi di siti, indicatori "!" rossi sui siti attivati, legenda
+  "Non doloroso/Doloroso", click toggla 0/1. Componente generico (accetta `positions`)
+  pronto per estensione a MASES/SPARCC. Sostituisce le checkbox precedenti nel
+  form LEI; mantiene anche la lista laterale sincronizzata.
+- [x] **Criteri Fischer 2015 per IPAF** (Interstitial Pneumonia with Autoimmune
+  Features, ATS/ERS Research Statement) — id `ipaf_2015_fischer`:
+  - 3 requisiti obbligatori: IIP documentata (HRCT/biopsia), esclusione di
+    eziologie alternative, NON soddisfa criteri di CTD definita
+  - Dominio Clinico (7 elementi): mani da meccanico, ulcerazione polpastrello,
+    artrite infiammatoria, teleangectasie palmari, Raynaud, edema digitale, Gottron
+  - Dominio Sierologico (14 elementi): ANA ≥1:320, pattern nucleolare/centromerico,
+    FR ≥2× ULN, anti-CCP, anti-dsDNA, Ro/SSA, La/SSB, RNP, Sm, Scl-70, anti-
+    sintetasi (Jo-1/PL-7/PL-12/EJ/OJ/KS), PM-Scl, MDA5
+  - Dominio Morfologico (14 elementi): pattern HRCT (NSIP/OP/NSIP-OP/LIP),
+    pattern istologici, aggregati linfoidi, infiltrazione linfoplasmacellulare,
+    multi-compartimentale (pleura/pericardio/vie aeree/vasculopatia)
+  - Aggiunto "IPAF / ILD" a `CRITERIA_GROUPS`
+- [x] **AI parse-visit estende LEI**: schema enum aggiornato con "lei", istruzione
+  dedicata nel prompt. Test funzionale verificato: dato il testo "Achille destro
+  e sinistro entrambi dolenti, epicondilo laterale destro dolente", l'AI restituisce
+  correttamente score=3 con `inputs.sites: {achilles_l:true, achilles_r:true,
+  lat_epicondyle_r:true, ...}`. PASI, terapie e diagnosi continuano a funzionare.
+
+
 - [x] **Conta articolare 66/68 unificata** per tutti gli indici articolari
   (DAS28-ESR/CRP, CDAI, SDAI, DAPSA): l'homunculus mostra sempre tutte le 66/68
   articolazioni; per DAS28/CDAI/SDAI il sistema estrae automaticamente il subset

@@ -1033,6 +1033,86 @@ export const CRITERIA = [
     threshold: { value: 5, label: "Soddisfatti i criteri TAK" },
     note: "I requisiti di entry sono OBBLIGATORI. AUC 0.97, sensibilità 93.8%, specificità 99.2% nella validazione.",
   },
+
+  // ============ IPAF — Fischer 2015 (ATS/ERS) ============
+  {
+    id: "ipaf_2015_fischer",
+    name: "IPAF (Interstitial Pneumonia with Autoimmune Features)",
+    disease: "IPAF / ILD",
+    source: "Fischer et al. — ATS/ERS Research Statement, 2015",
+    intro:
+      "I criteri IPAF identificano pazienti con polmonite interstiziale che presentano caratteristiche suggestive di malattia autoimmune ma che NON soddisfano i criteri di una connettivite definita. Requisiti obbligatori: (1) presenza di polmonite interstiziale documentata da HRCT o biopsia chirurgica, (2) esclusione di eziologie alternative, (3) assenza di criteri per CTD definita. In aggiunta, è richiesto almeno UN elemento da almeno DUE dei tre domini (Clinico, Sierologico, Morfologico).",
+    sections: [
+      {
+        title: "Requisiti obbligatori (TUTTI E TRE devono essere soddisfatti)",
+        type: "check",
+        groupKey: "mandatory",
+        items: [
+          { key: "iip_documented", label: "Polmonite interstiziale documentata (HRCT o biopsia chirurgica polmonare)", points: 1 },
+          { key: "exclusion_alt", label: "Esclusione di eziologie alternative (pneumoconiosi, farmaci, esposizioni, infezioni, etc.)", points: 1 },
+          { key: "no_ctd_criteria", label: "NON soddisfa i criteri classificativi di una CTD definita (AR, LES, SSc, miosite, Sjögren, MCTD)", points: 1 },
+        ],
+      },
+      {
+        title: "DOMINIO CLINICO (almeno 1 elemento)",
+        type: "check",
+        groupKey: "clinical",
+        items: [
+          { key: "distal_fissuring", label: "Fissurazioni cutanee distali delle dita (mani da meccanico)", points: 1 },
+          { key: "digital_ulceration", label: "Ulcerazione del polpastrello", points: 1 },
+          { key: "inflammatory_arthritis", label: "Artrite infiammatoria o stiffness mattutina poliarticolare ≥60 minuti", points: 1 },
+          { key: "palmar_telangiectasia", label: "Teleangectasie palmari", points: 1 },
+          { key: "raynaud", label: "Fenomeno di Raynaud", points: 1 },
+          { key: "edema_unexplained", label: "Edema digitale inspiegato", points: 1 },
+          { key: "gottron_fixed_rash", label: "Rash fisso sulla superficie estensoria delle dita (segno di Gottron)", points: 1 },
+        ],
+      },
+      {
+        title: "DOMINIO SIEROLOGICO (almeno 1 elemento)",
+        type: "check",
+        groupKey: "serologic",
+        items: [
+          { key: "ana_high_titer", label: "ANA ≥1:320, qualsiasi pattern (IFI su HEp-2)", points: 1 },
+          { key: "ana_nucleolar", label: "ANA con pattern nucleolare (a qualsiasi titolo)", points: 1 },
+          { key: "ana_centromere", label: "ANA con pattern centromerico (a qualsiasi titolo)", points: 1 },
+          { key: "rf_2x_uln", label: "Fattore reumatoide ≥2× ULN", points: 1 },
+          { key: "anti_ccp", label: "Anti-CCP positivi", points: 1 },
+          { key: "anti_dsdna", label: "Anti-dsDNA positivi (titolo significativo)", points: 1 },
+          { key: "anti_ro_ssa", label: "Anti-Ro/SSA (52 o 60 kDa) positivi", points: 1 },
+          { key: "anti_la_ssb", label: "Anti-La/SSB positivi", points: 1 },
+          { key: "anti_rnp", label: "Anti-RNP positivi", points: 1 },
+          { key: "anti_smith", label: "Anti-Smith positivi", points: 1 },
+          { key: "anti_topo1", label: "Anti-topoisomerasi I (Scl-70) positivi", points: 1 },
+          { key: "anti_synthetase", label: "Anticorpi anti-tRNA-sintetasi (Jo-1, PL-7, PL-12, EJ, OJ, KS, Zo, tRS)", points: 1 },
+          { key: "anti_pmscl", label: "Anti-PM-Scl positivi", points: 1 },
+          { key: "anti_mda5", label: "Anti-MDA5 positivi", points: 1 },
+        ],
+      },
+      {
+        title: "DOMINIO MORFOLOGICO (almeno 1 elemento)",
+        type: "check",
+        groupKey: "morphologic",
+        items: [
+          { key: "hrct_nsip", label: "HRCT: pattern NSIP", points: 1 },
+          { key: "hrct_op", label: "HRCT: pattern OP (organizing pneumonia)", points: 1 },
+          { key: "hrct_nsip_op", label: "HRCT: pattern overlap NSIP + OP", points: 1 },
+          { key: "hrct_lip", label: "HRCT: pattern LIP (lymphocytic interstitial pneumonia)", points: 1 },
+          { key: "histo_nsip", label: "Istologia: pattern NSIP", points: 1 },
+          { key: "histo_op", label: "Istologia: pattern OP", points: 1 },
+          { key: "histo_nsip_op", label: "Istologia: pattern overlap NSIP-OP", points: 1 },
+          { key: "histo_lip", label: "Istologia: pattern LIP", points: 1 },
+          { key: "histo_lymphoid_aggregates", label: "Istologia: aggregati linfoidi interstiziali con centri germinativi", points: 1 },
+          { key: "histo_lymphoplasm_infiltration", label: "Istologia: infiltrazione linfoplasmacellulare diffusa (con o senza follicoli)", points: 1 },
+          { key: "multi_pleural", label: "Multi-compartimentale: versamento o ispessimento pleurico inspiegato", points: 1 },
+          { key: "multi_pericardial", label: "Multi-compartimentale: versamento o ispessimento pericardico inspiegato", points: 1 },
+          { key: "multi_airway", label: "Multi-compartimentale: malattia intrinseca delle vie aeree inspiegata (PFR ostruttive, bronchiolite, bronchiectasie)", points: 1 },
+          { key: "multi_vasculopathy", label: "Multi-compartimentale: vasculopatia polmonare inspiegata", points: 1 },
+        ],
+      },
+    ],
+    threshold: { value: 5, label: "Soddisfatti i criteri IPAF (3 obbligatori + ≥1 elemento in ≥2 domini)" },
+    note: "Lo score numerico è solo orientativo. La classificazione IPAF richiede TUTTI E TRE i requisiti obbligatori (IIP documentata, esclusione di alternative, assenza di CTD definita) E almeno UN elemento da almeno DUE dei tre domini (Clinico, Sierologico, Morfologico). Verifica manualmente la copertura dei domini prima di classificare il paziente. Riferimento: Fischer A et al. Eur Respir J 2015;46(4):976-87.",
+  },
 ];
 
 export const CRITERIA_GROUPS = [
@@ -1052,4 +1132,5 @@ export const CRITERIA_GROUPS = [
   "IgG4-RD",
   "APS",
   "Vasculiti grandi vasi",
+  "IPAF / ILD",
 ];

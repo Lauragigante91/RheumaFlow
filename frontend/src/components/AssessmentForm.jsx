@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Homunculus, { countTender, countSwollen, countTenderIn, countSwollenIn, getTenderKeys, getSwollenKeys, JOINT_LABELS_IT } from "./Homunculus";
 import MRSSHomunculus from "./MRSSHomunculus";
+import EnthesisBodyChart from "./EnthesisBodyChart";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -612,37 +613,43 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
       );
     case "lei":
       return (
-        <div className="space-y-3" data-testid="lei-form">
+        <div className="space-y-4" data-testid="lei-form">
           <p className="text-sm text-gray-600">
-            <strong>LEI (Leeds Enthesitis Index)</strong> — entesite presente (1) o assente (0)
-            in 6 siti: epicondilo laterale, condilo femorale mediale, inserzione del tendine
-            d&apos;Achille (bilaterale). Range 0–6.
+            <strong>LEI (Leeds Enthesitis Index)</strong> — clicca i siti dolorosi sulla
+            sagoma. 6 siti bilaterali: epicondilo laterale, condilo femorale mediale,
+            inserzione del tendine d&apos;Achille. Range 0–6.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {LEI_SITES.map((s) => {
-              const checked = !!leiSites[s.key];
-              return (
-                <label
-                  key={s.key}
-                  className={`flex items-center gap-3 border rounded-md p-3 cursor-pointer transition ${
-                    checked ? "border-red-300 bg-red-50/60" : "border-gray-200 hover:bg-gray-50"
-                  }`}
-                  data-testid={`lei-${s.key}`}
-                >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={(v) => setLeiSites((p) => ({ ...p, [s.key]: !!v }))}
-                    data-testid={`lei-${s.key}-checkbox`}
-                  />
-                  <span className="text-sm font-medium flex-1">{s.label}</span>
-                  {checked && (
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-700 text-white font-bold">
-                      Doloroso
-                    </span>
-                  )}
-                </label>
-              );
-            })}
+          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-6 items-start">
+            <EnthesisBodyChart
+              sites={leiSites}
+              onChange={setLeiSites}
+              labels={Object.fromEntries(LEI_SITES.map((s) => [s.key, s.label]))}
+              title="Sagoma LEI"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 self-start">
+              {LEI_SITES.map((s) => {
+                const checked = !!leiSites[s.key];
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setLeiSites((p) => ({ ...p, [s.key]: !checked }))}
+                    className={`text-left flex items-center gap-2 border rounded-md p-2 transition ${
+                      checked ? "border-red-300 bg-red-50/60" : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                    data-testid={`lei-${s.key}`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${checked ? "bg-red-600" : "bg-gray-300"}`} />
+                    <span className="text-xs font-medium flex-1">{s.label}</span>
+                    {checked && (
+                      <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded bg-red-700 text-white font-bold">
+                        Doloroso
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       );

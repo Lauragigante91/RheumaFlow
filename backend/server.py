@@ -830,7 +830,7 @@ Restituisci ESCLUSIVAMENTE un oggetto JSON valido (no markdown, no commenti, no 
   },
   "assessments": [
     {
-      "index_type": "das28_esr|das28_crp|cdai|sdai|basdai|asdas_crp|dapsa|sledai|haq|pasi|basfi|basmi|essdai|esspri|bvas|mmt8|fiqr|mrss|capillaroscopy|schober",
+      "index_type": "das28_esr|das28_crp|cdai|sdai|basdai|asdas_crp|dapsa|sledai|haq|pasi|basfi|basmi|essdai|esspri|bvas|mmt8|fiqr|mrss|capillaroscopy|schober|lei",
       "date": "YYYY-MM-DD|null",
       "score": "number|null",
       "interpretation": "string|null",
@@ -876,6 +876,12 @@ REGOLE:
 - Lascia i campi a null se non esplicitamente menzionati nel testo. NON inventare.
 - Date in formato ISO YYYY-MM-DD. Se solo l'anno è presente, ometti il campo.
 - Per "swollen_count" / "tender_count" estrai numeri di articolazioni se menzionati.
+- Per "lei" (Leeds Enthesitis Index): se il testo menziona dolorabilità in entesite/inserzioni
+  (es. "Achille destro dolente", "epicondilo laterale sinistro", "condilo femorale mediale dx"),
+  popola "inputs.sites" con le chiavi tra: lat_epicondyle_l, lat_epicondyle_r,
+  med_femoral_l, med_femoral_r, achilles_l, achilles_r — valore booleano (true se doloroso/positivo).
+  Calcola lo score come somma dei siti positivi (range 0–6). Esempio: "Achille bilaterale doloroso,
+  epicondilo dx" → sites: {achilles_l: true, achilles_r: true, lat_epicondyle_r: true} score=3.
 - Per anticorpi: "pos" se positivo, "neg" se negativo, "borderline" se debole/dubbio.
 - Per "sclero_profile" compila SOLO se la diagnosi è sclerosi sistemica/sclerodermia/SSc/VEDOSS.
 - Output: solo JSON puro. Inizia con { e finisci con }. NIENTE altro."""
