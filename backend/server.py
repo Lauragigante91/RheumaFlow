@@ -270,6 +270,13 @@ class ReminderBase(BaseModel):
     type: Optional[str] = None  # follow_up, lab, imaging, therapy, other
     notes: Optional[str] = None
     completed: bool = False
+    # Priority: "routine" = visible only inside patient page;
+    #           "asap" = visible in dashboard "richieste urgenti" widget.
+    priority: str = "routine"
+    # Visibility: "shared" (default) = whole organization can see/edit;
+    #             "private"           = only creator + shared_with_user_ids see it.
+    visibility: str = "shared"
+    shared_with_user_ids: List[str] = Field(default_factory=list)
 
 
 class Reminder(ReminderBase):
@@ -287,6 +294,9 @@ class ReminderUpdate(BaseModel):
     type: Optional[str] = None
     notes: Optional[str] = None
     completed: Optional[bool] = None
+    priority: Optional[str] = None
+    visibility: Optional[str] = None
+    shared_with_user_ids: Optional[List[str]] = None
 
 
 # ==================== SCLERODERMA PROFILE ====================
@@ -727,6 +737,17 @@ async def delete_lab_exam(exam_id: str, user: dict = Depends(get_current_user)):
 
 
 # ==================== REMINDERS ====================
+def _reminder_visibility_query(user: dict) -> dict:
+    """Filter clause: show shared org reminders OR private ones owned/shared with current user."""
+    return {
+        "$or": [
+            {"visibility": {"$ne": "private"}},
+            {"created_by": user["id"]},
+            {"shared_with_user_ids": user["id"]},
+        ]
+    }
+
+
 @api_router.post("/reminders", response_model=Reminder)
 async def create_reminder(payload: ReminderBase, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(payload.patient_id, user["organization_id"])
@@ -738,16 +759,25 @@ async def create_reminder(payload: ReminderBase, user: dict = Depends(get_curren
 @api_router.get("/patients/{patient_id}/reminders", response_model=List[Reminder])
 async def list_patient_reminders(patient_id: str, user: dict = Depends(get_current_user)):
     await _verify_patient_in_org(patient_id, user["organization_id"])
-    docs = await db.reminders.find({"patient_id": patient_id}, {"_id": 0}).sort("due_date", 1).to_list(2000)
+    q = {
+        "patient_id": patient_id,
+        "organization_id": user["organization_id"],
+        **_reminder_visibility_query(user),
+    }
+    docs = await db.reminders.find(q, {"_id": 0}).sort("due_date", 1).to_list(2000)
     return docs
 
 
 @api_router.get("/reminders/upcoming", response_model=List[Reminder])
 async def upcoming_reminders(user: dict = Depends(get_current_user)):
-    docs = await db.reminders.find(
-        {"organization_id": user["organization_id"], "completed": False},
-        {"_id": 0},
-    ).sort("due_date", 1).limit(20).to_list(20)
+    """Dashboard widget: only PRIORITY=asap items, respecting visibility."""
+    q = {
+        "organization_id": user["organization_id"],
+        "completed": False,
+        "priority": "asap",
+        **_reminder_visibility_query(user),
+    }
+    docs = await db.reminders.find(q, {"_id": 0}).sort("due_date", 1).limit(50).to_list(50)
     return docs
 
 
@@ -756,21 +786,47 @@ async def update_reminder(reminder_id: str, payload: ReminderUpdate, user: dict 
     update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="Nessun campo da aggiornare")
-    result = await db.reminders.update_one(
+    # Visibility check: ensure user can update this reminder
+    existing = await db.reminders.find_one(
+        {"id": reminder_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Reminder non trovato")
+    if existing.get("visibility") == "private" and existing.get("created_by") != user["id"] and user["id"] not in (existing.get("shared_with_user_ids") or []):
+        raise HTTPException(status_code=403, detail="Non hai accesso a questa richiesta privata")
+    await db.reminders.update_one(
         {"id": reminder_id, "organization_id": user["organization_id"]},
         {"$set": update_data},
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Reminder non trovato")
     return await db.reminders.find_one({"id": reminder_id}, {"_id": 0})
 
 
 @api_router.delete("/reminders/{reminder_id}")
 async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_user)):
-    result = await db.reminders.delete_one({"id": reminder_id, "organization_id": user["organization_id"]})
-    if result.deleted_count == 0:
+    existing = await db.reminders.find_one(
+        {"id": reminder_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    )
+    if not existing:
         raise HTTPException(status_code=404, detail="Reminder non trovato")
+    if existing.get("visibility") == "private" and existing.get("created_by") != user["id"]:
+        raise HTTPException(status_code=403, detail="Solo il creatore può eliminare una richiesta privata")
+    await db.reminders.delete_one({"id": reminder_id, "organization_id": user["organization_id"]})
     return {"success": True}
+
+
+@api_router.get("/organization/members")
+async def list_org_members(user: dict = Depends(get_current_user)):
+    """Return basic info on members of the same organization (for sharing UI)."""
+    docs = await db.users.find(
+        {"organization_id": user["organization_id"]},
+        {"_id": 0, "password_hash": 0},
+    ).to_list(500)
+    return [
+        {"id": d.get("id"), "name": d.get("name"), "email": d.get("email"), "role": d.get("role")}
+        for d in docs
+    ]
 
 
 # ==================== EXPORT DATABASE ====================

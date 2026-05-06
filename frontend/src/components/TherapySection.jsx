@@ -129,26 +129,6 @@ export default function TherapySection({ patient }) {
 
   return (
     <div className="space-y-4" data-testid="therapy-section">
-      {/* Suggestions banner */}
-      {allSuggested.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50/40 p-4">
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-[#0A2540] mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-heading font-bold text-sm tracking-tight">Terapie suggerite per {patient.diagnosi}</h4>
-              <p className="text-xs text-gray-600 mt-1">Clicca per pre-compilare il form</p>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {allSuggested.slice(0, 30).map((d, i) => (
-                  <Button key={i} variant="outline" size="sm" className="bg-white text-xs h-7" onClick={() => openNew(d)} data-testid={`suggested-therapy-${i}`}>
-                    <Pill className="w-3 h-3 mr-1" /> {d.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
       <div className="flex items-center justify-between">
         <h2 className="font-heading font-bold text-xl tracking-tight">Terapia in corso ({active.length})</h2>
         <Button onClick={() => openNew()} className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="add-therapy-btn">

@@ -329,6 +329,63 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v36 - Schermata paziente ridisegnata + reminder con priorità/visibilità)
+- [x] **Rimosso "Consigliati per (patologia)"** dalla pagina paziente: niente
+  più riquadro con indici clinimetrici e criteri suggeriti. Tanto la
+  clinimetria si inserisce con "Nuova valutazione" e i criteri sono nello
+  storico criteri sotto.
+- [x] **Rimosso "Terapie suggerite"** da `TherapySection`: i suggerimenti
+  appaiono già nel form "Aggiungi terapia".
+- [x] **Storico valutazioni completamente ridisegnato**: ora una **riga per data
+  di visita** (non più una riga per indice). Per ogni data:
+  - badge inline con tutti gli indici clinimetrici (DAS28-CRP, CDAI, SDAI…)
+    con score, interpretazione abbreviata (Rem/LDA/MDA/HDA color-coded) e
+    EULAR response
+  - colonna "In terapia" con i farmaci attivi a quella data
+  - icona 🧪 con conteggio esami di laboratorio dello stesso giorno —
+    cliccando si espande e mostra i pannelli con valori, unità e note
+  - pulsante "Aggiungi/modifica esami" nella riga espansa apre il dialog
+    completo
+  - filtri per indice/data + sort data ↑/↓ rimangono
+  - hover sulla riga rivela i bottoni edit/delete sui singoli indici
+- [x] **Esami di laboratorio rimossi come sezione standalone**: ora accessibili
+  via:
+  - pulsante "Esami di laboratorio" in alto a destra dello storico
+  - icona 🧪 nelle righe della singola visita (storico)
+  - aprono entrambi un `ExamsDialog` modale che incapsula `ExamsSection`
+    completo (CRUD invariato).
+- [x] **Reminder spostati IN FONDO** alla pagina paziente, dopo lo storico
+  criteri.
+- [x] **Reminder personalizzabili con PRIORITÀ e VISIBILITÀ** (modello backend
+  esteso):
+  - `priority`: `routine` (default) = visite di controllo programmate,
+    visibili SOLO nella scheda paziente. Quick presets: Prossima visita
+    (~3 mesi) / +6 mesi / +12 mesi.
+  - `priority`: `asap` = "da fare il prima possibile" (es. comitato etico,
+    esame da prenotare). Compaiono nella **dashboard** finché non completate.
+    Quick presets: Oggi / +3 gg / +1 settimana / +2 settimane.
+  - `visibility`: `shared` (default) = tutta l'UO la vede e la può
+    completare.
+  - `visibility`: `private` = solo il medico richiedente la vede, può
+    selezionare colleghi specifici dell'UO con cui condividerla
+    (`shared_with_user_ids`).
+  - Dashboard widget rinominato "Richieste urgenti" (prima "Prossimi
+    reminder"). Statistica corrispondente "Richieste urgenti".
+  - Endpoint backend nuovo `GET /api/organization/members` per popolare il
+    select "condividi con".
+  - Endpoint `GET /api/reminders/upcoming` filtra automaticamente per
+    `priority=asap` E rispetta la visibility (vedi solo le tue private
+    + quelle condivise nell'UO).
+  - Endpoint `GET /api/patients/{id}/reminders` rispetta la stessa
+    visibility (private create da altri non vengono mostrate).
+  - PUT/DELETE applicano permessi: solo creatore o utenti shared possono
+    modificare; solo creatore può eliminare le private.
+  - UI con badge dedicati: ⚡ Urgente (ambra), 🔒 Privata (viola),
+    ricolorazione delle righe asap (sfondo ambra leggero).
+- [x] **Fix collaterale Dashboard**: in modalità pseudonimizzata mostra
+  `codice_paziente` invece di "null null" per "Richieste urgenti" e
+  "Valutazioni recenti".
+
 ## Implemented (2026-05-06 - v35 - HAQ italiano completo + Export coorte Excel)
 - [x] **HAQ (Health Assessment Questionnaire) ristrutturato** secondo la versione
   italiana ufficiale con **20 item** raggruppati in 8 categorie, ognuno con la

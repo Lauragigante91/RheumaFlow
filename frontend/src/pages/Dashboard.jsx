@@ -89,7 +89,7 @@ export default function Dashboard() {
         <StatCard icon={Users} label="Pazienti" value={stats.patients} testid="stat-patients" />
         <StatCard icon={Activity} label="Valutazioni totali" value={stats.assessments} testid="stat-assessments" />
         <StatCard icon={TrendingUp} label="Ultime 5" value={(stats.recent_assessments || []).length} testid="stat-recent" />
-        <StatCard icon={Bell} label="Reminder attivi" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
+        <StatCard icon={Bell} label="Richieste urgenti" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
       </div>
 
       {/* ILD Spotlight - feature card prominently because user explicitly requested it */}
@@ -217,17 +217,22 @@ export default function Dashboard() {
 
       {/* Reminders + Recent assessments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming reminders */}
+        {/* Upcoming reminders (URGENT only) */}
         <Card className="border-gray-200 shadow-sm" data-testid="upcoming-reminders-card">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
-              <Bell className="w-5 h-5" /> Prossimi reminder
-            </h2>
+            <div>
+              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
+                <Bell className="w-5 h-5" /> Richieste urgenti
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Solo richieste contrassegnate "da fare prima possibile". I follow-up programmati sono nella scheda paziente.
+              </p>
+            </div>
             {overdueCount > 0 && <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{overdueCount} scaduti</Badge>}
           </div>
           <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
             {upcoming.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">Nessun reminder pendente.</div>
+              <div className="p-8 text-center text-gray-500 text-sm">Nessuna richiesta urgente.</div>
             ) : (
               upcoming.slice(0, 8).map((r) => {
                 const p = patientsById[r.patient_id];
@@ -242,7 +247,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-[#0A2540] truncate">{r.title}</div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {p ? `${p.cognome} ${p.nome}` : "—"}
+                        {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "—") : "—"}
                       </div>
                     </div>
                     <div className="text-right">
@@ -281,7 +286,7 @@ export default function Dashboard() {
                 >
                   <div>
                     <div className="font-medium text-[#0A2540]">
-                      {p ? `${p.cognome} ${p.nome}` : "Paziente rimosso"}
+                      {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "Paziente") : "Paziente rimosso"}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {INDEX_LABELS[a.index_type] || a.index_type} · {new Date(a.date).toLocaleDateString("it-IT")}
