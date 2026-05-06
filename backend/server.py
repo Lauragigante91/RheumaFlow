@@ -385,9 +385,8 @@ async def login_demo(response: Response):
     in immediately. Each call creates a NEW demo org (so multiple users can
     explore in parallel).
     """
-    import random
-    import string
-    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    import secrets
+    suffix = secrets.token_hex(4)  # 8 lowercase hex chars; cryptographically strong
     org = Organization(name=f"Demo UO {suffix}")
     await db.organizations.insert_one(org.model_dump())
 

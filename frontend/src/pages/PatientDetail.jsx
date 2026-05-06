@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { patientsApi, assessmentsApi, criteriaApi, therapiesApi, diseaseProfileApi, labExamsApi } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -64,7 +64,7 @@ export default function PatientDetail() {
   const [compositeMode, setCompositeMode] = useState(null); // null | "ra" | "spa"
   const [spaProfile, setSpaProfile] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const p = await patientsApi.get(id);
     setPatient(p);
     const a = await assessmentsApi.listByPatient(id);
@@ -82,8 +82,8 @@ export default function PatientDetail() {
     } else {
       setSpaProfile(null);
     }
-  };
-  useEffect(() => { load(); }, [id]);
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   // Diagnosi + flag assiale da profilo SpA per suggerire ASDAS/BASDAI/BASFI anche nell'AP con impegno assiale
   const suggestions = useMemo(() => {

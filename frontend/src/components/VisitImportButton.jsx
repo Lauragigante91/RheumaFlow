@@ -332,7 +332,7 @@ function SectionPreview({ section, data }) {
     return (
       <ul className="space-y-1">
         {data.map((a, i) => (
-          <li key={i}>
+          <li key={`${a.index_type || "?"}-${a.date || i}`}>
             <span className="font-bold">{a.index_type}</span> · score {a.score ?? "—"} · {a.interpretation || "no interp."}
             {a.tender_count != null && ` · TJC ${a.tender_count}`}
             {a.swollen_count != null && ` · SJC ${a.swollen_count}`}
@@ -345,7 +345,7 @@ function SectionPreview({ section, data }) {
     return (
       <ul className="space-y-1">
         {data.map((t, i) => (
-          <li key={i}>
+          <li key={`${t.drug_name || "?"}-${t.start_date || i}`}>
             <span className="font-bold">{t.drug_name}</span> {t.dose || ""} {t.frequency || ""} ({t.category}, {t.status})
           </li>
         ))}
@@ -356,7 +356,7 @@ function SectionPreview({ section, data }) {
     return (
       <ul className="space-y-1">
         {data.map((e, i) => (
-          <li key={i}>
+          <li key={`${e.category || "?"}-${i}`}>
             <span className="font-bold">{e.category}</span>: {(e.results || []).map((r) => `${r.name} ${r.value}${r.unit ? " " + r.unit : ""}${r.qualitative ? " (" + r.qualitative + ")" : ""}`).join(", ")}
           </li>
         ))}

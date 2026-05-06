@@ -329,6 +329,44 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v38 - Code review fixes)
+Applicate le correzioni concrete del Code Quality Report:
+- [x] **Sicurezza — `random` → `secrets`** (`backend/server.py` `login_demo()`):
+  sostituito `random.choices(string.ascii_lowercase + string.digits, k=6)` con
+  `secrets.token_hex(4)` per la generazione del suffisso univoco
+  dell'organizzazione demo. Cryptographically strong RNG, niente più
+  prevedibilità.
+- [x] **Stale closure prevention** in `Patients.jsx` e `PatientDetail.jsx`:
+  funzioni `load()` wrappate in `useCallback` con dipendenze esplicite,
+  `useEffect(() => { load(); }, [load])` invece che `[]`/`[id]`. Garantisce
+  che cambi di route/state ricarichino sempre i dati corretti senza closure
+  stantie.
+- [x] **Array index as key sostituite** in `VisitImportButton.jsx` (preview
+  AI di assessments/therapies/lab_exams): chiavi composite più stabili
+  (`${a.index_type}-${a.date}`, `${t.drug_name}-${t.start_date}`,
+  `${e.category}-${i}`).
+- [x] **`is` literal comparisons**: il report segnalava 8 occorrenze, ma
+  l'analisi AST sul codice attuale (`ast.Is`/`ast.IsNot` con `ast.Constant`
+  literal) conferma che NON ci sono più. Già a posto.
+- [x] **Console statements**: solo 1 `console.error` rimasto in
+  `AuthContext.jsx` dentro un catch di logout — accettabile (logging di
+  errore di rete non-critico). Non rimosso.
+
+**NOTA su raccomandazioni rimanenti dal Code Review** (lasciate al backlog
+perché richiedono refactor significativi e rischiosi):
+- Refactor di `PatientDetail.jsx`/`AssessmentForm.jsx`/
+  `CompositeAssessmentDialog.jsx`/`export_cohort_xlsx()` in sotto-componenti
+  e helper più piccoli — già parzialmente avviato in v37 con
+  `VisitGroupRow.jsx`. Continuerà nelle prossime iterazioni.
+- "49 missing hook deps": il linter ESLint del progetto non ha `react-hooks/
+  exhaustive-deps` attiva e l'analisi caso per caso mostra che la maggior
+  parte sono **falsi positivi** (riferimenti a import top-level stabili
+  come `interpretDAS28`, `calcDAS28_ESR`). Fixed solo i punti dove la
+  closure poteva realisticamente essere stale (`load` functions).
+- Type hints coverage: gli endpoint hanno già response_model espliciti;
+  la copertura "35%" del report include i test che tipicamente non si
+  annotano.
+
 ## Implemented (2026-05-06 - v37 - 5 task: AI lab import, Visita rapida, Demo, PWA, Refactor)
 - [x] **Import lab da PDF/foto via AI** (KILLER FEATURE): nuovo endpoint
   `POST /api/ai/parse-lab` che accetta multipart upload (PDF/JPEG/PNG/WEBP,
