@@ -483,6 +483,104 @@ export const DIAGNOSTIC_ALGORITHMS = [
       },
     ],
   },
+  {
+    id: "eosinofilia",
+    name: "Eosinofilia - iter diagnostico",
+    category: "Algoritmi",
+    intro: "Approccio sistematico all'eosinofilia periferica (>500/µL; severa >1500/µL persistente per >1 mese = ipereosinofilia). Obiettivo: distinguere forme secondarie/reattive da neoplastiche/primarie e identificare precocemente il danno d'organo eosinofilo-mediato.",
+    steps: [
+      {
+        title: "1. Conferma e stratificazione",
+        items: [
+          "Confermare con 2 emocromi ripetuti a distanza di 2-4 settimane (variabilità circadiana, farmaci).",
+          "Classificazione per severità: lieve 500-1500/µL, moderata 1500-5000/µL, severa >5000/µL.",
+          "Ipereosinofilia: eosinofili >1500/µL persistente per >1 mese OPPURE con danno d'organo (HES - Hypereosinophilic Syndrome).",
+          "Escludere pseudoeosinofilia (artefatti conta automatica) con esame morfologico su striscio.",
+        ],
+      },
+      {
+        title: "2. Anamnesi mirata",
+        items: [
+          "Farmaci (DRESS / reazioni farmacologiche): antibiotici (β-lattamici, sulfamidici, minociclina, vancomicina), anticonvulsivanti (carbamazepina, fenitoina, lamotrigina), allopurinolo, FANS, PPI.",
+          "Viaggi ed esposizioni: paesi tropicali/subtropicali (elmintiasi), contatti con animali (toxocariasi), consumo cibi crudi (anisakidosi, trichinellosi, cisticercosi).",
+          "Atopia/allergie: asma (eosinofilico vs neutrofilico), rinite, dermatite atopica, eosinofilia alimentare/esofagite eosinofila.",
+          "Sintomi sistemici: calo ponderale, febbre, sudorazioni notturne (sospetto linfoma/neoplasia), dispnea (ILD, asma), porpora palpabile (EGPA), dolore addominale (gastroenterite eosinofila, EGPA mesenterica).",
+          "Sintomi neurologici e cardiaci (HES con danno d'organo): neuropatia periferica, ictus, dispnea, scompenso.",
+        ],
+      },
+      {
+        title: "3. Esami di primo livello",
+        items: [
+          "Emocromo con formula e morfologia striscio (blasti, linfociti atipici, displasia).",
+          "VES, PCR, funzione epato-renale, elettroliti, LDH, troponina I (monitoraggio cardiaco HES).",
+          "IgE totali, IgG/IgA/IgM (deficit immunologici, iperIgE).",
+          "Vitamina B12 e triptasi sierica (elevate in varianti neoplastiche mieloidi e mastocitosi).",
+          "Esame urine, funzione tiroidea (ipoadrenalismo in Addison può associarsi a eosinofilia lieve).",
+        ],
+      },
+      {
+        title: "4. Screening parassitario",
+        items: [
+          "Esame parassitologico feci (3 campioni in giorni diversi).",
+          "Sierologie: Strongyloides (CRUCIALE prima di GC/immunosoppressori — rischio iperinfezione), Schistosoma, Toxocara, Trichinella, Filaria, Fasciola.",
+          "Se viaggio tropicale recente: striscio per filariasi, ecografia epatica per echinococcosi.",
+          "Test per HIV (eosinofilia spesso associata nelle forme avanzate / infezioni opportunistiche).",
+        ],
+      },
+      {
+        title: "5. Screening autoimmune e reumatologico",
+        items: [
+          "ANA + ENA completi, ANCA (cANCA/pANCA e specificità MPO/PR3) — EGPA spesso pANCA+/MPO+ nel 40%.",
+          "Fattore reumatoide, anti-CCP.",
+          "Frazioni del complemento (C3, C4).",
+          "Immunofissazione sierica/urinaria se sospetto gammapatia monoclonale / mieloma.",
+          "Se sospetto EGPA: EGDS/colonscopia in base a sintomi GI, BNC/neurografia per mononeurite multipla.",
+        ],
+      },
+      {
+        title: "6. Imaging e accertamenti d'organo",
+        items: [
+          "RX torace + HRCT torace: infiltrati periferici a 'fotografia negativa dell'edema polmonare' (polmonite eosinofila cronica), noduli, cavitazioni (EGPA/GPA).",
+          "Spirometria + DLCO + FeNO se sintomi respiratori.",
+          "Ecocardiogramma + RMN cardiaca: fibrosi endomiocardica (HES cardiaco Löffler), trombi apicali, disfunzione diastolica.",
+          "Ecografia addome (epatosplenomegalia in neoplasie mieloidi/sistema linfatico).",
+          "TC total-body se sospetto linfoma/neoplasia solida.",
+        ],
+      },
+      {
+        title: "7. Secondo livello ematologico (se eosinofilia persistente >1500/µL senza causa)",
+        items: [
+          "Striscio e agoaspirato midollare + biopsia osteomidollare.",
+          "Biologia molecolare: FIP1L1-PDGFRA (LPM con eosinofilia — tratta con imatinib), riarrangiamenti PDGFRB, FGFR1, PCM1-JAK2, ETV6-ABL1, BCR-ABL1.",
+          "Citogenetica/FISH.",
+          "Immunofenotipo linfocitario (L-HES): popolazione T aberrante CD3-/CD4+ o CD3+/CD4-/CD8- (linfoma T / sindrome HES linfocitica).",
+          "Valutazione ematologica per: leucemia eosinofila cronica (CEL-NOS), neoplasie mieloidi/linfoidi con eosinofilia.",
+        ],
+      },
+      {
+        title: "8. Diagnosi differenziale principale",
+        items: [
+          "REATTIVE/SECONDARIE: parassitosi, atopia/asma, DRESS, gastroenterite eosinofila, ABPA, deficit B12.",
+          "AUTOIMMUNI: EGPA (Churg-Strauss, ACR/EULAR 2022), IgG4-RD, fasceite eosinofila di Shulman, vasculiti.",
+          "NEOPLASTICHE PRIMARIE: LPM con FIP1L1-PDGFRA, CEL-NOS, neoplasie mielo-/linfoidi associate a eosinofilia, mastocitosi sistemica.",
+          "LINFOIDI: linfoma di Hodgkin e non-Hodgkin (T-cell), ATLL, LPM eosinofila linfocitica.",
+          "IDIOPATICA (HES-I): diagnosi di esclusione con eosinofilia >1500/µL >6 mesi e danno d'organo.",
+          "ALTRE: adrenal insufficiency, radiazioni, colesterolo-emboli, GVHD cronica.",
+        ],
+      },
+      {
+        title: "Red flags & management urgente",
+        items: [
+          "Eosinofilia >1500/µL + danno d'organo (cardiaco/polmonare/neurologico): hospitalizzazione e valutazione multidisciplinare (ematologo + reumatologo).",
+          "Sospetto DRESS: sospensione immediata del farmaco + GC ad alte dosi; monitoraggio epatico/renale; può recrudescere a settimane di distanza.",
+          "TEST STRONGYLOIDES obbligatorio prima di GC/immunosoppressori nei pazienti provenienti da aree endemiche (ivermectina preventiva se positivo o epidemiologia a rischio).",
+          "Troponina + ECG + ecocardio in tutti i pazienti con eosinofilia >1500/µL persistente (sorveglianza per Löffler).",
+          "Sospetto EGPA con vasculite attiva: induzione con GC ± ciclofosfamide o rituximab (ACR/EULAR 2022).",
+          "FIP1L1-PDGFRA positivo: imatinib 100-400 mg/die (risposta rapida e sostenuta).",
+        ],
+      },
+    ],
+  },
 ];
 
 export const MISC_GROUPS = [

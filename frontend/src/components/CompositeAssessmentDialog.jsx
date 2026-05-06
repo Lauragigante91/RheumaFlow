@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -15,7 +15,7 @@ import {
 } from "../lib/clinimetrics";
 import { assessmentsApi } from "../lib/api";
 import { toast } from "sonner";
-import { Save, Zap } from "lucide-react";
+import { Save, Zap, Copy } from "lucide-react";
 
 /**
  * Form compositi che condividono input tra indici della stessa malattia.
@@ -63,6 +63,8 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [prevVisit, setPrevVisit] = useState(null); // {date, payload}
+  const [copied, setCopied] = useState(false);
 
   // RA shared state
   const [joints, setJoints] = useState({});
@@ -81,6 +83,70 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
     setNotes("");
     setJoints({}); setEsr(""); setCrp(""); setPga(0); setEga(0);
     setBas({}); setAsdasPga(0); setBasfiVals({});
+    setCopied(false);
+  };
+
+  // ===== Carica ultima visita composita (quando il dialog si apre) =====
+  useEffect(() => {
+    if (!open || !patient?.id) return;
+    // Reset on open
+    reset();
+    const loadPrev = async () => {
+      try {
+        const all = await assessmentsApi.listByPatient(patient.id);
+        if (!Array.isArray(all) || all.length === 0) { setPrevVisit(null); return; }
+        // Per RA: cerchiamo l'ultima visita con almeno DAS28 (usato come pivot comune AR)
+        // Per SpA: l'ultima visita con BASDAI (pivot comune SpA)
+        const pivotType = mode === "ra" ? "das28_esr" : "basdai";
+        const sortedByDate = [...all].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        const pivot = sortedByDate.find((a) => a.index_type === pivotType);
+        if (!pivot) { setPrevVisit(null); return; }
+        // Recupera tutti gli assessment della stessa data (la visita composita precedente)
+        const visitDate = pivot.date;
+        const visitItems = all.filter((a) => a.date === visitDate);
+        setPrevVisit({ date: visitDate, items: visitItems });
+      } catch {
+        setPrevVisit(null);
+      }
+    };
+    loadPrev();
+  }, [open, patient?.id, mode]);
+
+  // ===== Applica precompilazione dal prevVisit =====
+  const applyCopyFromPrev = () => {
+    if (!prevVisit?.items) return;
+    const byType = Object.fromEntries(prevVisit.items.map((a) => [a.index_type, a]));
+    if (mode === "ra") {
+      // Ricostruisci joints dall'ultimo das28_esr o cdai (hanno tender_joints/swollen_joints)
+      const srcJoints = byType.das28_esr || byType.das28_crp || byType.cdai || byType.sdai;
+      const newJoints = {};
+      (srcJoints?.tender_joints || []).forEach((k) => { newJoints[k] = "tender"; });
+      (srcJoints?.swollen_joints || []).forEach((k) => {
+        newJoints[k] = newJoints[k] === "tender" ? "both" : "swollen";
+      });
+      setJoints(newJoints);
+      const ins = srcJoints?.inputs || {};
+      setEsr(ins.esr ?? "");
+      setCrp(ins.crp ?? "");
+      setPga(Number(ins.pga) || 0);
+      setEga(Number(ins.ega) || 0);
+    } else if (mode === "spa") {
+      const basdai = byType.basdai?.inputs || {};
+      const asdas = byType.asdas_crp?.inputs || {};
+      const basfi = byType.basfi?.inputs || {};
+      setBas({
+        q1: basdai.q1 ?? "", q2: basdai.q2 ?? asdas.backPain ?? "",
+        q3: basdai.q3 ?? asdas.peripheralPain ?? "", q4: basdai.q4 ?? "",
+        q5: basdai.q5 ?? "", q6: basdai.q6 ?? asdas.morningStiffness ?? "",
+      });
+      setAsdasPga(Number(asdas.pga) || 0);
+      setCrp(asdas.crp ?? "");
+      const bf = {};
+      for (let i = 1; i <= 10; i++) bf[`q${i}`] = basfi[`q${i}`] ?? "";
+      setBasfiVals(bf);
+    }
+    setCopied(true);
+    toast.success(`Valori precompilati dalla visita del ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`);
   };
 
   // ===== RA computations =====
@@ -190,6 +256,43 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Banner "Copia dalla visita precedente" */}
+          {prevVisit && (
+            <div
+              className={`flex items-center justify-between gap-3 rounded-md border p-3 ${
+                copied ? "bg-green-50 border-green-200" : "bg-blue-50/60 border-blue-200"
+              }`}
+              data-testid="copy-prev-banner"
+            >
+              <div className="flex items-start gap-2.5">
+                <Copy className={`w-4 h-4 mt-0.5 flex-shrink-0 ${copied ? "text-green-700" : "text-blue-700"}`} />
+                <div className="text-xs">
+                  <div className="font-semibold text-gray-900">
+                    {copied
+                      ? `✓ Pre-compilato dalla visita del ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`
+                      : `Ultima visita ${mode === "ra" ? "AR" : "SpA"} disponibile: ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`}
+                  </div>
+                  <div className="text-gray-600 mt-0.5">
+                    {copied
+                      ? "Modifica solo i campi cambiati e salva."
+                      : "Pre-compila tutti i campi dall'ultima valutazione e aggiorna solo quanto è cambiato."}
+                  </div>
+                </div>
+              </div>
+              {!copied && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-white hover:bg-blue-50 border-blue-300 text-blue-800 flex-shrink-0"
+                  onClick={applyCopyFromPrev}
+                  data-testid="copy-prev-btn"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" /> Copia valori
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Date + Notes */}
           <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-3 items-end">
             <div>

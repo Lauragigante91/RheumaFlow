@@ -329,7 +329,33 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v27 - Form compositi AR/SpA + Domini di malattia GRAPPA)
+## Implemented (2026-05-06 - v28 - Copia dalla visita precedente + Iter diagnostico Eosinofilia)
+- [x] **Copia dalla visita precedente** nei form compositi AR e SpA: banner
+  informativo in cima al dialog (azzurro prima, verde dopo conferma) che indica
+  la data dell'ultima valutazione composita disponibile e un bottone "Copia valori"
+  che pre-popola:
+  - **Modalità AR**: joints (tender+swollen), VES, PCR, PGA, EGA dall'ultimo
+    das28_esr/das28_crp/cdai/sdai della stessa data.
+  - **Modalità SpA**: BASDAI q1-q6, ASDAS PGA, PCR, BASFI q1-q10 dall'ultimo
+    basdai/asdas_crp/basfi della stessa data (merge intelligente delle voci
+    condivise tra BASDAI e ASDAS come back pain/morningStiffness/peripheralPain).
+  Logica: cerca l'ultimo assessment "pivot" (das28_esr per RA, basdai per SpA)
+  per data, poi raccoglie tutti gli assessment della stessa data per ricostruire
+  la visita composita completa. Toast di conferma al click. Messaggio UX chiaro:
+  "Modifica solo i campi cambiati e salva".
+- [x] **Iter diagnostico di Eosinofilia** nella sezione Miscellanea: nuovo
+  algoritmo diagnostico completo strutturato in **9 step**:
+  1. Conferma e stratificazione (lieve/moderata/severa/HES)
+  2. Anamnesi mirata (farmaci DRESS, viaggi, atopia, sintomi sistemici)
+  3. Esami di primo livello (emocromo con striscio, VES/PCR, IgE, B12, triptasi)
+  4. Screening parassitario (Strongyloides CRUCIALE prima di GC)
+  5. Screening autoimmune (ANCA/MPO/PR3 per EGPA)
+  6. Imaging e accertamenti d'organo (HRCT, ecocardio per Löffler)
+  7. Secondo livello ematologico (BOM, FIP1L1-PDGFRA, immunofenotipo L-HES)
+  8. Diagnosi differenziale (reattive/autoimmuni/neoplastiche/linfoidi/HES-I)
+  9. Red flags & management urgente (DRESS, Strongyloides, FIP1L1 → imatinib, EGPA)
+
+
 - [x] **Form unificato Artrite Reumatoide** (`CompositeAssessmentDialog` mode="ra"):
   un solo dialog che compila contemporaneamente DAS28-VES + DAS28-PCR + CDAI + SDAI.
   Input condivisi: conta articolare 66/68 (con subset 28 estratto automaticamente),
