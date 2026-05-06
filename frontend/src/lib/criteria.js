@@ -1113,6 +1113,213 @@ export const CRITERIA = [
     threshold: { value: 5, label: "Soddisfatti i criteri IPAF (3 obbligatori + ≥1 elemento in ≥2 domini)" },
     note: "Lo score numerico è solo orientativo. La classificazione IPAF richiede TUTTI E TRE i requisiti obbligatori (IIP documentata, esclusione di alternative, assenza di CTD definita) E almeno UN elemento da almeno DUE dei tre domini (Clinico, Sierologico, Morfologico). Verifica manualmente la copertura dei domini prima di classificare il paziente. Riferimento: Fischer A et al. Eur Respir J 2015;46(4):976-87.",
   },
+
+  // ============ Artropatia da emocromatosi — EULAR 2025 ============
+  {
+    id: "haemochromatosis_arthropathy_2025",
+    name: "Artropatia da emocromatosi (EULAR 2025)",
+    disease: "Artropatia da emocromatosi",
+    source: "Kiely PDW et al. — EULAR 2025 Classification Criteria, Ann Rheum Dis 2026;85(2):238-245",
+    intro:
+      "Primi criteri classificativi EULAR per l'artropatia da emocromatosi (HA). Si applicano a pazienti con OMOZIGOSI HFE C282Y, dolore articolare e sovraccarico di ferro documentato. Score ≥5/11 punti su almeno 3 criteri = classificazione (sensibilità 71,4%, specificità 93,3%). Distingue HA da osteoartrosi e CPPD.",
+    sections: [
+      {
+        title: "Requisiti di entry obbligatori (TUTTI E TRE)",
+        type: "check",
+        groupKey: "entry",
+        items: [
+          { key: "hfe_c282y_homozygous", label: "Omozigosi HFE C282Y", points: 1 },
+          { key: "joint_pain", label: "Dolore articolare", points: 1 },
+          { key: "iron_overload", label: "Evidenza di sovraccarico di ferro (ferritina, saturazione transferrina, biopsia/RMN epatica)", points: 1 },
+        ],
+      },
+      {
+        title: "Età all'esordio dei sintomi articolari",
+        type: "radio",
+        groupKey: "age_onset",
+        options: [
+          { value: "lt40", label: "<40 anni", points: 0 },
+          { value: "40_50", label: "40-50 anni", points: 1 },
+          { value: "gt50", label: ">50 anni", points: 2 },
+        ],
+      },
+      {
+        title: "Caratteristiche cliniche",
+        type: "check",
+        groupKey: "clinical",
+        items: [
+          { key: "mcp_clinical", label: "Coinvolgimento clinico delle articolazioni MCP (in particolare MCP 2 e 3): tumefazione, dolorabilità o limitazione funzionale", points: 1 },
+          { key: "dip_clinical", label: "Coinvolgimento clinico delle articolazioni DIP", points: 1 },
+          { key: "ankle_clinical", label: "Coinvolgimento clinico della caviglia (tumefazione, dolorabilità o limitazione)", points: 1 },
+        ],
+      },
+      {
+        title: "Caratteristiche radiografiche",
+        type: "check",
+        groupKey: "radiographic",
+        items: [
+          { key: "mcp_hook_osteophytes", label: "Osteofiti uncinati (\"hook osteophytes\") a MCP 2, 3 o caviglia", points: 2 },
+          { key: "dip_radiographic", label: "Alterazioni radiografiche alle DIP (riduzione spazio articolare, osteofiti, sclerosi subcondrale)", points: 1 },
+          { key: "ankle_radiographic", label: "Alterazioni radiografiche alla caviglia", points: 1 },
+        ],
+      },
+      {
+        title: "Storia di chirurgia",
+        type: "check",
+        groupKey: "surgery",
+        items: [
+          { key: "hip_ankle_surgery", label: "Storia di intervento chirurgico ad anca o caviglia (artroprotesi, artrodesi)", points: 2 },
+        ],
+      },
+    ],
+    threshold: { value: 5, label: "Soddisfatti i criteri EULAR 2025 di artropatia da emocromatosi" },
+    note: "I requisiti di entry sono OBBLIGATORI. La classificazione richiede ≥5 punti su 11 con almeno 3 criteri positivi tra quelli scoring. Sensibilità 71,4%, specificità 93,3%.",
+  },
+
+  // ============ EULAR/ACR Risk Stratification Criteria for RA in Arthralgia (2025) ============
+  {
+    id: "eular_acr_ra_risk_arthralgia_2025",
+    name: "Stratificazione del rischio di AR in fase di artralgia (EULAR/ACR 2025)",
+    disease: "AR — fase a rischio",
+    source: "EULAR/ACR 2025 — Ann Rheum Dis 2025; van Steenbergen HW et al.",
+    intro:
+      "Modello di stratificazione del rischio per identificare pazienti con artralgia (in particolare CSA — Clinically Suspect Arthralgia) a rischio di sviluppare artrite infiammatoria/AR entro 12 mesi. NON diagnostica AR ma stratifica il rischio. Cutoff orientativo: >10 punti = rischio alto. AUC 0.80 (clinico+sierologico) → 0.93 (con RMN). Modello validato su 2293 pazienti.",
+    sections: [
+      {
+        title: "Variabili cliniche",
+        type: "radio",
+        groupKey: "morning_stiffness",
+        options: [
+          { value: "none", label: "Rigidità mattutina assente o <30 min", points: 0 },
+          { value: "30_60", label: "Rigidità mattutina 30-60 min", points: 2 },
+          { value: "gt60", label: "Rigidità mattutina >60 min", points: 4 },
+        ],
+      },
+      {
+        title: "Sintomi riferiti dal paziente",
+        type: "check",
+        groupKey: "patient_symptoms",
+        items: [
+          { key: "patient_swelling", label: "Tumefazione articolare riferita dal paziente", points: 4 },
+          { key: "difficulty_fist", label: "Difficoltà a chiudere il pugno", points: 5 },
+        ],
+      },
+      {
+        title: "Markers infiammatori",
+        type: "check",
+        groupKey: "inflammation",
+        items: [
+          { key: "crp_elevated", label: "PCR elevata", points: 1 },
+        ],
+      },
+      {
+        title: "Fattore reumatoide (FR)",
+        type: "radio",
+        groupKey: "rf",
+        options: [
+          { value: "negative", label: "FR negativo", points: 0 },
+          { value: "low", label: "FR positivo a basso titolo (≤3× ULN)", points: 2 },
+          { value: "high", label: "FR positivo a titolo alto (>3× ULN)", points: 4 },
+        ],
+      },
+      {
+        title: "Anticorpi anti-CCP / ACPA",
+        type: "radio",
+        groupKey: "acpa",
+        options: [
+          { value: "negative", label: "ACPA negativi", points: 0 },
+          { value: "low", label: "ACPA positivi a basso titolo (≤3× ULN)", points: 4 },
+          { value: "high", label: "ACPA positivi a titolo alto (>3× ULN)", points: 8 },
+        ],
+      },
+      {
+        title: "Imaging (modello esteso, opzionale)",
+        type: "check",
+        groupKey: "imaging",
+        items: [
+          { key: "mri_tenosynovitis", label: "RMN: tenosinovite dei flessori e/o estensori del polso", points: 2 },
+          { key: "mri_subclinical_inflammation", label: "RMN: altre evidenze di infiammazione subclinica (sinovite, osteite)", points: 2 },
+        ],
+      },
+    ],
+    threshold: { value: 10, label: "Rischio elevato di sviluppare AR entro 12 mesi (cutoff orientativo >10)" },
+    note: "I criteri NON diagnosticano AR — stratificano solo il rischio di progressione in fase di artralgia. Cutoff >10 punti: sensibilità e specificità >75% nel modello esteso con RMN. La diagnosi di AR è clinica e basata sui criteri ACR/EULAR 2010. Considera invio precoce al reumatologo per i pazienti con punteggi elevati.",
+  },
+
+  // ============ Hand Osteoarthritis — EULAR 2023 ============
+  {
+    id: "hand_oa_eular_2023",
+    name: "Osteoartrosi della mano (EULAR 2023)",
+    disease: "Osteoartrosi",
+    source: "Haugen IK, Kloppenburg M et al. — Ann Rheum Dis 2024;83(11):1428-1435",
+    intro:
+      "Criteri classificativi EULAR 2023 per l'osteoartrosi della mano. Score 0-15. Cutoff: ≥9 OA mano in generale, ≥8 OA interfalangea, ≥8 OA della base del pollice. Articolazioni target: DIP 2-5 bilaterali, PIP 2-5 bilaterali, IP1 (interfalangea pollice), CMC1 (base pollice).",
+    sections: [
+      {
+        title: "Requisiti di entry obbligatori (ENTRAMBI)",
+        type: "check",
+        groupKey: "entry",
+        items: [
+          { key: "symptoms_target_joint", label: "Dolore, dolorabilità e/o rigidità in almeno UNA articolazione target nella maggior parte dei giorni delle ultime 6 settimane (DIP 2-5, PIP 2-5, IP1, CMC1 bilaterali)", points: 1 },
+          { key: "exclusion_alt", label: "Sintomi NON meglio spiegati da altra patologia (artropatie da cristalli, malattie infiammatorie sistemiche, traumi acuti, condizioni non infiammatorie). Cautela in pazienti con psoriasi (DD con AP).", points: 1 },
+        ],
+      },
+      {
+        title: "Età",
+        type: "radio",
+        groupKey: "age",
+        options: [
+          { value: "lt45", label: "<45 anni", points: 0 },
+          { value: "45_54", label: "45-54 anni", points: 1 },
+          { value: "55_64", label: "55-64 anni", points: 2 },
+          { value: "ge65", label: "≥65 anni", points: 3 },
+        ],
+      },
+      {
+        title: "Rigidità mattutina",
+        type: "radio",
+        groupKey: "morning_stiffness",
+        options: [
+          { value: "none", label: "Assente", points: 1 },
+          { value: "le30", label: "≤30 minuti", points: 2 },
+          { value: "gt30", label: ">30 minuti", points: 0 },
+        ],
+      },
+      {
+        title: "Articolazioni con osteofiti (radiografia)",
+        type: "radio",
+        groupKey: "osteophytes",
+        options: [
+          { value: "0", label: "Nessuna", points: 0 },
+          { value: "1_2", label: "1-2 articolazioni", points: 2 },
+          { value: "3_5", label: "3-5 articolazioni", points: 3 },
+          { value: "ge6", label: "≥6 articolazioni", points: 4 },
+        ],
+      },
+      {
+        title: "Articolazioni con riduzione dello spazio articolare (JSN, radiografia)",
+        type: "radio",
+        groupKey: "jsn",
+        options: [
+          { value: "0", label: "Nessuna", points: 0 },
+          { value: "1_2", label: "1-2 articolazioni", points: 1 },
+          { value: "3_5", label: "3-5 articolazioni", points: 2 },
+          { value: "ge6", label: "≥6 articolazioni", points: 3 },
+        ],
+      },
+      {
+        title: "Concordanza sintomi-struttura",
+        type: "radio",
+        groupKey: "concordance",
+        options: [
+          { value: "no", label: "No (osteofiti/JSN presenti in <50% delle articolazioni dolorose)", points: 0 },
+          { value: "yes", label: "Sì (osteofiti o JSN presenti in ≥50% delle articolazioni dolorose nelle ultime 6 settimane)", points: 3 },
+        ],
+      },
+    ],
+    threshold: { value: 9, label: "Soddisfatti i criteri di OA della mano (≥9/15)" },
+    note: "Cutoff specifici per sottotipi: ≥9 per OA della mano in generale, ≥8 per OA interfalangea (DIP/PIP/IP1), ≥8 per OA della base del pollice (CMC1). Articolazioni target: DIP 2-5, PIP 2-5, IP1, CMC1 (bilaterali). Sensibilità/specificità ottimizzate per popolazioni di studio. Verifica i requisiti di entry obbligatori.",
+  },
 ];
 
 export const CRITERIA_GROUPS = [
@@ -1133,4 +1340,7 @@ export const CRITERIA_GROUPS = [
   "APS",
   "Vasculiti grandi vasi",
   "IPAF / ILD",
+  "Artropatia da emocromatosi",
+  "AR — fase a rischio",
+  "Osteoartrosi",
 ];

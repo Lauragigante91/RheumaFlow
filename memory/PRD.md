@@ -329,7 +329,32 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v31 - Definizioni cliniche complete per ESSDAI/SLEDAI/BVAS)
+## Implemented (2026-05-06 - v32 - 3 nuovi criteri classificativi EULAR/ACR)
+- [x] **Artropatia da emocromatosi (EULAR 2025)** — Kiely PDW et al., Ann
+  Rheum Dis 2026;85(2):238-245. Primi criteri classificativi EULAR per HA.
+  Requisiti di entry: omozigosi HFE C282Y + dolore articolare + sovraccarico
+  di ferro. Score 0-11: età d'esordio (≤2pt), MCP/DIP/caviglia clinica (≤3pt),
+  osteofiti uncinati MCP/caviglia (2pt) + radiografia DIP/caviglia (≤2pt),
+  chirurgia anca/caviglia (2pt). Cutoff ≥5 con almeno 3 criteri positivi
+  (sensibilità 71,4%, specificità 93,3%).
+- [x] **Stratificazione rischio AR in fase di artralgia (EULAR/ACR 2025)** —
+  van Steenbergen HW et al., modello CSA. NON diagnostica AR ma stratifica il
+  rischio di sviluppare artrite/AR entro 12 mesi. Variabili: rigidità mattutina
+  (≤4pt), tumefazione/difficoltà chiudere pugno (4-5pt), PCR (1pt), FR
+  (negativo/basso/alto: 0-2-4pt), ACPA (negativo/basso/alto: 0-4-8pt), RMN
+  opzionale (+4pt). Cutoff orientativo >10 punti = rischio elevato. AUC 0.80
+  → 0.93 con RMN.
+- [x] **Osteoartrosi della mano (EULAR 2023)** — Haugen IK, Kloppenburg M et
+  al., Ann Rheum Dis 2024;83(11):1428-1435. Requisiti di entry: dolore/
+  rigidità in articolazione target (DIP 2-5, PIP 2-5, IP1, CMC1) + esclusione
+  di altre patologie. Score 0-15: età (0-3), rigidità mattutina (0-2),
+  osteofiti radiografici (0-4), JSN (0-3), concordanza sintomi-struttura (0-3).
+  Cutoff: ≥9 OA mano in generale, ≥8 OA interfalangea, ≥8 OA base pollice.
+- [x] **Aggiunti 3 gruppi a CRITERIA_GROUPS**: "Artropatia da emocromatosi",
+  "AR — fase a rischio", "Osteoartrosi" — visibili come filtri a chip nella
+  pagina Criteri.
+
+
 - [x] **ESSDAI completamente rifatto** con definizioni cliniche per ogni livello
   di ognuno dei 12 domini (basate sul paper Seror et al. EULAR 2010, Ann Rheum
   Dis). Ora ogni opzione mostra:
