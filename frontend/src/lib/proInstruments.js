@@ -68,12 +68,12 @@ export const PRO_INSTRUMENTS = {
     intro:
       "Pensa a come ti sei sentito nell'ULTIMA SETTIMANA. Per ogni domanda sposta il cursore tra 0 (nessun problema) e 10 (massimo problema):",
     items: [
-      { key: "fatigue", type: "nrs", question: "Quanto è stata grave la tua stanchezza generale?" },
-      { key: "spinal_pain", type: "nrs", question: "Quanto è stato grave il dolore al collo, alla schiena o alle anche?" },
-      { key: "joint_pain", type: "nrs", question: "Quanto è stato grave il dolore o la tumefazione alle altre articolazioni?" },
-      { key: "tenderness", type: "nrs", question: "Quanto fastidio ti danno le aree del corpo dolenti al tatto o alla pressione?" },
-      { key: "morning_stiff_severity", type: "nrs", question: "Quanto è stata grave la rigidità mattutina?" },
-      { key: "morning_stiff_duration", type: "nrs", question: "Quanto è durata la rigidità mattutina al risveglio? (0=nessuna · 5=≥1 ora · 10=≥2 ore)" },
+      { key: "q1", type: "nrs", question: "Quanto è stata grave la tua stanchezza generale?" },
+      { key: "q2", type: "nrs", question: "Quanto è stato grave il dolore al collo, alla schiena o alle anche?" },
+      { key: "q3", type: "nrs", question: "Quanto è stato grave il dolore o la tumefazione alle altre articolazioni?" },
+      { key: "q4", type: "nrs", question: "Quanto fastidio ti danno le aree del corpo dolenti al tatto o alla pressione?" },
+      { key: "q5", type: "nrs", question: "Quanto è stata grave la rigidità mattutina?" },
+      { key: "q6", type: "nrs", question: "Quanto è durata la rigidità mattutina al risveglio? (0=nessuna · 5=≥1 ora · 10=≥2 ore)" },
     ],
     score: (responses) => {
       const score = calcBASDAI(responses);
@@ -89,16 +89,16 @@ export const PRO_INSTRUMENTS = {
     intro:
       "Indica per ognuna di queste attività quanto ne sei stato capace nell'ULTIMA SETTIMANA (0 = facile, 10 = impossibile):",
     items: [
-      { key: "socks", type: "nrs", question: "Mettere le calze o le calze di sostegno senza aiuto" },
-      { key: "pen", type: "nrs", question: "Raccogliere una penna dal pavimento piegandoti in avanti, senza aiuto" },
-      { key: "shelf", type: "nrs", question: "Raggiungere uno scaffale alto, senza aiuto" },
-      { key: "chair", type: "nrs", question: "Alzarti da una sedia senza braccioli senza usare le mani" },
-      { key: "floor", type: "nrs", question: "Alzarti dal pavimento dalla posizione supina, senza aiuto" },
-      { key: "stand", type: "nrs", question: "Stare in piedi senza appoggio per 10 minuti" },
-      { key: "stairs", type: "nrs", question: "Salire 12-15 scalini senza usare il corrimano" },
-      { key: "look_back", type: "nrs", question: "Guardare alle tue spalle senza ruotare il corpo" },
-      { key: "demanding", type: "nrs", question: "Svolgere attività che richiedono sforzo (es. esercizio fisico, giardinaggio, sport)" },
-      { key: "fullday", type: "nrs", question: "Affrontare una giornata intera di attività (lavorative o domestiche)" },
+      { key: "q1", type: "nrs", question: "Mettere le calze o le calze di sostegno senza aiuto" },
+      { key: "q2", type: "nrs", question: "Raccogliere una penna dal pavimento piegandoti in avanti, senza aiuto" },
+      { key: "q3", type: "nrs", question: "Raggiungere uno scaffale alto, senza aiuto" },
+      { key: "q4", type: "nrs", question: "Alzarti da una sedia senza braccioli senza usare le mani" },
+      { key: "q5", type: "nrs", question: "Alzarti dal pavimento dalla posizione supina, senza aiuto" },
+      { key: "q6", type: "nrs", question: "Stare in piedi senza appoggio per 10 minuti" },
+      { key: "q7", type: "nrs", question: "Salire 12-15 scalini senza usare il corrimano" },
+      { key: "q8", type: "nrs", question: "Guardare alle tue spalle senza ruotare il corpo" },
+      { key: "q9", type: "nrs", question: "Svolgere attività che richiedono sforzo (es. esercizio fisico, giardinaggio, sport)" },
+      { key: "q10", type: "nrs", question: "Affrontare una giornata intera di attività (lavorative o domestiche)" },
     ],
     score: (responses) => {
       const score = calcBASFI(responses);
