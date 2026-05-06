@@ -10,12 +10,16 @@ import ItalianDatePicker from "./ItalianDatePicker";
 import Homunculus, { countTenderIn, countSwollenIn, countTender, countSwollen } from "./Homunculus";
 import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcBASFI,
+  calcDAPSA, calcLEI, calcPASI,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretBASFI,
-  JOINTS_DAS28, BASFI_QUESTIONS,
+  interpretDAPSA, interpretLEI, interpretPASI,
+  JOINTS_DAS28, BASFI_QUESTIONS, LEI_SITES, PASI_REGIONS,
 } from "../lib/clinimetrics";
 import { assessmentsApi } from "../lib/api";
 import { toast } from "sonner";
 import { Save, Zap, Copy } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import EnthesisBodyChart from "./EnthesisBodyChart";
 
 /**
  * Form compositi che condividono input tra indici della stessa malattia.
@@ -78,11 +82,17 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   const [asdasPga, setAsdasPga] = useState(0);
   const [basfiVals, setBasfiVals] = useState({}); // q1..q10
 
+  // PsA shared state (DAPSA = joints 66/68 + PGA + patientPain + CRP; LEI = sites; PASI = regions)
+  const [patientPain, setPatientPain] = useState(0); // VAS dolore paziente DAPSA
+  const [leiSites, setLeiSites] = useState({});
+  const [pasiData, setPasiData] = useState({ head: {}, upper: {}, trunk: {}, lower: {} });
+
   const reset = () => {
     setDate(new Date().toISOString().slice(0, 10));
     setNotes("");
     setJoints({}); setEsr(""); setCrp(""); setPga(0); setEga(0);
     setBas({}); setAsdasPga(0); setBasfiVals({});
+    setPatientPain(0); setLeiSites({}); setPasiData({ head: {}, upper: {}, trunk: {}, lower: {} });
     setCopied(false);
   };
 
@@ -95,13 +105,11 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
       try {
         const all = await assessmentsApi.listByPatient(patient.id);
         if (!Array.isArray(all) || all.length === 0) { setPrevVisit(null); return; }
-        // Per RA: cerchiamo l'ultima visita con almeno DAS28 (usato come pivot comune AR)
-        // Per SpA: l'ultima visita con BASDAI (pivot comune SpA)
-        const pivotType = mode === "ra" ? "das28_esr" : "basdai";
+        // Pivot per ogni modalità
+        const pivotType = mode === "ra" ? "das28_esr" : mode === "spa" ? "basdai" : "dapsa";
         const sortedByDate = [...all].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
         const pivot = sortedByDate.find((a) => a.index_type === pivotType);
         if (!pivot) { setPrevVisit(null); return; }
-        // Recupera tutti gli assessment della stessa data (la visita composita precedente)
         const visitDate = pivot.date;
         const visitItems = all.filter((a) => a.date === visitDate);
         setPrevVisit({ date: visitDate, items: visitItems });
@@ -144,6 +152,29 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
       const bf = {};
       for (let i = 1; i <= 10; i++) bf[`q${i}`] = basfi[`q${i}`] ?? "";
       setBasfiVals(bf);
+    } else if (mode === "psa") {
+      // DAPSA — ricostruisci joints + PGA + dolore paziente + CRP
+      const dapsa = byType.dapsa;
+      const dapsaIns = dapsa?.inputs || {};
+      const newJoints = {};
+      (dapsa?.tender_joints || []).forEach((k) => { newJoints[k] = "tender"; });
+      (dapsa?.swollen_joints || []).forEach((k) => {
+        newJoints[k] = newJoints[k] === "tender" ? "both" : "swollen";
+      });
+      setJoints(newJoints);
+      setPga(Number(dapsaIns.pga) || 0);
+      setPatientPain(Number(dapsaIns.patientPain) || 0);
+      setCrp(dapsaIns.crp ?? "");
+      // LEI
+      const lei = byType.lei?.inputs || {};
+      setLeiSites(lei.sites || {});
+      // PASI
+      const pasiIns = byType.pasi?.inputs || {};
+      const pd = { head: {}, upper: {}, trunk: {}, lower: {} };
+      ["head", "upper", "trunk", "lower"].forEach((reg) => {
+        if (pasiIns[reg]) pd[reg] = { ...pasiIns[reg] };
+      });
+      setPasiData(pd);
     }
     setCopied(true);
     toast.success(`Valori precompilati dalla visita del ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`);
@@ -184,6 +215,16 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
     };
   }, [mode, bas, asdasPga, crp, basfiVals]);
 
+  // ===== PsA computations =====
+  const psaResults = useMemo(() => {
+    if (mode !== "psa") return null;
+    return {
+      dapsa: { score: calcDAPSA({ tjc68: tjcAll, sjc66: sjcAll, pga, patientPain, crp }), interp: interpretDAPSA },
+      lei: { score: calcLEI(leiSites), interp: interpretLEI },
+      pasi: { score: calcPASI(pasiData), interp: interpretPASI },
+    };
+  }, [mode, tjcAll, sjcAll, pga, patientPain, crp, leiSites, pasiData]);
+
   // ===== Save =====
   const handleSave = async () => {
     if (!patient?.id) return;
@@ -223,6 +264,30 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
         ].map((a) => ({ ...a, patient_id: patient.id, date, notes }));
         await Promise.all(items.map((p) => assessmentsApi.create(p)));
         toast.success("3 valutazioni SpA salvate (BASDAI, ASDAS-PCR, BASFI)");
+      } else if (mode === "psa") {
+        const tenderKeys = Object.entries(joints).filter(([_, v]) => v === "tender" || v === "both").map(([k]) => k);
+        const swollenKeys = Object.entries(joints).filter(([_, v]) => v === "swollen" || v === "both").map(([k]) => k);
+        const items = [
+          {
+            index_type: "dapsa", score: psaResults.dapsa.score,
+            interpretation: psaResults.dapsa.interp(psaResults.dapsa.score),
+            tender_joints: tenderKeys,
+            swollen_joints: swollenKeys,
+            inputs: { tjc68: tjcAll, sjc66: sjcAll, pga, patientPain, crp },
+          },
+          {
+            index_type: "lei", score: psaResults.lei.score,
+            interpretation: psaResults.lei.interp(psaResults.lei.score),
+            inputs: { sites: leiSites },
+          },
+          {
+            index_type: "pasi", score: psaResults.pasi.score,
+            interpretation: psaResults.pasi.interp(psaResults.pasi.score),
+            inputs: { ...pasiData },
+          },
+        ].map((a) => ({ ...a, patient_id: patient.id, date, notes }));
+        await Promise.all(items.map((p) => assessmentsApi.create(p)));
+        toast.success("3 valutazioni PsA salvate (DAPSA, LEI, PASI)");
       }
       reset();
       onSaved && onSaved();
@@ -238,7 +303,9 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
 
   const title = mode === "ra"
     ? "AR — Form unificato: DAS28-VES, DAS28-PCR, CDAI, SDAI"
-    : "SpA — Form unificato: BASDAI, ASDAS-PCR, BASFI";
+    : mode === "spa"
+    ? "SpA — Form unificato: BASDAI, ASDAS-PCR, BASFI"
+    : "AP — Form unificato: DAPSA, LEI, PASI";
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -251,7 +318,9 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
           <p className="text-xs text-gray-500 mt-1">
             Compila una sola volta i dati condivisi: {mode === "ra"
               ? "i punteggi DAS28-VES, DAS28-PCR, CDAI e SDAI verranno calcolati e salvati insieme."
-              : "i punteggi BASDAI, ASDAS-PCR e BASFI condividono le voci VAS e verranno salvati insieme."}
+              : mode === "spa"
+              ? "i punteggi BASDAI, ASDAS-PCR e BASFI condividono le voci VAS e verranno salvati insieme."
+              : "DAPSA (articolazioni 66/68 + PGA + dolore + PCR), LEI (entesiti) e PASI (psoriasi) verranno salvati insieme."}
           </p>
         </DialogHeader>
 
@@ -270,7 +339,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                   <div className="font-semibold text-gray-900">
                     {copied
                       ? `✓ Pre-compilato dalla visita del ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`
-                      : `Ultima visita ${mode === "ra" ? "AR" : "SpA"} disponibile: ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`}
+                      : `Ultima visita ${mode === "ra" ? "AR" : mode === "spa" ? "SpA" : "AP"} disponibile: ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`}
                   </div>
                   <div className="text-gray-600 mt-0.5">
                     {copied
@@ -337,7 +406,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                 </Card>
               </div>
             </div>
-          ) : (
+          ) : mode === "spa" ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* BASDAI + ASDAS shared */}
               <div className="space-y-3">
@@ -374,6 +443,105 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                 })}
               </div>
             </div>
+          ) : (
+            /* PSA mode */
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6">
+                <div>
+                  <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-2">DAPSA — Articolazioni 66/68</h3>
+                  <Homunculus mode="66_68" joints={joints} onChange={setJoints} title={null} />
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="border rounded-md p-2 text-center">
+                      <div className="text-gray-500 text-[10px]">TJ68</div>
+                      <div className="font-mono font-bold text-[#0055FF]" data-testid="psa-tjc68">{tjcAll}</div>
+                    </div>
+                    <div className="border rounded-md p-2 text-center">
+                      <div className="text-gray-500 text-[10px]">SJ66</div>
+                      <div className="font-mono font-bold text-[#FF3333]" data-testid="psa-sjc66">{sjcAll}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-gray-600">PCR (mg/dL)</Label>
+                    <Input type="number" step="0.1" value={crp} onChange={(e) => setCrp(e.target.value)} placeholder="es. 1.2" data-testid="psa-crp" />
+                  </div>
+                  <VasSlider label="PGA — Valutazione globale paziente (0-10)" value={pga} onChange={setPga} testid="psa-pga" />
+                  <VasSlider label="Dolore paziente (0-10)" value={patientPain} onChange={setPatientPain} hint="Dolore articolare percepito su scala VAS" testid="psa-pain" />
+
+                  {/* LEI body chart */}
+                  <div>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-2">LEI — Entesiti</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 items-start">
+                      <EnthesisBodyChart
+                        sites={leiSites}
+                        onChange={setLeiSites}
+                        labels={Object.fromEntries(LEI_SITES.map((s) => [s.key, s.label]))}
+                        title={null}
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 self-start">
+                        {LEI_SITES.map((s) => {
+                          const checked = !!leiSites[s.key];
+                          return (
+                            <button
+                              key={s.key}
+                              type="button"
+                              onClick={() => setLeiSites((p) => ({ ...p, [s.key]: !checked }))}
+                              className={`text-left flex items-center gap-2 border rounded-md p-1.5 transition ${
+                                checked ? "border-red-300 bg-red-50/60" : "border-gray-200 hover:bg-gray-50"
+                              }`}
+                              data-testid={`psa-lei-${s.key}`}
+                            >
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${checked ? "bg-red-600" : "bg-gray-300"}`} />
+                              <span className="text-[11px] flex-1 leading-tight">{s.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PASI regions */}
+              <div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-3">PASI — 4 regioni cutanee</h3>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  E = Eritema, I = Infiltrazione, D = Desquamazione (0-4 ciascuno) · A = Area % coinvolta (0-6)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {PASI_REGIONS.map((reg) => (
+                    <Card key={reg.key} className="p-2.5">
+                      <div className="text-sm font-bold text-[#0A2540] mb-1.5">{reg.label}</div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { k: "E", max: 4, label: "E" },
+                          { k: "I", max: 4, label: "I" },
+                          { k: "D", max: 4, label: "D" },
+                          { k: "A", max: 6, label: "A" },
+                        ].map((f) => (
+                          <div key={f.k}>
+                            <Label className="text-[9px] uppercase tracking-wider text-gray-500 block">{f.label}</Label>
+                            <Input
+                              type="number" min={0} max={f.max} step="1"
+                              className="text-sm h-8 px-1.5 text-center"
+                              value={pasiData[reg.key]?.[f.k] ?? ""}
+                              onChange={(e) =>
+                                setPasiData((p) => ({
+                                  ...p,
+                                  [reg.key]: { ...p[reg.key], [f.k]: e.target.value },
+                                }))
+                              }
+                              data-testid={`psa-pasi-${reg.key}-${f.k}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {mode === "spa" && (
@@ -383,6 +551,17 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                 <ResultTile title="BASDAI" score={spaResults.basdai.score} interp={spaResults.basdai.interp(spaResults.basdai.score)} testid="spa-result-basdai" />
                 <ResultTile title="ASDAS-PCR" score={spaResults.asdas_crp.score} interp={spaResults.asdas_crp.interp(spaResults.asdas_crp.score)} testid="spa-result-asdas" />
                 <ResultTile title="BASFI" score={spaResults.basfi.score} interp={spaResults.basfi.interp(spaResults.basfi.score)} testid="spa-result-basfi" />
+              </div>
+            </Card>
+          )}
+
+          {mode === "psa" && (
+            <Card className="p-3 bg-gray-50/60">
+              <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2">Risultati in tempo reale</div>
+              <div className="grid grid-cols-3 gap-2">
+                <ResultTile title="DAPSA" score={psaResults.dapsa.score} interp={psaResults.dapsa.interp(psaResults.dapsa.score)} testid="psa-result-dapsa" />
+                <ResultTile title="LEI" score={psaResults.lei.score} interp={psaResults.lei.interp(psaResults.lei.score)} subtitle="/ 6" testid="psa-result-lei" />
+                <ResultTile title="PASI" score={psaResults.pasi.score} interp={psaResults.pasi.interp(psaResults.pasi.score)} testid="psa-result-pasi" />
               </div>
             </Card>
           )}

@@ -329,7 +329,35 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v29 - Multi-indice chart + Profili in alto + Quadro periferico SpA)
+## Implemented (2026-05-06 - v30 - Date input testuale + Form composito PsA)
+- [x] **ItalianDatePicker editabile**: il campo data accetta ora input testuale
+  diretto in formato `gg/mm/aaaa` con auto-formattazione live (digitando "15032025"
+  diventa "15/03/2025" automaticamente). Il calendario popup rimane disponibile
+  via icona laterale come fallback. Validazione visuale (border rosso) se la
+  data digitata non è valida. Maschera maxLength=10, modalità inputMode="numeric"
+  su mobile per tastierino numerico. Funziona ovunque sia usato `ItalianDatePicker`
+  (form pazienti, valutazioni, terapie, esami, reminders).
+- [x] **Composite form PsA "AP — DAPSA + LEI + PASI"** (`mode="psa"`):
+  - **DAPSA**: homunculus 66/68 con TJ68/SJ66, PCR (mg/dL), PGA (0-10), dolore
+    paziente VAS (0-10) — tutti i campi richiesti dal calcolo DAPSA classico.
+  - **LEI**: body chart entesite con i 6 siti cliccabili (Achille bilaterale,
+    epicondilo laterale, condilo femorale mediale) + lista laterale sincronizzata
+    "Doloroso/Non doloroso" con badge rosso/grigio.
+  - **PASI**: 4 regioni cutanee (Capo, Arti superiori, Tronco, Arti inferiori)
+    con input compatti per E/I/D (eritema/infiltrazione/desquamazione 0-4) e A
+    (area % 0-6) per ognuna.
+  - Card "Risultati in tempo reale" con i 3 punteggi (DAPSA + LEI + PASI),
+    interpretazione live.
+  - "Copia dalla visita precedente" supporta anche modalità PsA: ricostruisce
+    joints da DAPSA + sites da LEI + regioni da PASI dell'ultima visita pivot.
+  - Salvataggio: 3 assessment in parallelo (Promise.all). Toast: "3 valutazioni
+    PsA salvate".
+- [x] **Dropdown menu "Form unificati"** ora mostra "AP — DAPSA + LEI + PASI"
+  per pazienti SpA/PsA (sopra "SpA — BASDAI + ASDAS + BASFI"). Test: paziente
+  PsA con peripheral_involvement → DAPSA=12.8, LEI=2, PASI=1 calcolati live e
+  salvabili insieme.
+
+
 - [x] **Grafico clinimetrie multi-linea**: il chart "Andamento nel tempo" ora
   visualizza simultaneamente TUTTI gli indici clinimetrici del paziente con
   linee distinte. Ogni indice ha colore + dash pattern + dot shape unici dalla

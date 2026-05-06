@@ -329,7 +329,7 @@ export default function PatientDetail() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 max-h-[80vh] overflow-y-auto">
               {/* Form compositi: priorità massima per le diagnosi pertinenti */}
-              {(isRaDiagnosis(patient.diagnosi) || (isSpaDiagnosis(patient.diagnosi) && spaProfile?.axial_involvement)) && (
+              {(isRaDiagnosis(patient.diagnosi) || isSpaDiagnosis(patient.diagnosi)) && (
                 <>
                   <DropdownMenuLabel className="flex items-center gap-1.5 text-amber-700">
                     <Zap className="w-3.5 h-3.5" />
@@ -339,6 +339,12 @@ export default function PatientDetail() {
                     <DropdownMenuItem onClick={() => setCompositeMode("ra")} data-testid="new-composite-ra" className="bg-amber-50/60">
                       <span className="font-medium">AR — DAS28-VES + DAS28-PCR + CDAI + SDAI</span>
                       <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">4 in 1</span>
+                    </DropdownMenuItem>
+                  )}
+                  {isSpaDiagnosis(patient.diagnosi) && (
+                    <DropdownMenuItem onClick={() => setCompositeMode("psa")} data-testid="new-composite-psa" className="bg-amber-50/60">
+                      <span className="font-medium">AP — DAPSA + LEI + PASI</span>
+                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">3 in 1</span>
                     </DropdownMenuItem>
                   )}
                   {(isSpaDiagnosis(patient.diagnosi)) && (
