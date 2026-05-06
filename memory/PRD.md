@@ -329,14 +329,36 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v33 - Fix criteri Emocromatosi secondo Tabella 1 ufficiale)
+- [x] **Artropatia da emocromatosi (EULAR 2025) — riallineato a Table 1 ufficiale**
+  (Kiely PDW et al., Ann Rheum Dis 2026;85(2):238-245). Le variabili sono ora
+  esattamente quelle della tabella 1:
+  - Entry obbligatori NON-scored: dolore articolare + omozigosi HFE C282Y +
+    sovraccarico di ferro
+  - Esordio sintomi articolari prima dei 50 anni: +2
+  - Iron fist: +1
+  - Assenza di tumefazione tessuti molli + bony swelling + deformità a TUTTE
+    le DIP: +2
+  - Dolorabilità clinica MCP 2/3/4/5: +1
+  - Storia di chirurgia (radio): nessuna 0 / solo anca 1 / solo caviglia 2 /
+    caviglia+anca 2
+  - Rx qualsiasi MCP — JSN grado 3 OPPURE chirurgia OPPURE cisti subcondrale: +1
+  - Rx caviglia — JSN grado 3 OPPURE cisti subcondrale: +1 (NON conteggiato
+    se chirurgia alla caviglia)
+  - Hook osteophytes (radio): assenti 0 / solo MCP 2/3 = 1 / solo caviglia 2 /
+    MCP+caviglia 2 (NON conteggiato se chirurgia alla caviglia)
+  Cutoff ≥5. Sensibilità 71,4%, specificità 93,3%.
+- [x] **Evaluator Criteri esteso**: nuovo meccanismo `disableIfRadio` su sezioni
+  e item di `criteria.js` — quando una specifica selezione radio è attiva, item
+  o intere sezioni vengono visivamente disabilitate (opacità ridotta, banner
+  "Sezione non conteggiata") e ESCLUSE dal calcolo dello score. Implementato
+  per gestire la nota "a" del paper (Rx caviglia + hook osteophytes esclusi
+  in caso di chirurgia caviglia). Aggiunto anche supporto per `note` su sezioni
+  e item per mostrare avvertenze cliniche inline.
+
 ## Implemented (2026-05-06 - v32 - 3 nuovi criteri classificativi EULAR/ACR)
-- [x] **Artropatia da emocromatosi (EULAR 2025)** — Kiely PDW et al., Ann
-  Rheum Dis 2026;85(2):238-245. Primi criteri classificativi EULAR per HA.
-  Requisiti di entry: omozigosi HFE C282Y + dolore articolare + sovraccarico
-  di ferro. Score 0-11: età d'esordio (≤2pt), MCP/DIP/caviglia clinica (≤3pt),
-  osteofiti uncinati MCP/caviglia (2pt) + radiografia DIP/caviglia (≤2pt),
-  chirurgia anca/caviglia (2pt). Cutoff ≥5 con almeno 3 criteri positivi
-  (sensibilità 71,4%, specificità 93,3%).
+- [x] **Artropatia da emocromatosi (EULAR 2025)** — vedi v33 per la versione
+  finale corretta secondo Table 1 ufficiale.
 - [x] **Stratificazione rischio AR in fase di artralgia (EULAR/ACR 2025)** —
   van Steenbergen HW et al., modello CSA. NON diagnostica AR ma stratifica il
   rischio di sviluppare artrite/AR entro 12 mesi. Variabili: rigidità mattutina

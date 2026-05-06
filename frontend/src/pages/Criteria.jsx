@@ -176,14 +176,23 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
 
   const reset = () => setState({});
 
+  const isDisabled = (cond) => {
+    if (!cond || !cond.groupKey) return false;
+    const cur = state[cond.groupKey];
+    return cur !== undefined && (cond.values || []).map(String).includes(String(cur));
+  };
+
   const total = useMemo(() => {
     let sum = 0;
     criteria.sections.forEach((sec) => {
+      const sectionDisabled = isDisabled(sec.disableIfRadio);
       if (sec.type === "check") {
         sec.items.forEach((it) => {
+          if (sectionDisabled || isDisabled(it.disableIfRadio)) return;
           if (state[it.key]) sum += it.points;
         });
       } else if (sec.type === "radio") {
+        if (sectionDisabled) return;
         const val = state[sec.groupKey];
         if (val !== undefined) {
           const opt = sec.options.find((o) => String(o.value) === String(val));
@@ -209,28 +218,44 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
 
       {/* Sections */}
       <div className="space-y-5">
-        {criteria.sections.map((sec, sIdx) => (
-          <Card key={sIdx} className="border-gray-200 shadow-sm p-4">
+        {criteria.sections.map((sec, sIdx) => {
+          const sectionDisabled = isDisabled(sec.disableIfRadio);
+          return (
+          <Card key={sIdx} className={`border-gray-200 shadow-sm p-4 ${sectionDisabled ? "opacity-50" : ""}`}>
             {sec.title && (
-              <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-gray-700 mb-3">
+              <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-gray-700 mb-1">
                 {sec.title}
               </h3>
+            )}
+            {sec.note && (
+              <div className="text-xs italic text-gray-500 mb-3">⚠ {sec.note}</div>
+            )}
+            {sectionDisabled && (
+              <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-3">
+                Sezione non conteggiata: chirurgia della caviglia presente
+              </div>
             )}
 
             {sec.type === "check" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {sec.items.map((it) => (
+                {sec.items.map((it) => {
+                  const itemDisabled = sectionDisabled || isDisabled(it.disableIfRadio);
+                  return (
                   <label
                     key={it.key}
-                    className="flex items-start gap-3 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
+                    className={`flex items-start gap-3 p-2.5 border border-gray-200 rounded-md ${itemDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-gray-50 cursor-pointer"}`}
                   >
                     <Checkbox
                       checked={!!state[it.key]}
+                      disabled={itemDisabled}
                       onCheckedChange={(v) => setState((p) => ({ ...p, [it.key]: !!v }))}
                       data-testid={`crit-${criteria.id}-${it.key}`}
                     />
                     <div className="flex-1">
                       <div className="text-sm">{it.label}</div>
+                      {it.note && (
+                        <div className="text-xs italic text-gray-500 mt-0.5">⚠ {it.note}</div>
+                      )}
                     </div>
                     {it.points !== 0 && (
                       <span className={`text-xs font-mono font-bold ${it.points < 0 ? "text-red-600" : "text-gray-500"}`}>
@@ -238,7 +263,8 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
                       </span>
                     )}
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -249,9 +275,12 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
                   return (
                     <button
                       key={String(opt.value)}
+                      disabled={sectionDisabled}
                       onClick={() => setState((p) => ({ ...p, [sec.groupKey]: opt.value }))}
                       className={`w-full text-left flex items-center justify-between gap-3 p-2.5 border rounded-md transition-colors ${
-                        isSelected
+                        sectionDisabled
+                          ? "border-gray-200 cursor-not-allowed"
+                          : isSelected
                           ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]"
                           : "border-gray-200 hover:bg-gray-50"
                       }`}
@@ -276,7 +305,8 @@ function CriteriaInteractive({ criteria, patients = [], selectedPatient = "", se
               </div>
             )}
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* Save to patient */}
