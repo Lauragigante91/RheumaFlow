@@ -28,6 +28,7 @@ import SpaJointsPanel from "../components/SpaJointsPanel";
 import PatientHeader from "../components/PatientHeader";
 import TrendChartCard, { buildDrugColorMap } from "../components/TrendChartCard";
 import CriteriaHistorySection from "../components/CriteriaHistorySection";
+import VisitDetailsDialog from "../components/VisitDetailsDialog";
 import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
 import { INDEX_LABELS, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -53,6 +54,7 @@ export default function PatientDetail() {
   const [showAllIndices, setShowAllIndices] = useState(false);
   const [compositeMode, setCompositeMode] = useState(null);
   const [spaProfile, setSpaProfile] = useState(null);
+  const [visitDetailsGroup, setVisitDetailsGroup] = useState(null);
 
   const load = useCallback(async () => {
     const p = await patientsApi.get(id);
@@ -436,6 +438,7 @@ export default function PatientDetail() {
             startEdit={startEdit}
             removeAssessment={removeAssessment}
             onAddExam={() => setExamsDialogOpen(true)}
+            onDateClick={setVisitDetailsGroup}
           />
         )}
       </Card>
@@ -484,6 +487,15 @@ export default function PatientDetail() {
         patient={patient}
         onClose={() => setCompositeMode(null)}
         onSaved={() => load()}
+      />
+
+      {/* Visit details dialog — opens when the user clicks on a date in the history */}
+      <VisitDetailsDialog
+        open={!!visitDetailsGroup}
+        group={visitDetailsGroup}
+        onClose={() => setVisitDetailsGroup(null)}
+        onEdit={(a) => { setVisitDetailsGroup(null); startEdit(a); }}
+        onRemove={(aid) => { setVisitDetailsGroup(null); removeAssessment(aid); }}
       />
     </div>
   );

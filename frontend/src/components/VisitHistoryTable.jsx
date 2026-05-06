@@ -31,6 +31,7 @@ export default function VisitHistoryTable({
   startEdit,
   removeAssessment,
   onAddExam,
+  onDateClick,
 }) {
   const [openExamsDate, setOpenExamsDate] = useState(null);
 
@@ -80,12 +81,20 @@ export default function VisitHistoryTable({
                 <tr className="hover:bg-blue-50/30 group" data-testid={`visit-row-${g.date}`}>
                   {/* Date */}
                   <td className="px-3 py-2 align-top sticky left-0 bg-white group-hover:bg-blue-50/30 z-10 border-r border-gray-200">
-                    <div className="font-heading font-bold text-sm text-[#0A2540]">
-                      {new Date(g.date).toLocaleDateString("it-IT")}
-                    </div>
-                    <div className="text-[10px] text-gray-500 mt-0.5">
-                      {new Date(g.date).toLocaleDateString("it-IT", { weekday: "short" })}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onDateClick && onDateClick(g)}
+                      className="text-left w-full -mx-1 -my-1 px-1 py-1 rounded hover:bg-blue-100/60 cursor-pointer transition group/date"
+                      data-testid={`open-visit-${g.date}`}
+                      title="Apri tutti i dettagli della visita"
+                    >
+                      <div className="font-heading font-bold text-sm text-[#0A2540] underline decoration-dotted decoration-blue-400 underline-offset-2 group-hover/date:decoration-solid group-hover/date:text-blue-700">
+                        {new Date(g.date).toLocaleDateString("it-IT")}
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        {new Date(g.date).toLocaleDateString("it-IT", { weekday: "short" })}
+                      </div>
+                    </button>
                   </td>
 
                   {/* One cell per index column */}

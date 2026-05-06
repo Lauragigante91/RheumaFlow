@@ -3,6 +3,38 @@
 ## Problem Statement
 "Costruiscimi un'applicazione per fare le clinimetrie nelle malattie reumatiche"
 
+## Implemented (2026-05-06 - v42 - Visit details dialog + cohort export anchored to therapy)
+- [x] **Click sulla data nello Storico valutazioni → dialog dettagli visita**:
+  cliccando la data della visita (ora con underline tratteggiato e hover blu),
+  si apre `VisitDetailsDialog.jsx` con tutti i dati di quella visita:
+  - Tutte le valutazioni clinimetriche di quella data (DAS28-VES, DAS28-PCR,
+    CDAI, SDAI, BASDAI, etc.) con score, interpretazione, TJ/SJ count + lista
+    articolazioni dolenti/tumefatte, e tutti gli input strutturati (VES, PCR,
+    PGA, EGA, q1-q10, backPain, morningStiffness, etc.) con label italiani.
+  - Pulsanti edit (apre il form di modifica) e delete per ogni assessment.
+  - Terapie attive a quella data con badge colorati per categoria.
+  - Esami di laboratorio della stessa data con valori e unità.
+- [x] **Cohort export ancorato a farmaco**: nuovo parametro opzionale
+  `anchor_drug` su `GET /api/export/cohort-xlsx`. Quando specificato:
+  - Per ogni paziente, t0 = data di inizio del primo ciclo del farmaco
+    selezionato (match case-insensitive contains su drug_name).
+  - Aggiunte 2 colonne paziente: `anchor_drug` + `anchor_t0`.
+  - Aggiunta colonna `tN_giorni_da_anchor` per ogni visita pivot
+    (negativo = prima dell'anchor, positivo = dopo).
+  - Pazienti senza il farmaco anchor: t0 vuoto, delta vuoti.
+  - Helper `_days_delta(anchor_iso, visit_iso)` per calcolo giorni.
+- [x] **Nuovo endpoint `GET /api/export/drugs`**: ritorna lista distinct dei
+  drug_name presenti in therapies dell'organizzazione, per popolare il select
+  del cohort dialog.
+- [x] **Cohort dialog frontend** (`Layout.jsx`): aggiunto select
+  "Ancora a farmaco (opzionale)" con default "Nessuno (date assolute)" +
+  testo esplicativo dinamico ("t0 = data di inizio del primo ciclo di
+  Adalimumab per ogni paziente").
+- [x] **Test verificato**: con anchor_drug=Methotrexate il file Excel
+  contiene anchor_t0=2025-01-15, t1_giorni_da_anchor=45, t2=181, etc.
+  Senza anchor (regressione): nessuna colonna anchor, comportamento identico
+  al precedente (48 colonne totali).
+
 ## Implemented (2026-05-06 - v41 - Bug fix BASDAI/BASFI QR PRO + refactor)
 - [x] **Bug fix BASDAI/BASFI via QR code**: BASDAI/BASFI scoravano sempre 0
   quando compilati dal paziente via QR pubblico. Causa: in `proInstruments.js`

@@ -1270,9 +1270,22 @@ def _format_therapy(t: dict) -> str:
     return " ".join(parts)
 
 
+def _days_delta(anchor_iso: Optional[str], visit_iso: Optional[str]):
+    """Return integer days delta visit-anchor (negative if before anchor)."""
+    if not anchor_iso or not visit_iso:
+        return ""
+    try:
+        a = datetime.fromisoformat(anchor_iso[:10]).date()
+        v = datetime.fromisoformat(visit_iso[:10]).date()
+        return (v - a).days
+    except Exception:
+        return ""
+
+
 @api_router.get("/export/cohort-xlsx")
 async def export_cohort_xlsx(
     diagnosis: Optional[str] = None,
+    anchor_drug: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     """
@@ -1280,6 +1293,11 @@ async def export_cohort_xlsx(
     (optionally filtered by diagnosis, case-insensitive contains), with
     demographics + disease profile + pivoted visits (t1, t2, ...) each
     showing score per index + active therapies at that date.
+
+    If `anchor_drug` is provided (case-insensitive contains match on drug_name),
+    each patient's t0 is anchored to the earliest start_date of that drug; an
+    extra column `tN_giorni_da_anchor` reports the day delta of each visit
+    relative to that anchor (negative = before, positive = after).
     """
     org_id = user["organization_id"]
 
@@ -1359,6 +1377,19 @@ async def export_cohort_xlsx(
     org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
     pseudo = bool((org or {}).get("pseudonymized_mode"))
 
+    # Anchor therapy: for each patient, earliest start_date of a therapy whose
+    # drug_name contains `anchor_drug` (case-insensitive).
+    anchor_norm = (anchor_drug or "").strip().lower()
+    anchor_by_pid: Dict[str, str] = {}
+    if anchor_norm:
+        for pid, ther_list in therap_by_pid.items():
+            matches = [
+                t for t in ther_list
+                if t.get("start_date") and anchor_norm in (t.get("drug_name") or "").lower()
+            ]
+            if matches:
+                anchor_by_pid[pid] = min(t["start_date"] for t in matches)
+
     # 4) Build workbook
     wb = Workbook()
     ws = wb.active
@@ -1400,9 +1431,16 @@ async def export_cohort_xlsx(
     for sec, k in sclero_cols:
         cols.append(f"ssc_{sec}__{k}")
 
+    # Anchor column: earliest start of selected drug (1 per patient)
+    if anchor_norm:
+        cols.append("anchor_drug")
+        cols.append("anchor_t0")
+
     # Pivoted visit columns
     for i in range(1, max_visits + 1):
         cols.append(f"t{i}_data")
+        if anchor_norm:
+            cols.append(f"t{i}_giorni_da_anchor")
         for idx in all_indices:
             cols.append(f"t{i}_{idx}_score")
         cols.append(f"t{i}_terapie_attive")
@@ -1452,6 +1490,11 @@ async def export_cohort_xlsx(
                 if isinstance(section_data, dict):
                     val = section_data.get(k)
             row.append(_cell(val))
+        # Anchor info
+        anchor_t0 = anchor_by_pid.get(p["id"]) if anchor_norm else None
+        if anchor_norm:
+            row.append(anchor_drug or "")
+            row.append(anchor_t0 or "")
         # Visits
         visits = visits_by_pid.get(p["id"], [])
         all_ther = therap_by_pid.get(p["id"], [])
@@ -1459,6 +1502,8 @@ async def export_cohort_xlsx(
             if i < len(visits):
                 v = visits[i]
                 row.append(v["date"])
+                if anchor_norm:
+                    row.append(_days_delta(anchor_t0, v["date"]))
                 # scores per index
                 score_map = {}
                 for a in v["assessments"]:
@@ -1473,6 +1518,8 @@ async def export_cohort_xlsx(
                 row.append("; ".join(_format_therapy(t) for t in active) if active else "")
             else:
                 row.append("")
+                if anchor_norm:
+                    row.append("")
                 for _ in all_indices:
                     row.append("")
                 row.append("")
@@ -1573,6 +1620,15 @@ async def export_diagnoses(user: dict = Depends(get_current_user)):
     vals = await db.patients.distinct("diagnosi", {"organization_id": org_id})
     clean = sorted({(v or "").strip() for v in vals if (v or "").strip()})
     return {"diagnoses": clean}
+
+
+@api_router.get("/export/drugs")
+async def export_drugs(user: dict = Depends(get_current_user)):
+    """Return the distinct list of drug names used in therapies, for cohort anchor selection."""
+    org_id = user["organization_id"]
+    vals = await db.therapies.distinct("drug_name", {"organization_id": org_id})
+    clean = sorted({(v or "").strip() for v in vals if (v or "").strip()}, key=lambda s: s.lower())
+    return {"drugs": clean}
 
 
 # ==================== AI VISIT PARSING ====================

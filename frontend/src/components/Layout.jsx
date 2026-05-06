@@ -29,7 +29,9 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const [cohortOpen, setCohortOpen] = useState(false);
   const [cohortDiag, setCohortDiag] = useState("__ALL__");
+  const [cohortAnchor, setCohortAnchor] = useState("__NONE__");
   const [diagnoses, setDiagnoses] = useState([]);
+  const [drugs, setDrugs] = useState([]);
   const [cohortLoading, setCohortLoading] = useState(false);
 
   const copyInvite = () => {
@@ -42,10 +44,15 @@ export default function Layout({ children }) {
   const openCohortDialog = async () => {
     setCohortOpen(true);
     try {
-      const res = await api.get("/export/diagnoses");
-      setDiagnoses(res.data?.diagnoses || []);
+      const [resDiag, resDrugs] = await Promise.all([
+        api.get("/export/diagnoses"),
+        api.get("/export/drugs"),
+      ]);
+      setDiagnoses(resDiag.data?.diagnoses || []);
+      setDrugs(resDrugs.data?.drugs || []);
     } catch (e) {
       setDiagnoses([]);
+      setDrugs([]);
     }
   };
 
@@ -53,7 +60,11 @@ export default function Layout({ children }) {
     setCohortLoading(true);
     try {
       const diag = cohortDiag && cohortDiag !== "__ALL__" ? cohortDiag : "";
-      const qs = diag ? `?diagnosis=${encodeURIComponent(diag)}` : "";
+      const anchor = cohortAnchor && cohortAnchor !== "__NONE__" ? cohortAnchor : "";
+      const params = [];
+      if (diag) params.push(`diagnosis=${encodeURIComponent(diag)}`);
+      if (anchor) params.push(`anchor_drug=${encodeURIComponent(anchor)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
       const res = await api.get(`/export/cohort-xlsx${qs}`, { responseType: "blob" });
       const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const filename =
@@ -248,6 +259,8 @@ export default function Layout({ children }) {
               per visita (t1, t2, ...): anagrafica, profilo di malattia, punteggi
               clinimetrici e terapie attive a ogni data. Fogli aggiuntivi:
               <span className="font-semibold"> Terapie</span> e <span className="font-semibold">Valutazioni</span> in formato esteso.
+              <br />
+              <span className="text-[11px] text-gray-500">Puoi opzionalmente <span className="font-semibold">ancorare la timeline</span> alla data di inizio di un farmaco specifico (es. inizio Adalimumab) per confrontare la coorte sullo stesso punto temporale clinico.</span>
             </p>
             <div>
               <Label className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-1.5 block">
@@ -269,6 +282,34 @@ export default function Layout({ children }) {
               {cohortDiag && cohortDiag !== "__ALL__" && (
                 <div className="text-[11px] text-gray-500 italic mt-1.5">
                   Match insensibile al case e "contains": es. "artrite reumatoide" include anche "Artrite reumatoide sieropositiva".
+                </div>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-1.5 block">
+                Ancora a farmaco (opzionale)
+              </Label>
+              <Select value={cohortAnchor} onValueChange={setCohortAnchor}>
+                <SelectTrigger data-testid="cohort-anchor-select">
+                  <SelectValue placeholder="Nessuno (date assolute)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__NONE__">Nessuno (date assolute)</SelectItem>
+                  {drugs.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cohortAnchor && cohortAnchor !== "__NONE__" ? (
+                <div className="text-[11px] text-gray-500 italic mt-1.5">
+                  t0 = data di inizio del primo ciclo di <span className="font-semibold">{cohortAnchor}</span> per ogni paziente.
+                  Ogni visita avrà una colonna <span className="font-mono">tN_giorni_da_anchor</span> (negativa se prima, positiva se dopo).
+                </div>
+              ) : (
+                <div className="text-[11px] text-gray-500 italic mt-1.5">
+                  Esempio: scegli "Adalimumab" per allineare la coorte al momento di inizio biologico, indipendentemente dalla data assoluta.
                 </div>
               )}
             </div>
