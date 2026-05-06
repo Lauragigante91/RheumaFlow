@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { patientsApi, assessmentsApi, criteriaApi, therapiesApi } from "../lib/api";
+import { patientsApi, assessmentsApi, criteriaApi, therapiesApi, diseaseProfileApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -16,9 +16,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
+import CompositeAssessmentDialog from "../components/CompositeAssessmentDialog";
 import TherapySection from "../components/TherapySection";
 import ExamsSection from "../components/ExamsSection";
 import RemindersSection from "../components/RemindersSection";
@@ -54,6 +55,8 @@ export default function PatientDetail() {
   const [therapies, setTherapies] = useState([]);
   const [showTherapies, setShowTherapies] = useState(true);
   const [showAllIndices, setShowAllIndices] = useState(false);
+  const [compositeMode, setCompositeMode] = useState(null); // null | "ra" | "spa"
+  const [spaProfile, setSpaProfile] = useState(null);
 
   const load = async () => {
     const p = await patientsApi.get(id);
@@ -64,10 +67,26 @@ export default function PatientDetail() {
     setCriteriaEvals(ce);
     const th = await therapiesApi.listByPatient(id).catch(() => []);
     setTherapies(th);
+    // SpA profile (for axial_involvement flag → enables ASDAS/BASDAI/BASFI in PsA)
+    if (p && isSpaDiagnosis(p.diagnosi)) {
+      const sp = await diseaseProfileApi.get(id, "spa").catch(() => null);
+      setSpaProfile(sp?.data || null);
+    } else {
+      setSpaProfile(null);
+    }
   };
   useEffect(() => { load(); }, [id]);
 
-  const suggestions = useMemo(() => suggestForDiagnosis(patient?.diagnosi), [patient?.diagnosi]);
+  // Diagnosi + flag assiale da profilo SpA per suggerire ASDAS/BASDAI/BASFI anche nell'AP con impegno assiale
+  const suggestions = useMemo(() => {
+    const base = suggestForDiagnosis(patient?.diagnosi);
+    if (patient && isSpaDiagnosis(patient.diagnosi) && spaProfile?.axial_involvement) {
+      const axialIdx = ["asdas_crp", "basdai", "basfi"];
+      const merged = Array.from(new Set([...(base.indices || []), ...axialIdx]));
+      return { ...base, indices: merged };
+    }
+    return base;
+  }, [patient, spaProfile]);
 
   const removeCriteriaEval = async (cid) => {
     if (!window.confirm("Eliminare questa valutazione di criteri?")) return;
@@ -293,7 +312,29 @@ export default function PatientDetail() {
                 <Plus className="w-4 h-4 mr-2" /> Nuova valutazione <ChevronDown className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 max-h-[80vh] overflow-y-auto">
+            <DropdownMenuContent align="end" className="w-80 max-h-[80vh] overflow-y-auto">
+              {/* Form compositi: priorità massima per le diagnosi pertinenti */}
+              {(isRaDiagnosis(patient.diagnosi) || (isSpaDiagnosis(patient.diagnosi) && spaProfile?.axial_involvement)) && (
+                <>
+                  <DropdownMenuLabel className="flex items-center gap-1.5 text-amber-700">
+                    <Zap className="w-3.5 h-3.5" />
+                    Form unificati
+                  </DropdownMenuLabel>
+                  {isRaDiagnosis(patient.diagnosi) && (
+                    <DropdownMenuItem onClick={() => setCompositeMode("ra")} data-testid="new-composite-ra" className="bg-amber-50/60">
+                      <span className="font-medium">AR — DAS28-VES + DAS28-PCR + CDAI + SDAI</span>
+                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">4 in 1</span>
+                    </DropdownMenuItem>
+                  )}
+                  {(isSpaDiagnosis(patient.diagnosi)) && (
+                    <DropdownMenuItem onClick={() => setCompositeMode("spa")} data-testid="new-composite-spa" className="bg-amber-50/60">
+                      <span className="font-medium">SpA — BASDAI + ASDAS-PCR + BASFI</span>
+                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">3 in 1</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {suggestions.indices.length > 0 && (
                 <>
                   <DropdownMenuLabel className="flex items-center gap-1.5 text-[#0A2540]">
@@ -436,7 +477,7 @@ export default function PatientDetail() {
       {isRaDiagnosis(patient.diagnosi) && <RaProfileSection patient={patient} />}
 
       {/* Spondyloarthritis profile (incl. PsA) */}
-      {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} />}
+      {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} onUpdated={(d) => setSpaProfile(d)} />}
 
       {/* SLE profile */}
       {isSleDiagnosis(patient.diagnosi) && <SleProfileSection patient={patient} />}
@@ -730,6 +771,15 @@ export default function PatientDetail() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Composite assessment dialog (RA or SpA) */}
+      <CompositeAssessmentDialog
+        open={!!compositeMode}
+        mode={compositeMode}
+        patient={patient}
+        onClose={() => setCompositeMode(null)}
+        onSaved={() => load()}
+      />
     </div>
   );
 }

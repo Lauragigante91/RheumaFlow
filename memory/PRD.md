@@ -329,7 +329,33 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-04 - v26 - Linea del tempo terapie + regola anti-doppio biologico)
+## Implemented (2026-05-06 - v27 - Form compositi AR/SpA + Domini di malattia GRAPPA)
+- [x] **Form unificato Artrite Reumatoide** (`CompositeAssessmentDialog` mode="ra"):
+  un solo dialog che compila contemporaneamente DAS28-VES + DAS28-PCR + CDAI + SDAI.
+  Input condivisi: conta articolare 66/68 (con subset 28 estratto automaticamente),
+  VES, PCR, PGA (0-10), EGA (0-10). Card "Risultati in tempo reale" con i 4
+  punteggi calcolati live. Al salvataggio genera 4 assessment separati in parallelo
+  (Promise.all). Accessibile dal dropdown "Nuova valutazione" → sezione "Form
+  unificati" (amber) solo per pazienti con diagnosi AR.
+- [x] **Form unificato Spondiloartrite** (`CompositeAssessmentDialog` mode="spa"):
+  BASDAI + ASDAS-PCR + BASFI in un solo dialog. Voci VAS condivise (q1-q6
+  BASDAI, riusate per backPain/peripheralPain/morningStiffness di ASDAS) + PGA
+  specifico ASDAS + PCR + 10 domande BASFI. Al salvataggio genera 3 assessment.
+  Accessibile per tutti i pazienti SpA/PsA.
+- [x] **Domini di malattia PsA/SpA (GRAPPA)** — aggiunti due nuovi flag nel
+  profilo SpA (`SpaProfileSection`):
+  - `peripheral_involvement` (impegno articolare periferico)
+  - `axial_involvement` (impegno assiale)
+  I flag sono mostrati come card selettive con icone dedicate (Bone, MoveVertical)
+  in una nuova sezione "Domini di malattia" sopra le manifestazioni extra-articolari.
+- [x] **Logica suggerimenti intelligente**: se il paziente ha PsA con
+  `axial_involvement=true`, il dropdown "Nuova valutazione" aggiunge automaticamente
+  **ASDAS-CRP, BASDAI, BASFI** ai suggerimenti oltre a DAPSA/PASI/HAQ/DAS28/LEI
+  (merge dinamico di `suggestForDiagnosis` con gli indici assiali). Il profilo
+  `SpaProfileSection` ora notifica `onUpdated` al PatientDetail per aggiornare il
+  flag senza reload della pagina.
+
+
 - [x] **Linea del tempo terapie (Gantt)** sotto al grafico clinimetrie:
   visualizzazione orizzontale stile Gantt che mostra una riga per farmaco con
   nome esplicito (non più "categoria"). Le barre sono colorate per farmaco

@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
-import { Save, User, Eye, Stethoscope, FileText } from "lucide-react";
+import { Save, User, Eye, Stethoscope, FileText, Bone, MoveVertical } from "lucide-react";
 import { toast } from "sonner";
 
 const FLAGS = [
@@ -29,8 +29,10 @@ const FLAGS = [
   },
 ];
 
-export default function SpaProfileSection({ patient }) {
+export default function SpaProfileSection({ patient, onUpdated }) {
   const [data, setData] = useState({
+    peripheral_involvement: false,
+    axial_involvement: false,
     psoriasis: false,
     uveitis: false,
     ibd: false,
@@ -55,6 +57,7 @@ export default function SpaProfileSection({ patient }) {
     try {
       await diseaseProfileApi.upsert(patient.id, "spa", data);
       toast.success("Profilo SpA salvato");
+      if (onUpdated) onUpdated(data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore salvataggio");
     } finally {
@@ -87,36 +90,74 @@ export default function SpaProfileSection({ patient }) {
         </Button>
       </div>
 
-      <div>
-        <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-3">Manifestazioni extra-articolari</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {FLAGS.map(({ key, label, hint, Icon }) => {
-            const checked = !!data[key];
-            return (
-              <label
-                key={key}
-                className={`flex items-start gap-3 border rounded-md p-3 cursor-pointer transition ${
-                  checked
-                    ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]"
-                    : "border-gray-200 hover:bg-gray-50"
-                }`}
-                data-testid={`spa-${key}-toggle`}
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(v) => setData((p) => ({ ...p, [key]: !!v }))}
-                  data-testid={`spa-${key}-checkbox`}
-                />
-                <div className="flex items-center gap-2 flex-1">
-                  <Icon className="w-4 h-4 text-[#0A2540]" />
-                  <div>
-                    <div className="text-sm font-semibold">{label}</div>
-                    <div className="text-[11px] text-gray-500 leading-snug">{hint}</div>
+      <div className="space-y-5">
+        {/* Domini di malattia GRAPPA */}
+        <div>
+          <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-3">Domini di malattia</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { key: "peripheral_involvement", label: "Impegno articolare periferico", hint: "Artrite periferica (mani, piedi, grandi articolazioni)", Icon: Bone },
+              { key: "axial_involvement", label: "Impegno assiale", hint: "Sacroileite / spondilite · abilita ASDAS, BASDAI, BASFI", Icon: MoveVertical },
+            ].map(({ key, label, hint, Icon }) => {
+              const checked = !!data[key];
+              return (
+                <label
+                  key={key}
+                  className={`flex items-start gap-3 border rounded-md p-3 cursor-pointer transition ${
+                    checked ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]" : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                  data-testid={`spa-${key}-toggle`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => setData((p) => ({ ...p, [key]: !!v }))}
+                    data-testid={`spa-${key}-checkbox`}
+                  />
+                  <div className="flex items-center gap-2 flex-1">
+                    <Icon className="w-4 h-4 text-[#0A2540]" />
+                    <div>
+                      <div className="text-sm font-semibold">{label}</div>
+                      <div className="text-[11px] text-gray-500 leading-snug">{hint}</div>
+                    </div>
                   </div>
-                </div>
-              </label>
-            );
-          })}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Manifestazioni extra-articolari */}
+        <div>
+          <h3 className="font-heading font-bold text-sm uppercase tracking-[0.12em] text-gray-700 mb-3">Manifestazioni extra-articolari</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {FLAGS.map(({ key, label, hint, Icon }) => {
+              const checked = !!data[key];
+              return (
+                <label
+                  key={key}
+                  className={`flex items-start gap-3 border rounded-md p-3 cursor-pointer transition ${
+                    checked
+                      ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                  data-testid={`spa-${key}-toggle`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => setData((p) => ({ ...p, [key]: !!v }))}
+                    data-testid={`spa-${key}-checkbox`}
+                  />
+                  <div className="flex items-center gap-2 flex-1">
+                    <Icon className="w-4 h-4 text-[#0A2540]" />
+                    <div>
+                      <div className="text-sm font-semibold">{label}</div>
+                      <div className="text-[11px] text-gray-500 leading-snug">{hint}</div>
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
 
