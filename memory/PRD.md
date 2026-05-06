@@ -3,6 +3,66 @@
 ## Problem Statement
 "Costruiscimi un'applicazione per fare le clinimetrie nelle malattie reumatiche"
 
+## Implemented (2026-05-06 - v41 - Bug fix BASDAI/BASFI QR PRO + refactor)
+- [x] **Bug fix BASDAI/BASFI via QR code**: BASDAI/BASFI scoravano sempre 0
+  quando compilati dal paziente via QR pubblico. Causa: in `proInstruments.js`
+  le chiavi delle domande (`fatigue`, `spinal_pain`, ecc.) non combaciavano
+  con la firma di `calcBASDAI({q1..q6})` e `calcBASFI(values['q1'..'q10'])`,
+  per cui ogni term era `undefined → 0`. Allineate le chiavi a `q1..q6`
+  (BASDAI) e `q1..q10` (BASFI). Test e2e: BASDAI con q1..q6=5 → score 5.0.
+  Regression test backend: `/app/backend/tests/test_pro_basdai_basfi_regression.py`
+  (3/3 pass).
+- [x] **Refactor PatientDetail.jsx**: ridotto da 1066 → 490 righe estraendo
+  3 componenti riusabili:
+  - `PatientHeader.jsx` (221 righe): intestazione paziente + dropdown
+    "Nuova valutazione" (form unificati AR/SpA/PsA + suggeriti per diagnosi
+    + lista completa) + dropdown export PDF/CSV + pulsanti Visita rapida,
+    QR per il paziente, Anonimizza, Importa AI.
+  - `TrendChartCard.jsx` (326 righe): grafico clinimetrie multi-linea
+    con `LineChart` Recharts, scala temporale, palette colori per indice,
+    tooltip personalizzato, e Gantt timeline delle terapie sotto al chart.
+    Esporta `buildDrugColorMap(chartData)`.
+  - `CriteriaHistorySection.jsx` (65 righe): tabella storico criteri
+    classificativi con esito + pulsante elimina.
+- [x] **Refactor backend `login_demo`**: estratti `_build_demo_seed_patients`
+  (config dati seed dei 3 pazienti demo Bianchi/Rossi/Verdi) e
+  `_insert_demo_patient` (insert anagrafica + assessments + therapies).
+  La funzione `login_demo` ora è ~30 righe focalizzate sull'auth + iterazione.
+- [x] **Refactor backend `parse_lab_file`**: estratti tre helper
+  `_resolve_lab_file_mime` (validazione MIME), `_gemini_extract_lab`
+  (chiamata Gemini 2.5 Pro + parsing JSON) e `_reorganize_lab_values`
+  (riorganizzazione `panel__test` → struttura nidificata). La funzione
+  `parse_lab_file` ora orchestra solo il flusso, ~30 righe.
+- [x] **Test di regressione completo**: `/app/backend/tests/test_refactor_regression.py`
+  (9/9 backend pass: demo auth + 3 pazienti + assessments + therapies +
+  /auth/me + PRO QR + export diagnoses + cohort-xlsx). Frontend: admin flow
+  + demo flow renderizzano PatientHeader/TrendChartCard/CriteriaHistorySection
+  senza errori console.
+
+## Architecture
+- **Backend**: FastAPI + Motor/MongoDB. UUID string IDs, _id excluded from all responses.
+- **Frontend**: React 19 + React Router + Tailwind + Shadcn UI. Recharts per grafici. jsPDF + jspdf-autotable per export PDF.
+- **Homunculus**: Custom SVG con ~60 joints (28/66/68 modes).
+- **Formule cliniche**: implementate in `/app/frontend/src/lib/clinimetrics.js` (calcolo real-time client).
+
+## User Personas
+- Medico reumatologo che valuta pazienti in ambulatorio e necessita di calcoli rapidi, storico, report e PRO via QR.
+
+## Backlog (Prioritized)
+### P1
+- [ ] Widget/notifica dashboard "📥 PRO ricevuti" — alert per il medico quando un paziente compila un PRO via QR
+- [ ] Refactor `AssessmentForm.jsx` (843 righe) in sotto-componenti per indice in `components/forms/`
+- [ ] Refactor `CompositeAssessmentDialog.jsx` (585 righe) per modalità (RA/SpA/PsA)
+- [ ] Sostituire `is_demo` mancante da GET /api/auth/me (segnalato dal testing agent v4)
+
+### P2
+- [ ] Refactor `export_cohort_xlsx` (284 righe, lasciato intatto in v41 per minimizzare rischio)
+- [ ] Sostituire array index keys con UUID stabili in `Miscellanea.jsx` e `Guidelines.jsx`
+- [ ] Type hints completi su Python helpers
+- [ ] Defense-in-depth: ricalcolo server-side dei PRO scores prima della convert (segnalato dal testing v3)
+- [ ] Schema validator su `PROSubmit.responses` (segnalato dal testing v3)
+
+
 User requirements:
 - Tutti gli indici principali (DAS28-ESR, DAS28-CRP, CDAI, SDAI, BASDAI, ASDAS-CRP, DAPSA, SLEDAI-2K, HAQ, PASI)
 - Omino interattivo per conta articolare (tender/swollen)
