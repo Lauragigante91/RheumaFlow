@@ -329,6 +329,30 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v39 - Storico valutazioni: tabella incolonnata per indice)
+- [x] **Storico valutazioni ridisegnato come tabella matriciale**: invece di
+  una riga per data con badge inline (visivamente confusi quando ci sono più
+  indici), ora una vera tabella con:
+  - **Una colonna fissa per ogni indice clinimetrico** presente nello storico
+    del paziente (DAS28-VES, DAS28-CRP, CDAI, SDAI, HAQ, BASDAI, ASDAS-CRP,
+    SLEDAI, BVAS, ESSDAI, ecc. ordinate clinicamente: composite RA → SpA →
+    PsA → funzionali → SLE → vasculiti → mRSS/ecc.)
+  - **Una riga per ogni data di visita**, ordinata per data ↓/↑.
+  - **Celle vuote** mostrano "—" quando l'indice non è stato misurato in
+    quella data → permette di leggere l'andamento di un singolo indice
+    scorrendo verticalmente la sua colonna senza distrazione.
+  - Per ogni cella indice: **score grande in font mono**, badge interpretazione
+    abbreviata (Rem/LDA/MDA/HDA color-coded), TJ/SJ counts per indici
+    articolari, EULAR response badge.
+  - **Colonne fisse a destra**: Terapia in corso (con auto-detect dei farmaci
+    attivi a quella data) e Lab (icona 🧪 con conteggio + expand inline).
+  - Header **sticky top + colonna data sticky left** per scroll orizzontale
+    facile su molti indici.
+  - Hover row → bottoni edit/delete sulla cella indice.
+- [x] Estratto componente `VisitHistoryTable.jsx` (~250 righe). PatientDetail
+  ridotto a ~1050 righe. `VisitGroupRow.jsx` mantenuto per riuso futuro
+  (esporta `interpClass` e `shortInterp` condivisi).
+
 ## Implemented (2026-05-06 - v38 - Code review fixes)
 Applicate le correzioni concrete del Code Quality Report:
 - [x] **Sicurezza — `random` → `secrets`** (`backend/server.py` `login_demo()`):

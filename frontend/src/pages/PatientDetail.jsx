@@ -23,7 +23,7 @@ import CompositeAssessmentDialog from "../components/CompositeAssessmentDialog";
 import TherapySection from "../components/TherapySection";
 import ExamsDialog from "../components/ExamsDialog";
 import RemindersSection from "../components/RemindersSection";
-import VisitGroupRow from "../components/VisitGroupRow";
+import VisitHistoryTable from "../components/VisitHistoryTable";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
 import RaProfileSection from "../components/RaProfileSection";
 import SpaProfileSection from "../components/SpaProfileSection";
@@ -57,7 +57,6 @@ export default function PatientDetail() {
   const [histSort, setHistSort] = useState("date_desc");
   const [therapies, setTherapies] = useState([]);
   const [labExams, setLabExams] = useState([]);
-  const [expandedExamsDate, setExpandedExamsDate] = useState(null);
   const [examsDialogOpen, setExamsDialogOpen] = useState(false);
   const [showTherapies, setShowTherapies] = useState(true);
   const [showAllIndices, setShowAllIndices] = useState(false);
@@ -271,6 +270,32 @@ export default function PatientDetail() {
     });
     return result;
   }, [assessments, histFilterType, histDateFrom, histDateTo, histSort]);
+
+  // Determine the distinct index types present in the patient's history (or the
+  // single one selected via filter) — these become the columns of the table.
+  const historyColumns = useMemo(() => {
+    const set = new Set();
+    for (const a of filteredAssessments) {
+      if (a.index_type) set.add(a.index_type);
+    }
+    // Stable, clinically-meaningful ordering: composite RA → SpA → PsA → others
+    const order = [
+      "das28_esr", "das28_crp", "cdai", "sdai", "dapsa",
+      "basdai", "asdas_crp", "asdas_esr", "basfi", "basmi",
+      "haq", "haq_di", "raid", "psaid", "fiqr",
+      "sledai", "sledai_2k", "bilag", "essdai", "ess_pri",
+      "bvas", "vdi", "ahi", "iga_vasculitis_score",
+      "mrss", "schober", "lei", "spades", "pasi",
+    ];
+    const present = [...set];
+    return present.sort((a, b) => {
+      const ai = order.indexOf(a); const bi = order.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return (INDEX_LABELS[a] || a).localeCompare(INDEX_LABELS[b] || b, "it");
+    });
+  }, [filteredAssessments]);
 
   // Group lab exams by date (first 10 chars) for fast lookup in history table
   const examsByDate = useMemo(() => {
@@ -608,7 +633,7 @@ export default function PatientDetail() {
             <div>
               <h2 className="font-heading font-bold text-xl tracking-tight">Storico valutazioni</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Una riga per data di visita: indici clinimetrici, terapia in corso ed esami di laboratorio della stessa giornata.
+                Una colonna per ogni indice clinimetrico, una riga per data: per ogni indice puoi seguire l'andamento scorrendo verticalmente.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -669,24 +694,15 @@ export default function PatientDetail() {
         ) : groupedHistory.length === 0 ? (
           <div className="p-10 text-center text-gray-500">Nessun risultato per questi filtri.</div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {groupedHistory.map((g) => {
-              const isOpen = expandedExamsDate === g.date;
-              return (
-                <VisitGroupRow
-                  key={g.date}
-                  group={g}
-                  isOpen={isOpen}
-                  toggleOpen={() => setExpandedExamsDate(isOpen ? null : g.date)}
-                  responseByAssessmentId={responseByAssessmentId}
-                  responseColor={responseColor}
-                  startEdit={startEdit}
-                  removeAssessment={removeAssessment}
-                  onAddExam={() => setExamsDialogOpen(true)}
-                />
-              );
-            })}
-          </div>
+          <VisitHistoryTable
+            columns={historyColumns}
+            groupedHistory={groupedHistory}
+            responseByAssessmentId={responseByAssessmentId}
+            responseColor={responseColor}
+            startEdit={startEdit}
+            removeAssessment={removeAssessment}
+            onAddExam={() => setExamsDialogOpen(true)}
+          />
         )}
       </Card>
 
