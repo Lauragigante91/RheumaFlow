@@ -8,10 +8,11 @@ import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Plus, FlaskConical, Trash2, Edit, ChevronDown, ChevronRight, User } from "lucide-react";
+import { Plus, FlaskConical, Trash2, Edit, ChevronDown, ChevronRight, User, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import ItalianDatePicker from "./ItalianDatePicker";
 import { LAB_PANELS, LAB_PANEL_KEYS } from "../lib/labPanels";
+import LabImportDialog from "./LabImportDialog";
 
 const QUAL_OPTIONS = [
   { value: "negative", label: "Negativo", color: "bg-gray-100 text-gray-700" },
@@ -31,6 +32,7 @@ function isOutOfRange(test, value) {
 export default function ExamsSection({ patient }) {
   const [exams, setExams] = useState([]);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [activePanel, setActivePanel] = useState(LAB_PANEL_KEYS[0]);
@@ -116,10 +118,27 @@ export default function ExamsSection({ patient }) {
     <div className="space-y-4" data-testid="exams-section">
       <div className="flex items-center justify-between">
         <h2 className="font-heading font-bold text-xl tracking-tight">Esami di laboratorio</h2>
-        <Button onClick={openNew} className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="add-exam-btn">
-          <Plus className="w-4 h-4 mr-2" /> Aggiungi esame
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="border-violet-300 text-violet-700 hover:bg-violet-50"
+            data-testid="import-lab-btn"
+          >
+            <Sparkles className="w-4 h-4 mr-2" /> Importa da PDF/foto (AI)
+          </Button>
+          <Button onClick={openNew} className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="add-exam-btn">
+            <Plus className="w-4 h-4 mr-2" /> Aggiungi esame
+          </Button>
+        </div>
       </div>
+
+      <LabImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        patient={patient}
+        onImported={load}
+      />
 
       {exams.length === 0 ? (
         <Card className="border-gray-200 shadow-sm p-10 text-center text-gray-500 text-sm">

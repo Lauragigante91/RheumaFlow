@@ -315,3 +315,19 @@ export function findDrug(name) {
   if (!name) return null;
   return DRUGS.find((d) => d.name.toLowerCase() === name.toLowerCase());
 }
+
+// Category → color used for therapy pills (also re-used in Gantt chart legend)
+export const CATEGORY_COLORS = {
+  csDMARD: "#0A2540",
+  bDMARD: "#0EA5E9",
+  tsDMARD: "#8B5CF6",
+  glucocorticoid: "#F59E0B",
+  NSAID: "#10B981",
+  analgesic: "#6B7280",
+  supportive: "#9CA3AF",
+  other: "#6B7280",
+};
+
+export function categoryColor(cat) {
+  return CATEGORY_COLORS[cat] || "#6B7280";
+}

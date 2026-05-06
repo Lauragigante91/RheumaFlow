@@ -16,13 +16,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, ChevronRight, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap, FlaskConical } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, ChevronRight, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap, FlaskConical, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import CompositeAssessmentDialog from "../components/CompositeAssessmentDialog";
 import TherapySection from "../components/TherapySection";
 import ExamsDialog from "../components/ExamsDialog";
 import RemindersSection from "../components/RemindersSection";
+import VisitGroupRow from "../components/VisitGroupRow";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
 import RaProfileSection from "../components/RaProfileSection";
 import SpaProfileSection from "../components/SpaProfileSection";
@@ -35,6 +36,7 @@ import SpaJointsPanel from "../components/SpaJointsPanel";
 import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
 import VisitImportButton from "../components/VisitImportButton";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
+import { categoryColor } from "../lib/drugs";
 import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -361,6 +363,11 @@ export default function PatientDetail() {
               <ShieldCheck className="w-4 h-4 mr-2" /> Anonimizza
             </Button>
           )}
+          <Link to={`/pazienti/${patient.id}/visita`}>
+            <Button variant="outline" className="border-violet-300 text-violet-700 hover:bg-violet-50" data-testid="quick-visit-btn">
+              <Stethoscope className="w-4 h-4 mr-2" /> Visita rapida
+            </Button>
+          </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="new-assessment-btn">
@@ -781,21 +788,7 @@ const Info = ({ label, value }) => (
 );
 
 
-// Category → color used for therapy pills in the history table
-const CATEGORY_COLORS = {
-  csDMARD: "#0A2540",
-  bDMARD: "#0EA5E9",
-  tsDMARD: "#8B5CF6",
-  glucocorticoid: "#F59E0B",
-  NSAID: "#10B981",
-  analgesic: "#6B7280",
-  supportive: "#9CA3AF",
-  other: "#6B7280",
-};
-
-function categoryColor(cat) {
-  return CATEGORY_COLORS[cat] || "#6B7280";
-}
+// Category colors moved to /app/frontend/src/lib/drugs.js — imported above.
 
 // Palette per singolo farmaco (usata nel grafico/asse/tooltip/legenda)
 const DRUG_PALETTE = [
@@ -1035,185 +1028,4 @@ function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMar
       )}
     </div>
   );
-}
-
-// ============ Visit-grouped history row ============
-const JOINT_INDICES = ["das28_esr", "das28_crp", "cdai", "sdai", "dapsa"];
-
-function VisitGroupRow({ group, isOpen, toggleOpen, responseByAssessmentId, responseColor, startEdit, removeAssessment, onAddExam }) {
-  const { date, assessments, therapies, exams } = group;
-  return (
-    <div className="bg-white" data-testid={`visit-group-${date}`}>
-      {/* Header row */}
-      <div className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50/60">
-        {/* Date */}
-        <div className="w-[110px] flex-shrink-0">
-          <div className="font-heading font-bold text-sm text-[#0A2540]">
-            {new Date(date).toLocaleDateString("it-IT")}
-          </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
-            {new Date(date).toLocaleDateString("it-IT", { weekday: "long" })}
-          </div>
-        </div>
-
-        {/* Indices block */}
-        <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
-          {assessments.map((a) => {
-            const resp = responseByAssessmentId[a.id];
-            const isJoint = JOINT_INDICES.includes(a.index_type);
-            return (
-              <div
-                key={a.id}
-                className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-xs group"
-                data-testid={`visit-idx-${a.id}`}
-              >
-                <span className="font-heading font-bold text-[11px] uppercase tracking-[0.05em] text-[#0A2540]">
-                  {INDEX_LABELS[a.index_type] || a.index_type}
-                </span>
-                <span className="font-mono font-bold">{a.score ?? "-"}</span>
-                {a.interpretation && (
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${interpClass(a.interpretation)}`}>
-                    {shortInterp(a.interpretation)}
-                  </span>
-                )}
-                {isJoint && (a.tender_joints?.length || a.swollen_joints?.length) ? (
-                  <span className="text-[10px] text-gray-500 font-mono">
-                    TJ{a.tender_joints?.length ?? 0}·SJ{a.swollen_joints?.length ?? 0}
-                  </span>
-                ) : null}
-                {resp && (
-                  <Badge className={`${responseColor(resp.level)} text-[9px] px-1.5 py-0`} data-testid={`eular-${a.id}`}>
-                    <TrendingUp className="w-2.5 h-2.5 mr-0.5" /> {resp.label}
-                  </Badge>
-                )}
-                <button
-                  type="button"
-                  onClick={() => startEdit(a)}
-                  className="ml-1 p-0.5 rounded hover:bg-white opacity-0 group-hover:opacity-100 transition"
-                  data-testid={`edit-assessment-${a.id}`}
-                  title="Modifica"
-                >
-                  <Edit className="w-3 h-3 text-gray-600" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeAssessment(a.id)}
-                  className="p-0.5 rounded hover:bg-white opacity-0 group-hover:opacity-100 transition"
-                  data-testid={`delete-assessment-${a.id}`}
-                  title="Elimina"
-                >
-                  <Trash2 className="w-3 h-3 text-red-600" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Therapy in corso */}
-        <div className="w-[200px] flex-shrink-0">
-          <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 mb-1">In terapia</div>
-          {therapies.length === 0 ? (
-            <span className="text-xs text-gray-400 italic">Nessuna</span>
-          ) : (
-            <div className="flex flex-wrap gap-1">
-              {therapies.slice(0, 3).map((t) => (
-                <span
-                  key={t.id}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-gray-100 border border-gray-200"
-                  title={`${t.drug_name}${t.dose ? ` · ${t.dose}` : ""}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: categoryColor(t.category) }} />
-                  <span className="font-medium">{t.drug_name}</span>
-                  {t.dose && <span className="text-gray-500">{t.dose}</span>}
-                </span>
-              ))}
-              {therapies.length > 3 && (
-                <span className="text-[10px] text-gray-500 self-center">+{therapies.length - 3}</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Exams icon */}
-        <button
-          type="button"
-          onClick={toggleOpen}
-          className={`w-[80px] flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-md border transition ${
-            exams.length > 0
-              ? "border-blue-300 bg-blue-50/50 hover:bg-blue-100"
-              : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
-          }`}
-          data-testid={`toggle-exams-${date}`}
-          title={exams.length > 0 ? "Apri esami di laboratorio di questa data" : "Nessun esame in questa data"}
-        >
-          <FlaskConical className="w-4 h-4" />
-          <span className="text-[10px] font-mono font-bold">
-            {exams.length > 0 ? `${exams.length} esami` : "—"}
-          </span>
-          {exams.length > 0 && (
-            isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
-          )}
-        </button>
-      </div>
-
-      {/* Expanded exams panel */}
-      {isOpen && (
-        <div className="bg-blue-50/30 border-t border-blue-200 px-4 py-3" data-testid={`exams-expand-${date}`}>
-          {exams.length === 0 ? (
-            <div className="text-xs text-gray-500 italic">Nessun esame registrato per questa data.</div>
-          ) : (
-            <div className="space-y-2">
-              {exams.map((e) => (
-                <div key={e.id} className="bg-white border border-gray-200 rounded-md p-2 text-xs">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FlaskConical className="w-3.5 h-3.5 text-[#0A2540]" />
-                    <span className="font-heading font-bold text-[11px] uppercase tracking-[0.1em] text-[#0A2540]">
-                      {e.panel || "esami"}
-                    </span>
-                    {e.created_by_name && (
-                      <span className="text-[10px] text-gray-500">· {e.created_by_name}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {Object.entries(e.values || {}).map(([k, v]) => (
-                      <span key={k} className="font-mono">
-                        <span className="text-gray-500">{k}:</span>{" "}
-                        <span className="font-bold">{v?.value ?? v?.qualitative ?? "-"}</span>
-                        {v?.unit && <span className="text-gray-400"> {v.unit}</span>}
-                      </span>
-                    ))}
-                  </div>
-                  {e.notes && <div className="text-[10px] text-gray-600 italic mt-1">{e.notes}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex justify-end mt-2">
-            <Button variant="outline" size="sm" onClick={onAddExam} className="text-xs h-7" data-testid={`add-exam-${date}`}>
-              <Plus className="w-3 h-3 mr-1" /> Aggiungi/modifica esami
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Maps an interpretation string to a colored badge class (rough but useful).
-function interpClass(s) {
-  const lc = (s || "").toLowerCase();
-  if (lc.includes("remissione") || lc.includes("nessuna") || lc.includes("normale")) return "bg-green-100 text-green-800";
-  if (lc.includes("bassa") || lc.includes("lieve") || lc.includes("mild") || lc.includes("lda")) return "bg-emerald-100 text-emerald-800";
-  if (lc.includes("moderata") || lc.includes("mda")) return "bg-amber-100 text-amber-800";
-  if (lc.includes("alta") || lc.includes("severa") || lc.includes("hda") || lc.includes("grave") || lc.includes("very high")) return "bg-red-100 text-red-800";
-  return "bg-gray-100 text-gray-700";
-}
-
-function shortInterp(s) {
-  const lc = (s || "").toLowerCase();
-  if (lc.includes("remissione")) return "Rem";
-  if (lc.includes("bassa attività") || lc.includes("low disease")) return "LDA";
-  if (lc.includes("moderata attività") || lc.includes("moderate")) return "MDA";
-  if (lc.includes("alta attività") || lc.includes("high")) return "HDA";
-  return s.length > 18 ? s.slice(0, 16) + "…" : s;
 }

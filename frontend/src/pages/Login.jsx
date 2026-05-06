@@ -5,8 +5,9 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-import { Activity } from "lucide-react";
+import { Activity, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { authApi } from "../lib/api";
 
 function formatDetail(detail) {
   if (!detail) return "Errore di accesso";
@@ -16,10 +17,11 @@ function formatDetail(detail) {
 }
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || "/";
@@ -39,6 +41,21 @@ export default function Login() {
       toast.error(formatDetail(err.response?.data?.detail));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startDemo = async () => {
+    setDemoLoading(true);
+    try {
+      await authApi.demo();
+      if (refreshUser) await refreshUser();
+      toast.success("Account demo creato — esplora 3 pazienti di esempio!");
+      navigate("/pazienti", { replace: true });
+      // Force a hard refresh of context
+      window.location.href = "/pazienti";
+    } catch (err) {
+      toast.error("Errore durante la creazione del demo");
+      setDemoLoading(false);
     }
   };
 
@@ -77,6 +94,30 @@ export default function Login() {
 
         <div className="text-center mt-4 text-sm text-gray-600">
           Non hai un account? <Link to="/register" className="text-[#0A2540] font-semibold hover:underline" data-testid="goto-register">Registrati</Link>
+        </div>
+
+        {/* Demo CTA */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+            <div className="relative flex justify-center text-xs uppercase tracking-[0.2em]">
+              <span className="bg-[#F9FAFB] px-3 text-gray-500">oppure</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={startDemo}
+            disabled={demoLoading}
+            className="mt-4 w-full bg-violet-600 text-white hover:bg-violet-700"
+            data-testid="demo-btn"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            {demoLoading ? "Creazione demo in corso..." : "Esplora con dati di esempio"}
+          </Button>
+          <p className="text-[11px] text-gray-500 text-center mt-2 leading-relaxed">
+            Crea istantaneamente un account isolato con 3 pazienti reumatologici (AR, SpA, LES),
+            valutazioni longitudinali e terapie già impostate. Nessuna registrazione richiesta.
+          </p>
         </div>
       </div>
     </div>

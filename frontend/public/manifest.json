@@ -1,0 +1,27 @@
+{
+  "short_name": "Clinimetria",
+  "name": "Clinimetria Reumatologia",
+  "description": "App per le clinimetrie nelle malattie reumatiche: calcolatori (DAS28, BASDAI, mRSS...), criteri classificativi, follow-up longitudinale, AI per import visite e referti.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0A2540",
+  "background_color": "#F8FAFC",
+  "lang": "it-IT",
+  "scope": "/",
+  "categories": ["medical", "productivity", "health"]
+}

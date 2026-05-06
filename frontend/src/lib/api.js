@@ -19,6 +19,7 @@ api.interceptors.response.use(
 export const authApi = {
   register: (data) => api.post("/auth/register", data).then((r) => r.data),
   login: (data) => api.post("/auth/login", data).then((r) => r.data),
+  demo: () => api.post("/auth/demo").then((r) => r.data),
   logout: () => api.post("/auth/logout").then((r) => r.data),
   me: () => api.get("/auth/me").then((r) => r.data),
 };
@@ -110,4 +111,14 @@ export const exportApi = {
 export const aiApi = {
   parseVisit: (text, patientId = null) =>
     api.post("/ai/parse-visit", { text, patient_id: patientId }).then((r) => r.data),
+  parseLab: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api
+      .post("/ai/parse-lab", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 90000,
+      })
+      .then((r) => r.data);
+  },
 };

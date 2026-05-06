@@ -329,6 +329,49 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v37 - 5 task: AI lab import, Visita rapida, Demo, PWA, Refactor)
+- [x] **Import lab da PDF/foto via AI** (KILLER FEATURE): nuovo endpoint
+  `POST /api/ai/parse-lab` che accetta multipart upload (PDF/JPEG/PNG/WEBP,
+  max 15 MB) e usa **Gemini 2.5 Pro** multimodal via `FileContentWithMimeType`
+  per OCR + estrazione strutturata. L'AI mappa nomi italiani/inglesi su
+  schema interno (VES↔ESR, PCR↔CRP, FR↔RF, ACPA↔Anti-CCP, eGFR, GOT↔AST,
+  GPT↔ALT, ferritina, ANA con titolo, ecc.) e popola i pannelli esistenti
+  (autoanticorpi/complemento/fase_acuta/emocromo/funzione/urine).
+  Componente `LabImportDialog.jsx`: upload drag-friendly → preview con tutti
+  i pannelli popolati + checkbox per accettare/escludere singoli test +
+  edit inline dei valori → batch save (1 esame per pannello).
+  Test e2e con PDF generato: 15 valori estratti correttamente in ~30s.
+  Bottoni: header `ExamsSection` "Importa da PDF/foto (AI)" violetto e
+  "Importa lab (PDF/foto)" nella visita rapida.
+- [x] **Modalità "Visita rapida"** (`PatientQuickVisit.jsx`, rotta
+  `/pazienti/:id/visita`): single-page mobile-first ottimizzata per
+  ambulatorio. Header sticky con codice/diagnosi/età, blocco "Ultima
+  clinimetria" con badge inline degli ultimi indici, "Nuova valutazione"
+  con bottone composito contestuale (AR / SpA / PsA in base alla diagnosi)
+  + 2 import AI affiancati (testo visita + lab PDF/foto), "Terapia in
+  corso" sintetica, "Programma il prossimo controllo" con 3 quick presets
+  (3 mesi / 6 mesi / urgente +7gg). Da PatientDetail un nuovo bottone
+  viola "Visita rapida" la apre.
+- [x] **Demo data / "Esplora con dati di esempio"**: nuovo endpoint
+  `POST /api/auth/demo` (no auth richiesta) che crea istantaneamente un
+  account isolato con organizzazione random + utente "Utente Demo" + 3
+  pazienti reumatologici realistici (Bianchi Maria AR, Rossi Marco SpA,
+  Verdi Lucia LES) ognuno con 4-6 valutazioni longitudinali (DAS28/BASDAI/
+  ASDAS/SLEDAI con trend di miglioramento) e 2-3 terapie a tempistiche
+  realistiche. Bottone CTA viola "Esplora con dati di esempio" sulla
+  Login page con descrizione chiara. Imposta cookie auth + redirect a
+  /pazienti.
+- [x] **PWA installabile**: aggiunti `manifest.json` (theme #0A2540,
+  display standalone, icon 192/512), `sw.js` (caching shell, bypass /api/*
+  per dati clinici sempre freschi), meta tags + apple-touch-icon
+  in `index.html`, registrazione SW in `index.js` (solo production).
+  Ora installabile su iOS/Android con "Aggiungi alla schermata Home".
+- [x] **Refactor PatientDetail.jsx**: estratto `VisitGroupRow.jsx` (197
+  righe) + helper `interpClass`/`shortInterp`/`JOINT_INDICES` in
+  `/components/`. `categoryColor`/`CATEGORY_COLORS` spostati in
+  `/lib/drugs.js` per riuso. PatientDetail ridotto da 1224 → 1031 righe.
+  Lint clean.
+
 ## Implemented (2026-05-06 - v36 - Schermata paziente ridisegnata + reminder con priorità/visibilità)
 - [x] **Rimosso "Consigliati per (patologia)"** dalla pagina paziente: niente
   più riquadro con indici clinimetrici e criteri suggeriti. Tanto la

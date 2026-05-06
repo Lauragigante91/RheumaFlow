@@ -7,6 +7,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
+import PatientQuickVisit from "./pages/PatientQuickVisit";
 import Criteria from "./pages/Criteria";
 import Guidelines from "./pages/Guidelines";
 import Miscellanea from "./pages/Miscellanea";
@@ -51,6 +52,7 @@ function AppRoutes() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/pazienti" element={<Patients />} />
                 <Route path="/pazienti/:id" element={<PatientDetail />} />
+                <Route path="/pazienti/:id/visita" element={<PatientQuickVisit />} />
                 <Route path="/criteri" element={<Criteria />} />
                 <Route path="/linee-guida" element={<Guidelines />} />
                 <Route path="/miscellanea" element={<Miscellanea />} />

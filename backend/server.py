@@ -18,7 +18,7 @@ import io
 import zipfile
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
 from fastapi.responses import StreamingResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -374,6 +374,151 @@ async def register(payload: RegisterRequest, response: Response):
     return {
         "id": user_id, "email": email, "name": payload.name, "role": role,
         "organization_id": org_id, "organization_name": org_name,
+    }
+
+
+@api_router.post("/auth/demo")
+async def login_demo(response: Response):
+    """
+    One-click demo: creates a fresh isolated organization with 3 pre-populated
+    patients (RA, SpA, SLE) with assessments and therapies, and signs the user
+    in immediately. Each call creates a NEW demo org (so multiple users can
+    explore in parallel).
+    """
+    import random
+    import string
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    org = Organization(name=f"Demo UO {suffix}")
+    await db.organizations.insert_one(org.model_dump())
+
+    user_id = str(uuid.uuid4())
+    email = f"demo-{suffix}@clinimetria.demo"
+    user_doc = {
+        "id": user_id,
+        "email": email,
+        "name": "Utente Demo",
+        "password_hash": hash_password(f"demo-{suffix}"),
+        "role": "admin",
+        "organization_id": org.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_demo": True,
+    }
+    await db.users.insert_one(user_doc)
+
+    # Seed 3 demo patients with realistic timelines
+    today = datetime.now(timezone.utc).date()
+    def days_ago(n: int) -> str:
+        return (today - timedelta(days=n)).isoformat()
+
+    seed_patients = [
+        {
+            "codice_paziente": "DEMO-AR-01",
+            "cognome": "Bianchi", "nome": "Maria",
+            "anno_nascita": 1968, "sesso": "F",
+            "diagnosi": "Artrite reumatoide",
+            "note": "RA sieropositiva erosiva, esordio 2019.",
+            "assessments": [
+                {"index_type": "das28_crp", "date": days_ago(540), "score": 5.6, "interpretation": "Alta attività", "tender": 8, "swollen": 6},
+                {"index_type": "das28_crp", "date": days_ago(360), "score": 4.1, "interpretation": "Moderata attività", "tender": 5, "swollen": 3},
+                {"index_type": "das28_crp", "date": days_ago(180), "score": 3.0, "interpretation": "Bassa attività", "tender": 2, "swollen": 1},
+                {"index_type": "das28_crp", "date": days_ago(60), "score": 2.4, "interpretation": "Remissione", "tender": 1, "swollen": 0},
+                {"index_type": "cdai", "date": days_ago(60), "score": 4, "interpretation": "Bassa attività"},
+                {"index_type": "haq", "date": days_ago(60), "score": 0.5, "interpretation": "Disabilità lieve"},
+            ],
+            "therapies": [
+                {"drug_name": "Methotrexate", "category": "csDMARD", "dose": "15 mg/sett", "frequency": "Settimanale", "route": "s.c.", "start_date": days_ago(540), "status": "active"},
+                {"drug_name": "Prednisone", "category": "Glucocorticoidi", "dose": "5 mg", "frequency": "Giornaliera", "route": "oral", "start_date": days_ago(540), "end_date": days_ago(120), "status": "discontinued"},
+                {"drug_name": "Adalimumab", "category": "bDMARD", "dose": "40 mg", "frequency": "Bisettimanale", "route": "s.c.", "start_date": days_ago(300), "status": "active"},
+            ],
+        },
+        {
+            "codice_paziente": "DEMO-SPA-02",
+            "cognome": "Rossi", "nome": "Marco",
+            "anno_nascita": 1985, "sesso": "M",
+            "diagnosi": "Spondilite anchilosante",
+            "note": "axSpA HLA-B27+, sacroileite RM positiva.",
+            "assessments": [
+                {"index_type": "basdai", "date": days_ago(365), "score": 6.8, "interpretation": "Alta attività"},
+                {"index_type": "asdas_crp", "date": days_ago(365), "score": 3.4, "interpretation": "Alta attività"},
+                {"index_type": "basdai", "date": days_ago(120), "score": 3.2, "interpretation": "Moderata"},
+                {"index_type": "asdas_crp", "date": days_ago(120), "score": 1.9, "interpretation": "Bassa attività"},
+                {"index_type": "basfi", "date": days_ago(120), "score": 2.5, "interpretation": "Funzione preservata"},
+            ],
+            "therapies": [
+                {"drug_name": "Ibuprofene", "category": "FANS", "dose": "600 mg", "frequency": "TID al bisogno", "route": "oral", "start_date": days_ago(365), "status": "active"},
+                {"drug_name": "Secukinumab", "category": "bDMARD", "dose": "150 mg", "frequency": "Mensile", "route": "s.c.", "start_date": days_ago(280), "status": "active"},
+            ],
+        },
+        {
+            "codice_paziente": "DEMO-SLE-03",
+            "cognome": "Verdi", "nome": "Lucia",
+            "anno_nascita": 1992, "sesso": "F",
+            "diagnosi": "Lupus eritematoso sistemico (LES)",
+            "note": "LES con coinvolgimento cutaneo, articolare, ANA+ a titolo elevato.",
+            "assessments": [
+                {"index_type": "sledai", "date": days_ago(420), "score": 12, "interpretation": "Alta attività"},
+                {"index_type": "sledai", "date": days_ago(180), "score": 6, "interpretation": "Moderata"},
+                {"index_type": "sledai", "date": days_ago(60), "score": 2, "interpretation": "Bassa attività"},
+            ],
+            "therapies": [
+                {"drug_name": "Idrossiclorochina", "category": "csDMARD", "dose": "200 mg", "frequency": "BID", "route": "oral", "start_date": days_ago(420), "status": "active"},
+                {"drug_name": "Prednisone", "category": "Glucocorticoidi", "dose": "10 mg", "frequency": "Giornaliera", "route": "oral", "start_date": days_ago(420), "end_date": days_ago(150), "status": "discontinued"},
+                {"drug_name": "Belimumab", "category": "bDMARD", "dose": "200 mg", "frequency": "Settimanale", "route": "s.c.", "start_date": days_ago(180), "status": "active"},
+            ],
+        },
+    ]
+
+    for p_seed in seed_patients:
+        p_id = str(uuid.uuid4())
+        await db.patients.insert_one({
+            "id": p_id,
+            "organization_id": org.id,
+            "codice_paziente": p_seed["codice_paziente"],
+            "cognome": p_seed["cognome"], "nome": p_seed["nome"],
+            "anno_nascita": p_seed["anno_nascita"], "sesso": p_seed["sesso"],
+            "diagnosi": p_seed["diagnosi"], "note": p_seed["note"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": user_id, "created_by_name": "Utente Demo",
+        })
+        for a in p_seed["assessments"]:
+            doc = {
+                "id": str(uuid.uuid4()),
+                "patient_id": p_id,
+                "organization_id": org.id,
+                "index_type": a["index_type"],
+                "date": a["date"],
+                "score": a["score"],
+                "interpretation": a.get("interpretation"),
+                "tender_joints": [f"j{i}" for i in range(a.get("tender", 0))],
+                "swollen_joints": [f"j{i}" for i in range(a.get("swollen", 0))],
+                "inputs": {},
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_by": user_id,
+                "created_by_name": "Utente Demo",
+            }
+            await db.assessments.insert_one(doc)
+        for t in p_seed["therapies"]:
+            doc = {
+                "id": str(uuid.uuid4()),
+                "patient_id": p_id,
+                "organization_id": org.id,
+                "drug_name": t["drug_name"], "category": t["category"],
+                "dose": t.get("dose"), "frequency": t.get("frequency"), "route": t.get("route"),
+                "start_date": t["start_date"], "end_date": t.get("end_date"),
+                "status": t["status"],
+                "indication": p_seed["diagnosi"],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_by": user_id, "created_by_name": "Utente Demo",
+            }
+            await db.therapies.insert_one(doc)
+
+    access = create_access_token(user_id, email, org.id)
+    refresh = create_refresh_token(user_id)
+    set_auth_cookies(response, access, refresh)
+    return {
+        "id": user_id, "email": email, "name": "Utente Demo", "role": "admin",
+        "organization_id": org.id, "organization_name": org.name,
+        "is_demo": True,
     }
 
 
@@ -1391,6 +1536,201 @@ async def parse_visit_text(payload: ParseVisitRequest, user: dict = Depends(get_
         raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
 
     return {"extracted": data}
+
+
+# ==================== AI - LAB EXAMS PARSING (PDF/IMAGE) ====================
+# Lab schema definition mirrors /app/frontend/src/lib/labPanels.js so that the
+# AI returns keys aligned with the existing UI panels and existing data model.
+LAB_SCHEMA_KEYS_BY_PANEL = {
+    "autoanticorpi": [
+        "ana_titolo", "ana_pattern", "anti_dsdna", "anti_sm", "anti_rnp", "anti_ssa_ro", "anti_ssb_la",
+        "anti_scl70", "anti_centromero", "anti_rnap3", "anti_pmscl", "anti_ku", "anti_jo1", "anti_mi2",
+        "anti_mda5", "anti_tif1g", "anti_nxp2", "anti_srp", "anti_hmgcr",
+        "anca_pr3", "anca_mpo", "fr", "acpa_anti_ccp", "anti_mcv",
+        "lac", "acl_igg", "acl_igm", "b2gp1_igg", "b2gp1_igm",
+    ],
+    "complemento": ["c3", "c4", "ch50"],
+    "fase_acuta": ["ves", "pcr", "fibrinogeno", "ferritina", "saa"],
+    "emocromo": ["wbc", "neutrophils", "lymphocytes", "eosinophils", "monocytes", "hb", "plt"],
+    "funzione": ["creatinina", "egfr", "ast", "alt", "ggt", "ldh", "ck", "aldolasi", "urato", "vit_d"],
+    "urine": ["proteinuria_24h", "albuminuria", "uacr", "urinary_casts", "hematuria", "sedimento_note"],
+}
+
+LAB_PARSING_PROMPT = """Sei un assistente medico esperto in REUMATOLOGIA e LABORATORIO clinico italiano.
+RICEVI: il contenuto di un referto di laboratorio (PDF o foto/scansione del referto).
+COMPITO: estrarre TUTTI i valori dei test che corrispondono allo schema sottostante e restituire UN SOLO JSON in italiano.
+
+Schema atteso (chiavi standardizzate con cui devi mappare i nomi italiani/inglesi che trovi sul referto):
+{
+  "date": "YYYY-MM-DD" (se rilevabile la data del prelievo o della firma del referto, altrimenti null),
+  "values": {
+    "<panel>__<test_key>": {
+      "value": numero (oppure null se solo qualitativo),
+      "qualitative": "pos|neg|positivo|negativo|debolmente_positivo|null" (solo per test qualitativi tipo Lupus Anticoagulant, ANA pattern, ecc),
+      "unit": "stringa, es. mg/L, U/mL, x10^9/L"
+    }
+  },
+  "raw_notes": "note testuali rilevanti dal referto (max 500 caratteri)"
+}
+
+Pannelli e chiavi consentite:
+- autoanticorpi: ana_titolo, ana_pattern, anti_dsdna, anti_sm, anti_rnp, anti_ssa_ro, anti_ssb_la, anti_scl70, anti_centromero, anti_rnap3, anti_pmscl, anti_ku, anti_jo1, anti_mi2, anti_mda5, anti_tif1g, anti_nxp2, anti_srp, anti_hmgcr, anca_pr3, anca_mpo, fr, acpa_anti_ccp, anti_mcv, lac, acl_igg, acl_igm, b2gp1_igg, b2gp1_igm
+- complemento: c3, c4, ch50
+- fase_acuta: ves, pcr, fibrinogeno, ferritina, saa
+- emocromo: wbc, neutrophils, lymphocytes, eosinophils, monocytes, hb, plt
+- funzione: creatinina, egfr, ast, alt, ggt, ldh, ck, aldolasi, urato, vit_d
+- urine: proteinuria_24h, albuminuria, uacr, urinary_casts, hematuria, sedimento_note
+
+Regole di mapping italiano/inglese (importanti):
+- "VES" / "ESR" → fase_acuta__ves
+- "PCR" / "Proteina C reattiva" / "CRP" → fase_acuta__pcr
+- "Hb" / "Emoglobina" / "Hemoglobin" → emocromo__hb
+- "Globuli bianchi" / "WBC" / "Leucociti" → emocromo__wbc
+- "Globuli rossi" / "RBC" → ignorare (non in schema)
+- "PLT" / "Piastrine" → emocromo__plt
+- "Creatinina" / "Creatinine" → funzione__creatinina
+- "GOT" / "AST" → funzione__ast
+- "GPT" / "ALT" → funzione__alt
+- "γGT" / "GGT" → funzione__ggt
+- "CK" / "CPK" / "Creatinchinasi" → funzione__ck
+- "C3" / "Complemento C3" → complemento__c3
+- "Anti-CCP" / "ACPA" → autoanticorpi__acpa_anti_ccp
+- "Fattore Reumatoide" / "FR" / "RF" → autoanticorpi__fr
+- "ANA" titolo es 1:160, 1:320 → autoanticorpi__ana_titolo (value=null, "qualitative" può essere il titolo come stringa)
+- "Anti-dsDNA" / "Anti-DNA nativo" → autoanticorpi__anti_dsdna
+- "Vitamina D" / "25(OH)D" → funzione__vit_d
+- "Acido urico" / "Uricemia" → funzione__urato
+- "Ferritina" → fase_acuta__ferritina
+- "eGFR" / "Velocità filtrazione glomerulare" / "GFR" → funzione__egfr
+- "Proteinuria 24h" / "Proteinuria delle 24 ore" → urine__proteinuria_24h
+
+Linee guida operative:
+- INSERISCI nel JSON SOLO i test effettivamente presenti nel referto. Tutti gli altri li ometti (NON null fittizi).
+- Per test qualitativi (Lupus Anticoagulant, ANA pattern, anti-Sm, ecc), valorizza "qualitative" e lascia "value" a null.
+- Conserva l'unità di misura come scritta sul referto.
+- Se il valore è "<5" o ">300" tieni il numero principale e mettilo in "value", aggiungi un commento in raw_notes.
+- Se il referto contiene SOLO immagini (foto del referto) leggi via OCR e applica le stesse regole.
+- NON inventare valori non presenti nel referto.
+- Output: SOLO JSON puro. Inizia con { e finisci con }. Niente altro."""
+
+
+@api_router.post("/ai/parse-lab")
+async def parse_lab_file(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Accept a PDF or image (jpeg/png/webp) of a laboratory report and use Gemini
+    2.5 Pro (multimodal) to extract structured lab values mapped to the
+    application's lab panels schema.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File non valido")
+
+    content_type = (file.content_type or "").lower()
+    fname = file.filename.lower()
+
+    # Determine MIME and extension
+    if content_type == "application/pdf" or fname.endswith(".pdf"):
+        mime = "application/pdf"
+        ext = ".pdf"
+    elif content_type in ("image/jpeg", "image/jpg") or fname.endswith((".jpg", ".jpeg")):
+        mime = "image/jpeg"
+        ext = ".jpg"
+    elif content_type == "image/png" or fname.endswith(".png"):
+        mime = "image/png"
+        ext = ".png"
+    elif content_type == "image/webp" or fname.endswith(".webp"):
+        mime = "image/webp"
+        ext = ".webp"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Formato non supportato. Carica PDF, JPEG, PNG o WEBP.",
+        )
+
+    # Persist to a temp file (emergentintegrations expects a file path)
+    import tempfile
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="File vuoto")
+    if len(contents) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File troppo grande (max 15 MB)")
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+
+        api_key = os.environ.get("EMERGENT_LLM_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"lab-{uuid.uuid4()}",
+            system_message=LAB_PARSING_PROMPT,
+        ).with_model("gemini", "gemini-2.5-pro")
+
+        attachment = FileContentWithMimeType(file_path=tmp_path, mime_type=mime)
+        user_message = UserMessage(
+            text=(
+                "Estrai i valori di laboratorio da questo referto secondo lo schema "
+                "indicato nel system prompt. Restituisci SOLO JSON valido."
+            ),
+            file_contents=[attachment],
+        )
+
+        try:
+            response = await chat.send_message(user_message)
+        except Exception as e:
+            logger.exception("Lab AI parse error")
+            raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
+
+        raw = (response or "").strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            if raw.lower().startswith("json"):
+                raw = raw[4:].lstrip()
+        if "{" in raw and "}" in raw:
+            raw = raw[raw.index("{") : raw.rindex("}") + 1]
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=502, detail=f"Risposta AI non valida: {e}")
+
+        # Reorganize values: split keys "panel__test" into nested structure that
+        # matches the existing UI (panel -> {test_key: {value, unit, qualitative}}).
+        values = data.get("values") or {}
+        reorganized: Dict[str, Dict[str, Any]] = {}
+        unmatched: List[str] = []
+        for key, val in values.items():
+            if "__" not in key:
+                unmatched.append(key)
+                continue
+            panel, test_key = key.split("__", 1)
+            if panel not in LAB_SCHEMA_KEYS_BY_PANEL:
+                unmatched.append(key)
+                continue
+            if test_key not in LAB_SCHEMA_KEYS_BY_PANEL[panel]:
+                unmatched.append(key)
+                continue
+            reorganized.setdefault(panel, {})[test_key] = val
+
+        return {
+            "date": data.get("date"),
+            "panels": reorganized,
+            "raw_notes": data.get("raw_notes"),
+            "unmatched_keys": unmatched,
+            "filename": file.filename,
+        }
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
 
 
 # ==================== STATS ====================
