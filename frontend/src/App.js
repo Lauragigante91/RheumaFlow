@@ -14,6 +14,7 @@ import Miscellanea from "./pages/Miscellanea";
 import Privacy from "./pages/Privacy";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import PublicPRO from "./pages/PublicPRO";
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+      <Route path="/pro/:token" element={<PublicPRO />} />
       <Route
         path="/*"
         element={

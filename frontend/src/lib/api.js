@@ -122,3 +122,15 @@ export const aiApi = {
       .then((r) => r.data);
   },
 };
+
+export const proTokensApi = {
+  create: (data) => api.post("/pro-tokens", data).then((r) => r.data),
+  listByPatient: (patientId) =>
+    api.get(`/patients/${patientId}/pro-tokens`).then((r) => r.data),
+  remove: (id) => api.delete(`/pro-tokens/${id}`).then((r) => r.data),
+  convert: (id) => api.post(`/pro-tokens/${id}/convert`).then((r) => r.data),
+  // Public (no auth) — uses raw axios
+  publicGet: (token) => axios.get(`${API}/public/pro/${token}`).then((r) => r.data),
+  publicSubmit: (token, responses) =>
+    axios.post(`${API}/public/pro/${token}/submit`, { responses }).then((r) => r.data),
+};

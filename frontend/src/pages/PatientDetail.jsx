@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, ChevronRight, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap, FlaskConical, Stethoscope } from "lucide-react";
+import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, ChevronRight, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap, FlaskConical, Stethoscope, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import CompositeAssessmentDialog from "../components/CompositeAssessmentDialog";
@@ -24,6 +24,7 @@ import TherapySection from "../components/TherapySection";
 import ExamsDialog from "../components/ExamsDialog";
 import RemindersSection from "../components/RemindersSection";
 import VisitHistoryTable from "../components/VisitHistoryTable";
+import PROManagement from "../components/PROManagement";
 import ScleroProfileSection, { isScleroDiagnosis } from "../components/ScleroProfileSection";
 import RaProfileSection from "../components/RaProfileSection";
 import SpaProfileSection from "../components/SpaProfileSection";
@@ -58,6 +59,7 @@ export default function PatientDetail() {
   const [therapies, setTherapies] = useState([]);
   const [labExams, setLabExams] = useState([]);
   const [examsDialogOpen, setExamsDialogOpen] = useState(false);
+  const [proDialogOpen, setProDialogOpen] = useState(false);
   const [showTherapies, setShowTherapies] = useState(true);
   const [showAllIndices, setShowAllIndices] = useState(false);
   const [compositeMode, setCompositeMode] = useState(null); // null | "ra" | "spa"
@@ -393,6 +395,14 @@ export default function PatientDetail() {
               <Stethoscope className="w-4 h-4 mr-2" /> Visita rapida
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+            onClick={() => setProDialogOpen(true)}
+            data-testid="pro-qr-btn"
+          >
+            <QrCode className="w-4 h-4 mr-2" /> QR per il paziente
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="new-assessment-btn">
@@ -763,6 +773,14 @@ export default function PatientDetail() {
 
       {/* Lab exams modal — accessible from history rows or the "Esami di laboratorio" button */}
       <ExamsDialog open={examsDialogOpen} onOpenChange={setExamsDialogOpen} patient={patient} />
+
+      {/* PRO management dialog */}
+      <PROManagement
+        patient={patient}
+        open={proDialogOpen}
+        onOpenChange={setProDialogOpen}
+        onConverted={load}
+      />
 
       {/* New assessment dialog */}
       <Dialog open={newOpen} onOpenChange={(v) => { setNewOpen(v); if (!v) setEditingAssessment(null); }}>

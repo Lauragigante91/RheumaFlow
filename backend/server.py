@@ -299,6 +299,47 @@ class ReminderUpdate(BaseModel):
     shared_with_user_ids: Optional[List[str]] = None
 
 
+# ==================== PRO TOKEN (Patient-Reported Outcomes) ====================
+# A PRO token is a short-lived signed link the doctor sends/prints/shows to a
+# patient. The patient opens it on their phone and fills validated
+# questionnaires (HAQ, BASDAI, BASFI, RAID, VAS pain/PGA, FIQR, PSAID, ESSPRI...).
+# When submitted, results are stored on the token and the doctor reviews +
+# approves them, optionally turning them into formal assessments.
+PRO_INSTRUMENTS_ALLOWED = {
+    "haq", "basdai", "basfi", "raid", "psaid", "fiqr", "ess_pri",
+    "vas_pain", "vas_pga", "vas_fatigue",
+}
+
+
+class PROTokenCreate(BaseModel):
+    patient_id: str
+    instruments: List[str] = Field(default_factory=list)
+    expires_in_hours: int = 168  # default 7 days
+    note: Optional[str] = None  # optional note shown to the patient
+
+
+class PROToken(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    token: str = Field(default_factory=lambda: secrets.token_urlsafe(24))
+    patient_id: str
+    organization_id: str
+    instruments: List[str] = Field(default_factory=list)
+    note: Optional[str] = None
+    expires_at: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    completed_at: Optional[str] = None
+    submitted_responses: Optional[Dict[str, Any]] = None
+    # Indicates whether the responses were already converted to assessments.
+    converted: bool = False
+
+
+class PROSubmit(BaseModel):
+    responses: Dict[str, Any]
+
+
 # ==================== SCLERODERMA PROFILE ====================
 class ScleroProfileBase(BaseModel):
     patient_id: str
@@ -971,6 +1012,158 @@ async def list_org_members(user: dict = Depends(get_current_user)):
         {"id": d.get("id"), "name": d.get("name"), "email": d.get("email"), "role": d.get("role")}
         for d in docs
     ]
+
+
+# ==================== PRO TOKENS ====================
+@api_router.post("/pro-tokens", response_model=PROToken)
+async def create_pro_token(payload: PROTokenCreate, user: dict = Depends(get_current_user)):
+    """Doctor creates a short-lived PRO link/QR for a specific patient."""
+    await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    invalid = [i for i in payload.instruments if i not in PRO_INSTRUMENTS_ALLOWED]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Strumenti non validi: {invalid}")
+    if not payload.instruments:
+        raise HTTPException(status_code=400, detail="Devi selezionare almeno uno strumento")
+    hours = max(1, min(24 * 60, int(payload.expires_in_hours or 168)))  # max 60 days
+    expires = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    pt = PROToken(
+        patient_id=payload.patient_id,
+        organization_id=user["organization_id"],
+        instruments=payload.instruments,
+        note=payload.note,
+        expires_at=expires,
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+    )
+    await db.pro_tokens.insert_one(pt.model_dump())
+    return pt
+
+
+@api_router.get("/patients/{patient_id}/pro-tokens", response_model=List[PROToken])
+async def list_pro_tokens(patient_id: str, user: dict = Depends(get_current_user)):
+    """List all PRO tokens (active+expired+completed) for a patient."""
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.pro_tokens.find(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api_router.delete("/pro-tokens/{token_id}")
+async def delete_pro_token(token_id: str, user: dict = Depends(get_current_user)):
+    """Doctor revokes a PRO token (deletes it; pending submissions are lost)."""
+    res = await db.pro_tokens.delete_one(
+        {"id": token_id, "organization_id": user["organization_id"]}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Token non trovato")
+    return {"success": True}
+
+
+@api_router.post("/pro-tokens/{token_id}/convert")
+async def convert_pro_token(token_id: str, user: dict = Depends(get_current_user)):
+    """
+    Convert a submitted PRO token into formal assessment(s). Each instrument
+    that has a numeric score becomes a single assessment row with index_type
+    matching the instrument key.
+    """
+    pt = await db.pro_tokens.find_one(
+        {"id": token_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    )
+    if not pt:
+        raise HTTPException(status_code=404, detail="Token non trovato")
+    if not pt.get("submitted_responses"):
+        raise HTTPException(status_code=400, detail="Il paziente non ha ancora compilato il questionario")
+
+    responses = pt["submitted_responses"]
+    submission_date = (pt.get("completed_at") or datetime.now(timezone.utc).isoformat())[:10]
+    created = []
+    for instr, payload in (responses.get("instruments") or {}).items():
+        if not isinstance(payload, dict):
+            continue
+        score = payload.get("score")
+        if score is None:
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "patient_id": pt["patient_id"],
+            "organization_id": pt["organization_id"],
+            "index_type": instr,
+            "date": submission_date,
+            "score": score,
+            "interpretation": payload.get("interpretation"),
+            "tender_joints": [],
+            "swollen_joints": [],
+            "inputs": payload.get("inputs") or {},
+            "notes": "Compilato dal paziente via PRO link",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": user["id"],
+            "created_by_name": user.get("name"),
+            "source": "patient_reported",
+        }
+        await db.assessments.insert_one(doc)
+        created.append(instr)
+
+    await db.pro_tokens.update_one(
+        {"id": token_id}, {"$set": {"converted": True, "converted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"success": True, "created": created}
+
+
+# ===== PUBLIC PRO endpoints (NO AUTH — token-protected) =====
+@api_router.get("/public/pro/{token}")
+async def public_get_pro(token: str):
+    """Patient opens the PRO link → fetch instruments + minimal patient info."""
+    pt = await db.pro_tokens.find_one({"token": token}, {"_id": 0})
+    if not pt:
+        raise HTTPException(status_code=404, detail="Link non valido")
+    if pt.get("completed_at"):
+        return {
+            "status": "already_submitted",
+            "completed_at": pt["completed_at"],
+            "instruments": pt.get("instruments", []),
+        }
+    if pt["expires_at"] < datetime.now(timezone.utc).isoformat():
+        return {"status": "expired", "expired_at": pt["expires_at"]}
+
+    # Fetch minimal patient context (only first name to confirm to the patient)
+    p = await db.patients.find_one({"id": pt["patient_id"]}, {"_id": 0})
+    org = await db.organizations.find_one({"id": pt["organization_id"]}, {"_id": 0})
+    return {
+        "status": "active",
+        "patient_first_name": (p or {}).get("nome") or "",
+        "patient_code": (p or {}).get("codice_paziente") or "",
+        "diagnosis": (p or {}).get("diagnosi") or "",
+        "organization_name": (org or {}).get("name") or "",
+        "instruments": pt.get("instruments", []),
+        "note": pt.get("note"),
+        "expires_at": pt["expires_at"],
+    }
+
+
+@api_router.post("/public/pro/{token}/submit")
+async def public_submit_pro(token: str, payload: PROSubmit):
+    """Patient submits the responses. Idempotent on first submission."""
+    pt = await db.pro_tokens.find_one({"token": token}, {"_id": 0})
+    if not pt:
+        raise HTTPException(status_code=404, detail="Link non valido")
+    if pt.get("completed_at"):
+        raise HTTPException(status_code=409, detail="Questionario già compilato")
+    if pt["expires_at"] < datetime.now(timezone.utc).isoformat():
+        raise HTTPException(status_code=410, detail="Link scaduto")
+
+    await db.pro_tokens.update_one(
+        {"token": token},
+        {
+            "$set": {
+                "submitted_responses": payload.responses,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+    )
+    return {"success": True}
 
 
 # ==================== EXPORT DATABASE ====================

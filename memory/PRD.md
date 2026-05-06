@@ -329,6 +329,53 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v40 - Patient-Reported Outcomes via QR code)
+**KILLER FEATURE**: il medico genera un QR code che il paziente scansiona dal
+proprio cellulare per compilare i questionari prima/dopo la visita.
+
+- [x] **Backend** — Modello `PROToken` (collection `pro_tokens`) con:
+  patient_id, organization_id, instruments[], expires_at, secrets-generated
+  token URL-safe, tracking `completed_at`, `submitted_responses`, `converted`.
+  Endpoint:
+  - `POST /api/pro-tokens` — medico crea (auth) con scelta instruments +
+    durata 1h-60gg + nota opzionale al paziente.
+  - `GET /api/patients/{id}/pro-tokens` — lista per paziente (auth).
+  - `DELETE /api/pro-tokens/{id}` — revoca (auth).
+  - `POST /api/pro-tokens/{id}/convert` — converte le risposte in
+    assessment ufficiali nello storico del paziente (auth).
+  - `GET /api/public/pro/{token}` — **PUBBLICO** (no auth): il paziente
+    riceve nome/diagnosi minimi + lista questionari. Gestisce `expired` e
+    `already_submitted`.
+  - `POST /api/public/pro/{token}/submit` — **PUBBLICO**: invia risposte.
+- [x] **Frontend medico** (`PROManagement.jsx`):
+  - Bottone "QR per il paziente" nella header del PatientDetail.
+  - Dialog con: 8 questionari selezionabili (HAQ, BASDAI, BASFI, RAID,
+    PSAID, VAS Dolore, VAS PGA, VAS Fatigue), durata, nota.
+  - Genera **QR code PNG client-side** (lib `qrcode`) navy #0A2540.
+  - Pulsanti: Copia link / Stampa (apre nuova finestra con stampa) /
+    Crea un altro.
+  - Storico link: badge stato "In attesa"/"Compilato"/"Scaduto"/"Salvato
+    in storico", lista strumenti, score con interpretazione se compilati,
+    bottone "Salva nello storico" che converte le risposte in assessment.
+- [x] **Frontend paziente pubblico** (`PublicPRO.jsx`, rotta `/pro/:token`,
+  NO auth required):
+  - Header con nome paziente + UO + diagnosi.
+  - Banner istruzioni "compila pensando all'ultima settimana".
+  - Render dinamico per tipo:
+    - `ord4` (HAQ) → 4 bottoni testuali (Senza difficoltà / Con qualche /
+      Con molta / Non ne sono in grado), 20 item con frasi italiane
+      complete.
+    - `nrs` (0-10) → slider + 11 bottoni inline (BASDAI/BASFI/RAID/PSAID).
+    - `vas100` (0-100) → slider 0-100.
+  - Validazione client-side: blocca submit se item incompleto.
+  - Calcolo score client-side per ogni instrument (HAQ media/8, BASDAI
+    formula EULAR, BASFI media, RAID weighted, PSAID media, VAS pass-through).
+  - Submit → "Grazie!" + auto-blocco re-submit lato BE.
+  - Pagine di errore amichevoli per link scaduto/già compilato.
+- [x] **Lib condivisa** `proInstruments.js`: definizioni dei questionari
+  (item, type, label, score function) usate sia dal medico che dal paziente.
+- [x] Dipendenza `qrcode 1.5.4` aggiunta tramite yarn.
+
 ## Implemented (2026-05-06 - v39 - Storico valutazioni: tabella incolonnata per indice)
 - [x] **Storico valutazioni ridisegnato come tabella matriciale**: invece di
   una riga per data con badge inline (visivamente confusi quando ci sono più
