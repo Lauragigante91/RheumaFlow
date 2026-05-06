@@ -31,6 +31,7 @@ import AavProfileSection from "../components/AavProfileSection";
 import AavSummaryHeader from "../components/AavSummaryHeader";
 import SjogrenProfileSection from "../components/SjogrenProfileSection";
 import MyositisProfileSection from "../components/MyositisProfileSection";
+import SpaJointsPanel from "../components/SpaJointsPanel";
 import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
 import VisitImportButton from "../components/VisitImportButton";
 import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
@@ -170,30 +171,44 @@ export default function PatientDetail() {
   };
 
   const chartData = useMemo(() => {
+    // Format wide: una riga per data visita, colonne per ogni indice presente.
     const filtered = selectedIndex === "all"
       ? assessments
       : assessments.filter((a) => a.index_type === selectedIndex);
-    return [...filtered]
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map((a) => {
-        const active = therapiesActiveOn(a.date);
-        return {
+    if (filtered.length === 0) return [];
+    const byDate = new Map();
+    for (const a of [...filtered].sort((x, y) => new Date(x.date) - new Date(y.date))) {
+      const k = a.date;
+      if (!byDate.has(k)) {
+        byDate.set(k, {
           date: new Date(a.date).toLocaleDateString("it-IT"),
           rawDate: a.date,
           ts: Date.parse(a.date),
-          score: a.score,
-          type: INDEX_LABELS[a.index_type] || a.index_type,
-          therapies: active.map((t) => ({
-            name: t.drug_name,
-            dose: t.dose,
-            category: t.category,
-          })),
-          therapyLabel: active.length === 0
-            ? "Nessuna terapia registrata"
-            : active.map((t) => t.drug_name + (t.dose ? ` ${t.dose}` : "")).join(", "),
-        };
-      });
+          indices: {},
+          therapies: therapiesActiveOn(a.date).map((t) => ({ name: t.drug_name, dose: t.dose, category: t.category })),
+        });
+      }
+      const row = byDate.get(k);
+      // `score_{index_type}` per Recharts dataKey, + metadata
+      row[`score_${a.index_type}`] = a.score;
+      row.indices[a.index_type] = { score: a.score, interpretation: a.interpretation, type: INDEX_LABELS[a.index_type] || a.index_type };
+    }
+    for (const row of byDate.values()) {
+      row.therapyLabel = row.therapies.length === 0
+        ? "Nessuna terapia registrata"
+        : row.therapies.map((t) => t.name + (t.dose ? ` ${t.dose}` : "")).join(", ");
+    }
+    return [...byDate.values()];
   }, [assessments, selectedIndex, therapies]);
+
+  // Indici unici presenti nel chart corrente (per renderizzare una Line ciascuno)
+  const chartIndexTypes = useMemo(() => {
+    const set = new Set();
+    for (const row of chartData) {
+      Object.keys(row.indices || {}).forEach((k) => set.add(k));
+    }
+    return [...set];
+  }, [chartData]);
 
   const drugColorMap = useMemo(() => buildDrugColorMap(chartData), [chartData]);
 
@@ -470,9 +485,7 @@ export default function PatientDetail() {
       {/* Vasculitis header summary (organs & diagnostic basis) */}
       {isAavDiagnosis(patient.diagnosi) && <AavSummaryHeader patient={patient} />}
 
-      {/* Therapy section */}
-      <TherapySection patient={patient} />
-
+      {/* CLINICAL PROFILES — visualizzati subito dopo l'intestazione paziente */}
       {/* Rheumatoid Arthritis profile */}
       {isRaDiagnosis(patient.diagnosi) && <RaProfileSection patient={patient} />}
 
@@ -493,6 +506,14 @@ export default function PatientDetail() {
 
       {/* Scleroderma profile - only if SSc diagnosis */}
       {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
+
+      {/* SpA peripheral involvement: homunculus 66/68 + LEI body chart sempre visibili */}
+      {isSpaDiagnosis(patient.diagnosi) && spaProfile?.peripheral_involvement && (
+        <SpaJointsPanel patient={patient} assessments={assessments} />
+      )}
+
+      {/* Therapy section */}
+      <TherapySection patient={patient} />
 
       {/* Lab exams */}
       <ExamsSection patient={patient} />
@@ -532,7 +553,7 @@ export default function PatientDetail() {
           </div>
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={Math.max(260, 220 + chartIndexTypes.length * 6)}>
               <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis
@@ -547,8 +568,24 @@ export default function PatientDetail() {
                 />
                 <YAxis fontSize={11} stroke="#6B7280" width={CHART_LEFT_AXIS_W} />
                 <Tooltip content={<TrendTooltip showTherapies={showTherapies} drugColorMap={drugColorMap} />} />
-                <Legend verticalAlign="top" height={24} />
-                <Line type="monotone" dataKey="score" stroke="#0A2540" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Punteggio" />
+                <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 11 }} />
+                {chartIndexTypes.map((idxType, i) => {
+                  const style = INDEX_LINE_STYLE[i % INDEX_LINE_STYLE.length];
+                  return (
+                    <Line
+                      key={idxType}
+                      type="monotone"
+                      dataKey={`score_${idxType}`}
+                      name={INDEX_LABELS[idxType] || idxType}
+                      stroke={style.color}
+                      strokeWidth={2}
+                      strokeDasharray={style.dash}
+                      dot={{ r: 4, fill: style.color, strokeWidth: 0, shape: style.shape }}
+                      activeDot={{ r: 6 }}
+                      connectNulls
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
             {showTherapies && timelineDomain && (
@@ -839,6 +876,20 @@ function buildDrugColorMap(chartData) {
 // Costanti chart
 const CHART_LEFT_AXIS_W = 60;
 
+// Palette colori + dash patterns + shapes per le linee dei diversi indici clinimetrici
+const INDEX_LINE_STYLE = [
+  { color: "#0A2540", dash: "0",     shape: "circle" },
+  { color: "#0EA5E9", dash: "4 3",   shape: "square" },
+  { color: "#8B5CF6", dash: "0",     shape: "diamond" },
+  { color: "#F59E0B", dash: "6 3",   shape: "triangle" },
+  { color: "#10B981", dash: "0",     shape: "circle" },
+  { color: "#EF4444", dash: "3 3",   shape: "square" },
+  { color: "#EC4899", dash: "0",     shape: "diamond" },
+  { color: "#14B8A6", dash: "5 3",   shape: "triangle" },
+  { color: "#F97316", dash: "0",     shape: "circle" },
+  { color: "#6366F1", dash: "4 4",   shape: "square" },
+];
+
 function fmtTickDate(ts) {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "";
@@ -855,14 +906,24 @@ function fmtFullDate(ts) {
 function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
+  const indices = d.indices || {};
+  const indexEntries = Object.entries(indices);
   return (
     <div className="bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs max-w-xs">
       <div className="font-bold text-[#0A2540]">{d.date}</div>
-      <div className="mt-1">
-        <span className="text-gray-500">Score:</span>{" "}
-        <span className="font-mono font-bold">{d.score ?? "—"}</span>
-      </div>
-      {d.type && <div className="mt-0.5 text-gray-500 text-[10px]">{d.type}</div>}
+      {indexEntries.length > 0 ? (
+        <ul className="mt-1 space-y-0.5">
+          {indexEntries.map(([k, v]) => (
+            <li key={k} className="flex items-center gap-2">
+              <span className="text-gray-600">{v.type}:</span>
+              <span className="font-mono font-bold">{v.score ?? "—"}</span>
+              {v.interpretation && <span className="text-[10px] text-gray-500">{v.interpretation}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="text-gray-500 italic mt-1">Nessun punteggio</div>
+      )}
       {showTherapies && (
         <div className="mt-2 pt-2 border-t border-gray-100">
           <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1">

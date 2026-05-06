@@ -329,7 +329,33 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v28 - Copia dalla visita precedente + Iter diagnostico Eosinofilia)
+## Implemented (2026-05-06 - v29 - Multi-indice chart + Profili in alto + Quadro periferico SpA)
+- [x] **Grafico clinimetrie multi-linea**: il chart "Andamento nel tempo" ora
+  visualizza simultaneamente TUTTI gli indici clinimetrici del paziente con
+  linee distinte. Ogni indice ha colore + dash pattern + dot shape unici dalla
+  palette `INDEX_LINE_STYLE` (10 stili che ruotano: circle/square/diamond/triangle
+  con varianti di tratteggio e colore). Tooltip mostra contemporaneamente tutti
+  i punteggi della stessa visita. Chart wide format: chartData ha colonne
+  `score_{index_type}` per ogni indice + metadati. Il dropdown "Tutti gli indici"
+  funziona ancora per filtrare a un solo indice.
+- [x] **Profili clinici spostati in cima alla pagina paziente**: tutti i profili
+  malattia-specifici (RA, SpA/PsA, LES, AAV, Sjögren, Miositi, SSc) sono ora
+  renderizzati subito dopo l'intestazione paziente e i suggerimenti diagnostici,
+  prima di Therapy/Lab/Trend. Il "AavSummaryHeader" rimane in cima per le vasculiti.
+  Layout ora: Header + Suggerimenti + AavSummary + **PROFILI** + (SpaJointsPanel)
+  + Therapy + Exams + Reminders + Trend + History.
+- [x] **Pannello "Impegno periferico — Quadro articolare ed entesitico"**
+  (`SpaJointsPanel.jsx`): nuovo componente sempre visibile per pazienti SpA/PsA
+  con `peripheral_involvement=true`. Mostra side-by-side:
+  - Homunculus 66/68 (read-only) con l'ultimo stato articolare estratto dalla
+    più recente valutazione DAPSA/DAS28/CDAI/SDAI (marker tender/swollen reali);
+    contatori TJ totale e SJ totale + data e tipo della visita.
+  - EnthesisBodyChart LEI (read-only) con i siti dolenti dall'ultima LEI;
+    score LEI X/6 + interpretazione.
+  Se non ci sono assessment, mostra placeholder informativo con suggerimento di
+  creare una nuova valutazione DAPSA/LEI.
+
+
 - [x] **Copia dalla visita precedente** nei form compositi AR e SpA: banner
   informativo in cima al dialog (azzurro prima, verde dopo conferma) che indica
   la data dell'ultima valutazione composita disponibile e un bottone "Copia valori"
