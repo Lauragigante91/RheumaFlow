@@ -15,6 +15,7 @@ import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
   calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
   calcMRSS, calcSchober, calcCapillaroscopy, calcLEI,
+  haqCategoryScore,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
   interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
   interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR, interpretMRSS, interpretSchober, interpretCapillaroscopy,
@@ -437,28 +438,49 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
     case "haq":
       return (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Per ogni categoria, indica la massima difficoltà: 0 = nessuna, 1 = con qualche difficoltà, 2 = con molta difficoltà, 3 = impossibile.
-          </p>
-          {HAQ_CATEGORIES.map((cat) => (
-            <div key={cat.key} className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
-              <div className="flex-1 text-sm">{cat.label}</div>
-              <div className="flex gap-1">
-                {[0, 1, 2, 3].map((v) => (
-                  <Button
-                    key={v}
-                    variant={haqData[cat.key] === v ? "default" : "outline"}
-                    size="sm"
-                    className={`w-10 ${haqData[cat.key] === v ? "bg-[#0A2540] text-white" : ""}`}
-                    onClick={() => setHaqData((p) => ({ ...p, [cat.key]: v }))}
-                    data-testid={`haq-${cat.key}-${v}`}
-                  >
-                    {v}
-                  </Button>
-                ))}
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-900 leading-relaxed">
+            <strong>Health Assessment Questionnaire (HAQ)</strong> — Per ogni domanda, indica la risposta che meglio descrive la reale condizione <strong>riferita all'ultima settimana</strong>.
+            <br />
+            <span className="font-mono">0</span> = senza difficoltà · <span className="font-mono">1</span> = con qualche difficoltà · <span className="font-mono">2</span> = con molta difficoltà · <span className="font-mono">3</span> = no (impossibile).
+            <br />
+            Il punteggio di ogni categoria è il <strong>massimo</strong> degli item; il totale è la media delle 8 categorie.
+          </div>
+          {HAQ_CATEGORIES.map((cat) => {
+            const catScore = haqCategoryScore(cat, haqData);
+            return (
+              <div key={cat.key} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2">
+                  <div className="text-xs font-heading font-bold uppercase tracking-[0.12em] text-gray-700">
+                    {cat.label}
+                  </div>
+                  <div className="text-xs font-mono">
+                    Tot: <span className="font-bold text-[#0A2540]">{catScore}</span>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {cat.items.map((it) => (
+                    <div key={it.key} className="flex items-start justify-between gap-3 px-3 py-2.5">
+                      <div className="flex-1 text-sm text-gray-800">È in grado di: <span className="text-gray-900">{it.label}</span></div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {[0, 1, 2, 3].map((v) => (
+                          <Button
+                            key={v}
+                            variant={haqData[it.key] === v ? "default" : "outline"}
+                            size="sm"
+                            className={`w-10 ${haqData[it.key] === v ? "bg-[#0A2540] text-white hover:bg-[#051626]" : ""}`}
+                            onClick={() => setHaqData((p) => ({ ...p, [it.key]: v }))}
+                            data-testid={`haq-${it.key}-${v}`}
+                          >
+                            {v}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     case "pasi":

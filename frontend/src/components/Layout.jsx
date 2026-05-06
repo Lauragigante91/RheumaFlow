@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home, Database, FileJson, FileArchive, FlaskConical, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, Activity, FileCheck2, BookOpen, LogOut, User, Copy, Home, Database, FileJson, FileArchive, FileSpreadsheet, FlaskConical, ShieldCheck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator,
 } from "./ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "./ui/dialog";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
+import { Label } from "./ui/label";
 import { toast } from "sonner";
 import { exportApi, api } from "../lib/api";
 
@@ -22,11 +27,51 @@ const nav = [
 export default function Layout({ children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [cohortOpen, setCohortOpen] = useState(false);
+  const [cohortDiag, setCohortDiag] = useState("__ALL__");
+  const [diagnoses, setDiagnoses] = useState([]);
+  const [cohortLoading, setCohortLoading] = useState(false);
 
   const copyInvite = () => {
     if (user?.invite_code) {
       navigator.clipboard.writeText(user.invite_code);
       toast.success("Codice invito copiato");
+    }
+  };
+
+  const openCohortDialog = async () => {
+    setCohortOpen(true);
+    try {
+      const res = await api.get("/export/diagnoses");
+      setDiagnoses(res.data?.diagnoses || []);
+    } catch (e) {
+      setDiagnoses([]);
+    }
+  };
+
+  const downloadCohort = async () => {
+    setCohortLoading(true);
+    try {
+      const diag = cohortDiag && cohortDiag !== "__ALL__" ? cohortDiag : "";
+      const qs = diag ? `?diagnosis=${encodeURIComponent(diag)}` : "";
+      const res = await api.get(`/export/cohort-xlsx${qs}`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const filename =
+        res.headers["content-disposition"]?.match(/filename="([^"]+)"/)?.[1] ||
+        `coorte_${diag || "tutti"}.xlsx`;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      toast.success("Coorte esportata (Excel)");
+      setCohortOpen(false);
+    } catch (e) {
+      toast.error("Errore durante l'export della coorte");
+    } finally {
+      setCohortLoading(false);
     }
   };
 
@@ -135,6 +180,9 @@ export default function Layout({ children }) {
                   <DropdownMenuItem onClick={() => downloadExport("csv")} data-testid="export-csv-btn">
                     <FileArchive className="w-4 h-4 mr-2" /> Esporta CSV (ZIP)
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openCohortDialog} data-testid="export-cohort-btn">
+                    <FileSpreadsheet className="w-4 h-4 mr-2" /> Esporta coorte (Excel)
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600" data-testid="logout-btn">
                     <LogOut className="w-4 h-4 mr-2" /> Esci
@@ -185,6 +233,62 @@ export default function Layout({ children }) {
           )}
         </main>
       </div>
+
+      {/* Cohort export dialog */}
+      <Dialog open={cohortOpen} onOpenChange={setCohortOpen}>
+        <DialogContent className="max-w-md" data-testid="cohort-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-heading font-black tracking-tight">
+              Esporta coorte in Excel
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Scarica un file Excel con una riga per paziente e colonne pivotate
+              per visita (t1, t2, ...): anagrafica, profilo di malattia, punteggi
+              clinimetrici e terapie attive a ogni data. Fogli aggiuntivi:
+              <span className="font-semibold"> Terapie</span> e <span className="font-semibold">Valutazioni</span> in formato esteso.
+            </p>
+            <div>
+              <Label className="text-xs uppercase tracking-[0.15em] text-gray-600 mb-1.5 block">
+                Filtra per diagnosi
+              </Label>
+              <Select value={cohortDiag} onValueChange={setCohortDiag}>
+                <SelectTrigger data-testid="cohort-diagnosis-select">
+                  <SelectValue placeholder="Tutte le diagnosi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Tutte le diagnosi</SelectItem>
+                  {diagnoses.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cohortDiag && cohortDiag !== "__ALL__" && (
+                <div className="text-[11px] text-gray-500 italic mt-1.5">
+                  Match insensibile al case e "contains": es. "artrite reumatoide" include anche "Artrite reumatoide sieropositiva".
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCohortOpen(false)} disabled={cohortLoading}>
+              Annulla
+            </Button>
+            <Button
+              onClick={downloadCohort}
+              disabled={cohortLoading}
+              className="bg-[#0A2540] text-white hover:bg-[#051626]"
+              data-testid="cohort-download-btn"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              {cohortLoading ? "Esporto..." : "Scarica Excel"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

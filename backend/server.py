@@ -16,6 +16,8 @@ import json
 import csv
 import io
 import zipfile
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import StreamingResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -853,6 +855,340 @@ async def export_csv_zip(user: dict = Depends(get_current_user)):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+# ==================== COHORT EXPORT (XLSX) ====================
+def _therapies_active_on(therapies: List[dict], date_str: str) -> List[dict]:
+    """Return list of therapies active on a given ISO date (YYYY-MM-DD)."""
+    out = []
+    for t in therapies:
+        start = (t.get("start_date") or "")[:10]
+        end = (t.get("end_date") or "")[:10] or None
+        if start and start > date_str:
+            continue
+        if end and end < date_str:
+            continue
+        # If no start date, skip (can't reason about time)
+        if not start:
+            continue
+        out.append(t)
+    return out
+
+
+def _format_therapy(t: dict) -> str:
+    parts = [t.get("drug_name") or "?"]
+    if t.get("dose"):
+        parts.append(t["dose"])
+    if t.get("frequency"):
+        parts.append(t["frequency"])
+    if t.get("route"):
+        parts.append(t["route"])
+    return " ".join(parts)
+
+
+@api_router.get("/export/cohort-xlsx")
+async def export_cohort_xlsx(
+    diagnosis: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Export an Excel workbook where each row = 1 patient of the cohort
+    (optionally filtered by diagnosis, case-insensitive contains), with
+    demographics + disease profile + pivoted visits (t1, t2, ...) each
+    showing score per index + active therapies at that date.
+    """
+    org_id = user["organization_id"]
+
+    # 1) Patients (cohort filter)
+    patient_query: dict = {"organization_id": org_id}
+    if diagnosis and diagnosis.strip():
+        # Case-insensitive regex contains
+        safe = diagnosis.strip().replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        patient_query["diagnosi"] = {"$regex": safe, "$options": "i"}
+    patients = await db.patients.find(patient_query, {"_id": 0}).to_list(100000)
+    patient_ids = [p["id"] for p in patients]
+
+    # 2) Preload assessments + therapies + disease profiles for these patients
+    assess_by_pid: Dict[str, List[dict]] = {}
+    therap_by_pid: Dict[str, List[dict]] = {}
+    prof_by_pid: Dict[str, Dict[str, dict]] = {}  # patient_id -> disease_type -> profile doc
+    sclero_by_pid: Dict[str, dict] = {}
+
+    if patient_ids:
+        assess_docs = await db.assessments.find(
+            {"organization_id": org_id, "patient_id": {"$in": patient_ids}},
+            {"_id": 0},
+        ).to_list(1000000)
+        for a in assess_docs:
+            assess_by_pid.setdefault(a["patient_id"], []).append(a)
+
+        therap_docs = await db.therapies.find(
+            {"organization_id": org_id, "patient_id": {"$in": patient_ids}},
+            {"_id": 0},
+        ).to_list(1000000)
+        for t in therap_docs:
+            therap_by_pid.setdefault(t["patient_id"], []).append(t)
+
+        prof_docs = await db.disease_profiles.find(
+            {"organization_id": org_id, "patient_id": {"$in": patient_ids}},
+            {"_id": 0},
+        ).to_list(1000000)
+        for p in prof_docs:
+            prof_by_pid.setdefault(p["patient_id"], {})[p.get("disease_type", "unknown")] = p
+
+        sclero_docs = await db.sclero_profiles.find(
+            {"organization_id": org_id, "patient_id": {"$in": patient_ids}},
+            {"_id": 0},
+        ).to_list(1000000)
+        for s in sclero_docs:
+            sclero_by_pid[s["patient_id"]] = s
+
+    # 3) Determine max number of distinct visit dates across all patients
+    #    A "visit" = all assessments sharing the same date (first 10 chars).
+    visits_by_pid: Dict[str, List[dict]] = {}
+    max_visits = 0
+    for pid, alist in assess_by_pid.items():
+        by_date: Dict[str, List[dict]] = {}
+        for a in alist:
+            d = (a.get("date") or a.get("created_at") or "")[:10]
+            if not d:
+                continue
+            by_date.setdefault(d, []).append(a)
+        visits = [{"date": d, "assessments": ass} for d, ass in by_date.items()]
+        visits.sort(key=lambda v: v["date"])
+        visits_by_pid[pid] = visits
+        if len(visits) > max_visits:
+            max_visits = len(visits)
+
+    # Union of all index_types used, to build score columns
+    all_indices: List[str] = []
+    seen_idx = set()
+    for alist in assess_by_pid.values():
+        for a in alist:
+            it = a.get("index_type")
+            if it and it not in seen_idx:
+                seen_idx.add(it)
+                all_indices.append(it)
+    all_indices.sort()
+
+    # Pseudonymization mode
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0})
+    pseudo = bool((org or {}).get("pseudonymized_mode"))
+
+    # 4) Build workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Coorte"
+
+    # Header
+    cols: List[str] = ["codice_paziente"]
+    if not pseudo:
+        cols.extend(["cognome", "nome", "codice_fiscale", "data_nascita"])
+    cols.extend(["anno_nascita", "sesso", "diagnosi", "note", "n_visite"])
+
+    # Disease profile columns: flatten keys per disease type present in cohort
+    profile_cols: List[tuple] = []  # (disease_type, key)
+    profile_keys_seen: set = set()
+    for pid, prof_map in prof_by_pid.items():
+        for dtype, doc in prof_map.items():
+            data = doc.get("data") or {}
+            for k in data.keys():
+                tag = (dtype, k)
+                if tag not in profile_keys_seen:
+                    profile_keys_seen.add(tag)
+                    profile_cols.append(tag)
+    # Sclero keys
+    sclero_keys_seen: set = set()
+    sclero_cols: List[tuple] = []  # (section, key)
+    for pid, sdoc in sclero_by_pid.items():
+        for sec in ("cutaneous", "antibody", "vascular", "ild", "pah", "gi", "msk"):
+            section_data = sdoc.get(sec) or {}
+            if not isinstance(section_data, dict):
+                continue
+            for k in section_data.keys():
+                tag = (sec, k)
+                if tag not in sclero_keys_seen:
+                    sclero_keys_seen.add(tag)
+                    sclero_cols.append(tag)
+
+    for dtype, k in profile_cols:
+        cols.append(f"profilo_{dtype}__{k}")
+    for sec, k in sclero_cols:
+        cols.append(f"ssc_{sec}__{k}")
+
+    # Pivoted visit columns
+    for i in range(1, max_visits + 1):
+        cols.append(f"t{i}_data")
+        for idx in all_indices:
+            cols.append(f"t{i}_{idx}_score")
+        cols.append(f"t{i}_terapie_attive")
+
+    ws.append(cols)
+    # Style header
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    hfill = PatternFill("solid", fgColor="0A2540")
+    halign = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    for col_idx, _ in enumerate(cols, start=1):
+        c = ws.cell(row=1, column=col_idx)
+        c.font = hfont
+        c.fill = hfill
+        c.alignment = halign
+    ws.row_dimensions[1].height = 30
+    ws.freeze_panes = "A2"
+
+    # Data rows
+    for p in patients:
+        row: List[Any] = [p.get("codice_paziente") or ""]
+        if not pseudo:
+            row.extend([
+                p.get("cognome") or "",
+                p.get("nome") or "",
+                p.get("codice_fiscale") or "",
+                p.get("data_nascita") or "",
+            ])
+        row.extend([
+            p.get("anno_nascita") or "",
+            p.get("sesso") or "",
+            p.get("diagnosi") or "",
+            (p.get("note") or "").replace("\n", " "),
+            len(visits_by_pid.get(p["id"], [])),
+        ])
+        # Disease profiles
+        prof_map = prof_by_pid.get(p["id"], {})
+        for dtype, k in profile_cols:
+            doc = prof_map.get(dtype)
+            val = (doc or {}).get("data", {}).get(k) if doc else None
+            row.append(_cell(val))
+        # Sclero
+        sdoc = sclero_by_pid.get(p["id"])
+        for sec, k in sclero_cols:
+            val = None
+            if sdoc:
+                section_data = sdoc.get(sec) or {}
+                if isinstance(section_data, dict):
+                    val = section_data.get(k)
+            row.append(_cell(val))
+        # Visits
+        visits = visits_by_pid.get(p["id"], [])
+        all_ther = therap_by_pid.get(p["id"], [])
+        for i in range(max_visits):
+            if i < len(visits):
+                v = visits[i]
+                row.append(v["date"])
+                # scores per index
+                score_map = {}
+                for a in v["assessments"]:
+                    it = a.get("index_type")
+                    s = a.get("score")
+                    if it and s is not None and it not in score_map:
+                        score_map[it] = s
+                for idx in all_indices:
+                    row.append(score_map.get(idx, ""))
+                # therapies active at that date
+                active = _therapies_active_on(all_ther, v["date"])
+                row.append("; ".join(_format_therapy(t) for t in active) if active else "")
+            else:
+                row.append("")
+                for _ in all_indices:
+                    row.append("")
+                row.append("")
+        ws.append(row)
+
+    # Autosize columns (approximate)
+    for col_idx, name in enumerate(cols, start=1):
+        max_len = len(name)
+        letter = ws.cell(row=1, column=col_idx).column_letter
+        for r in range(2, ws.max_row + 1):
+            val = ws.cell(row=r, column=col_idx).value
+            if val is not None:
+                L = len(str(val))
+                if L > max_len:
+                    max_len = L
+        ws.column_dimensions[letter].width = min(max(max_len + 2, 12), 60)
+
+    # Second sheet: full therapies history (long format)
+    ws2 = wb.create_sheet("Terapie")
+    thcols = ["codice_paziente", "cognome", "nome", "diagnosi", "drug_name", "category",
+              "indication", "dose", "frequency", "route", "start_date", "end_date",
+              "status", "discontinuation_reason", "auto_discontinued", "notes", "created_by_name"]
+    if pseudo:
+        thcols = [c for c in thcols if c not in ("cognome", "nome")]
+    ws2.append(thcols)
+    for c_idx, _ in enumerate(thcols, start=1):
+        c = ws2.cell(row=1, column=c_idx)
+        c.font = hfont
+        c.fill = hfill
+    ws2.row_dimensions[1].height = 25
+    ws2.freeze_panes = "A2"
+    for p in patients:
+        for t in therap_by_pid.get(p["id"], []):
+            row = []
+            for k in thcols:
+                if k == "codice_paziente":
+                    row.append(p.get("codice_paziente") or "")
+                elif k in ("cognome", "nome", "diagnosi"):
+                    row.append(p.get(k) or "")
+                else:
+                    row.append(_cell(t.get(k)))
+            ws2.append(row)
+
+    # Third sheet: long-format assessments
+    ws3 = wb.create_sheet("Valutazioni")
+    ascols = ["codice_paziente", "cognome", "nome", "diagnosi", "date",
+              "index_type", "score", "interpretation",
+              "tender_count", "swollen_count", "created_by_name", "notes"]
+    if pseudo:
+        ascols = [c for c in ascols if c not in ("cognome", "nome")]
+    ws3.append(ascols)
+    for c_idx, _ in enumerate(ascols, start=1):
+        c = ws3.cell(row=1, column=c_idx)
+        c.font = hfont
+        c.fill = hfill
+    ws3.row_dimensions[1].height = 25
+    ws3.freeze_panes = "A2"
+    for p in patients:
+        for a in sorted(assess_by_pid.get(p["id"], []), key=lambda x: (x.get("date") or "")):
+            row = []
+            for k in ascols:
+                if k == "codice_paziente":
+                    row.append(p.get("codice_paziente") or "")
+                elif k in ("cognome", "nome", "diagnosi"):
+                    row.append(p.get(k) or "")
+                else:
+                    row.append(_cell(a.get(k)))
+            ws3.append(row)
+
+    # Serialize
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    diag_tag = (diagnosis or "all").strip().replace(" ", "_").replace("/", "_")[:30] or "all"
+    fname = f"coorte_{diag_tag}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+def _cell(val):
+    """Serialize a cell value safely for openpyxl."""
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "sì" if val else "no"
+    if isinstance(val, (dict, list)):
+        return json.dumps(val, ensure_ascii=False)
+    return val
+
+
+@api_router.get("/export/diagnoses")
+async def export_diagnoses(user: dict = Depends(get_current_user)):
+    """Return the distinct list of diagnoses present for the organization, to populate the cohort filter."""
+    org_id = user["organization_id"]
+    vals = await db.patients.distinct("diagnosi", {"organization_id": org_id})
+    clean = sorted({(v or "").strip() for v in vals if (v or "").strip()})
+    return {"diagnoses": clean}
 
 
 # ==================== AI VISIT PARSING ====================

@@ -137,19 +137,100 @@ export function interpretSLEDAI(score) {
 }
 
 // ============ HAQ ============
+// HAQ (Health Assessment Questionnaire) — versione italiana ufficiale.
+// 8 categorie, 20 item. Per ogni item: 0 = senza difficoltà, 1 = con qualche
+// difficoltà, 2 = con molta difficoltà, 3 = no (impossibile).
+// Punteggio categoria = MAX degli item della categoria. Punteggio totale = somma / 8.
 export const HAQ_CATEGORIES = [
-  { key: "vestirsi", label: "Vestirsi e curare la propria persona" },
-  { key: "alzarsi", label: "Alzarsi" },
-  { key: "mangiare", label: "Mangiare" },
-  { key: "camminare", label: "Camminare" },
-  { key: "igiene", label: "Igiene personale" },
-  { key: "raggiungere", label: "Raggiungere oggetti" },
-  { key: "prendere", label: "Prendere oggetti" },
-  { key: "attivita", label: "Attività" },
+  {
+    key: "vestirsi",
+    label: "Vestirsi e curare la propria persona",
+    items: [
+      { key: "vest_dress", label: "Vestirsi da solo, allacciarsi le scarpe e abbottonarsi gli abiti?" },
+      { key: "vest_hair", label: "Lavarsi i capelli?" },
+    ],
+  },
+  {
+    key: "alzarsi",
+    label: "Alzarsi",
+    items: [
+      { key: "alz_chair", label: "Alzarsi da una sedia senza braccioli?" },
+      { key: "alz_bed", label: "Salire e scendere dal letto?" },
+    ],
+  },
+  {
+    key: "mangiare",
+    label: "Mangiare",
+    items: [
+      { key: "mang_meat", label: "Tagliare la carne?" },
+      { key: "mang_cup", label: "Portare alla bocca un bicchiere o una tazza piena?" },
+      { key: "mang_milk", label: "Aprire una confezione di latte?" },
+    ],
+  },
+  {
+    key: "camminare",
+    label: "Camminare",
+    items: [
+      { key: "camm_flat", label: "Passeggiare su un terreno in piano?" },
+      { key: "camm_stairs", label: "Salire cinque gradini?" },
+    ],
+  },
+  {
+    key: "igiene",
+    label: "Igiene personale",
+    items: [
+      { key: "ig_wash", label: "Lavare ed asciugare tutto il corpo?" },
+      { key: "ig_bath", label: "Farsi un bagno nella vasca?" },
+      { key: "ig_wc", label: "Utilizzare i servizi igienici da solo?" },
+    ],
+  },
+  {
+    key: "raggiungere",
+    label: "Raggiungere oggetti",
+    items: [
+      { key: "ragg_up", label: "Raggiungere e prendere un oggetto del peso di circa due chili (per esempio un sacchetto di zucchero posto sopra la Sua testa)?" },
+      { key: "ragg_down", label: "Chinarsi per raccogliere un indumento caduto a terra?" },
+    ],
+  },
+  {
+    key: "prendere",
+    label: "Prensione",
+    items: [
+      { key: "pren_car_door", label: "Aprire la portiera della macchina?" },
+      { key: "pren_jar", label: "Aprire un barattolo già aperto in precedenza?" },
+      { key: "pren_tap", label: "Aprire e chiudere un rubinetto?" },
+    ],
+  },
+  {
+    key: "attivita",
+    label: "Attività",
+    items: [
+      { key: "att_shopping", label: "Fare delle commissioni e fare spesa?" },
+      { key: "att_car", label: "Salire e scendere dalla macchina?" },
+      { key: "att_chores", label: "Svolgere lavori quali passare l'aspirapolvere o pulire un cortile?" },
+    ],
+  },
 ];
-// Ogni categoria: valore 0-3 (max della categoria)
-export function calcHAQ(categories) {
-  const values = HAQ_CATEGORIES.map((c) => Number(categories[c.key]) || 0);
+
+// Estrae il punteggio della categoria dal dato salvato. Supporta entrambi i formati:
+// - nuovo: { "vest_dress": 2, "vest_hair": 1, ... }  → max degli item della categoria
+// - vecchio: { "vestirsi": 2, "alzarsi": 1, ... }    → valore diretto della categoria
+export function haqCategoryScore(cat, data) {
+  if (!data) return 0;
+  if (cat.items && cat.items.length) {
+    const vals = cat.items
+      .map((it) => data[it.key])
+      .filter((v) => v !== undefined && v !== null && v !== "")
+      .map((v) => Number(v) || 0);
+    if (vals.length > 0) return Math.max(...vals);
+  }
+  // Fallback vecchio formato
+  const direct = data[cat.key];
+  return Number(direct) || 0;
+}
+
+export function calcHAQ(data) {
+  const values = HAQ_CATEGORIES.map((c) => haqCategoryScore(c, data));
   const sum = values.reduce((a, b) => a + b, 0);
   return round2(sum / HAQ_CATEGORIES.length);
 }

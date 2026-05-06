@@ -329,6 +329,53 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
+## Implemented (2026-05-06 - v35 - HAQ italiano completo + Export coorte Excel)
+- [x] **HAQ (Health Assessment Questionnaire) ristrutturato** secondo la versione
+  italiana ufficiale con **20 item** raggruppati in 8 categorie, ognuno con la
+  frase completa del questionario (es. "È in grado di: Vestirsi da solo,
+  allacciarsi le scarpe e abbottonarsi gli abiti?", "Raggiungere e prendere un
+  oggetto del peso di circa due chili (per esempio un sacchetto di zucchero
+  posto sopra la Sua testa)?", "Svolgere lavori quali passare l'aspirapolvere
+  o pulire un cortile?" ecc). Categorie: Vestirsi e cura persona (2 item),
+  Alzarsi (2), Mangiare (3), Camminare (2), Igiene personale (3), Raggiungere
+  oggetti (2), Prensione (3), Attività (3). Scoring: punteggio categoria = MAX
+  degli item, totale = somma / 8. UI con "Tot: X" per ogni categoria visibile
+  in tempo reale. Banner informativo con legenda 0/1/2/3 e periodo di
+  riferimento "riferita all'ultima settimana". Helper `haqCategoryScore()`
+  retrocompatibile con il vecchio formato `{vestirsi:2,...}` oltre al nuovo
+  `{vest_dress:2, vest_hair:1,...}` — le vecchie valutazioni HAQ salvate
+  continuano a funzionare.
+- [x] **Esporta coorte (Excel)** — nuova funzionalità "database-ready" per
+  esportare tutte le visite di una coorte di pazienti in un file xlsx:
+  - Endpoint backend `GET /api/export/cohort-xlsx?diagnosis=...` con
+    **openpyxl**. 3 fogli:
+    * **Coorte** (pivot): 1 riga per paziente, colonne = anagrafica +
+      profilo di malattia flatten (es. `profilo_ra__rf_status`,
+      `profilo_ra__acpa_titer`, `profilo_aav__anca_pattern`,
+      `ssc_cutaneous__subset`) + per ogni visita temporale t1…tN:
+      `tN_data`, `tN_{index_type}_score` per ogni indice usato, `tN_terapie_attive`
+      (lista farmaci attivi a quella data con dose+frequenza+via).
+    * **Terapie** (formato esteso): una riga per terapia con tutti i campi.
+    * **Valutazioni** (formato esteso): una riga per assessment.
+    Filtraggio per diagnosi con regex case-insensitive contains (es.
+    "artrite reumatoide" cattura anche "Artrite reumatoide sieropositiva").
+    In modalità pseudonimizzata: cognome/nome/CF/data_nascita automaticamente
+    esclusi.
+  - Endpoint helper `GET /api/export/diagnoses`: lista distinct delle diagnosi
+    presenti, per popolare il select del dialog.
+  - Frontend: dialog "Esporta coorte in Excel" in sidebar → menu utente →
+    "BACKUP DATABASE" → "Esporta coorte (Excel)". Select con tutte le diagnosi
+    + opzione "Tutte le diagnosi". Download diretto del file xlsx con nome
+    `coorte_{diagnosi}_{timestamp}.xlsx`.
+  - Header Excel stilizzati (sfondo navy `#0A2540`, testo bianco, bold),
+    `freeze_panes="A2"`, auto-width delle colonne, conversione bool →
+    "sì"/"no", dict/list → JSON inline.
+  - Test e2e verificato: paziente AR con MTX (dal 15/01/2025) + Prednisone
+    (dal 10/01/2025 al 01/08/2025) + Adalimumab (dal 10/06/2025) e 6 visite
+    DAS28 → export corretto con t1-t6, scoring e terapie attive riconosciute
+    per data.
+- [x] **openpyxl 3.1.5** aggiunto alle dipendenze backend.
+
 ## Implemented (2026-05-06 - v34 - Drug interactions DB esteso + check tempo reale + AI iron fist)
 - [x] **Database interazioni farmacologiche esteso** (`drugInteractions.js`): da 21
   a **35 interazioni** clinicamente rilevanti. Aggiunte 14 nuove voci:
