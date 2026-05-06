@@ -1,22 +1,13 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { patientsApi, assessmentsApi, criteriaApi, therapiesApi, diseaseProfileApi, labExamsApi } from "../lib/api";
-import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "../components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import { ArrowLeft, Plus, Download, FileText, Trash2, ChevronDown, ChevronRight, Sparkles, FileCheck2, Edit, TrendingUp, ShieldCheck, Zap, FlaskConical, Stethoscope, QrCode } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentForm from "../components/AssessmentForm";
 import CompositeAssessmentDialog from "../components/CompositeAssessmentDialog";
@@ -34,17 +25,15 @@ import AavSummaryHeader from "../components/AavSummaryHeader";
 import SjogrenProfileSection from "../components/SjogrenProfileSection";
 import MyositisProfileSection from "../components/MyositisProfileSection";
 import SpaJointsPanel from "../components/SpaJointsPanel";
+import PatientHeader from "../components/PatientHeader";
+import TrendChartCard, { buildDrugColorMap } from "../components/TrendChartCard";
+import CriteriaHistorySection from "../components/CriteriaHistorySection";
 import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
-import VisitImportButton from "../components/VisitImportButton";
-import { INDEX_LABELS, INDEX_DISEASES, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
-import { categoryColor } from "../lib/drugs";
-import { exportPatientCSV, exportPatientPDF, exportCriteriaPDF } from "../lib/export";
+import { INDEX_LABELS, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 export default function PatientDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [patient, setPatient] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [criteriaEvals, setCriteriaEvals] = useState([]);
@@ -62,7 +51,7 @@ export default function PatientDetail() {
   const [proDialogOpen, setProDialogOpen] = useState(false);
   const [showTherapies, setShowTherapies] = useState(true);
   const [showAllIndices, setShowAllIndices] = useState(false);
-  const [compositeMode, setCompositeMode] = useState(null); // null | "ra" | "spa"
+  const [compositeMode, setCompositeMode] = useState(null);
   const [spaProfile, setSpaProfile] = useState(null);
 
   const load = useCallback(async () => {
@@ -76,7 +65,6 @@ export default function PatientDetail() {
     setTherapies(th);
     const lx = await labExamsApi.listByPatient(id).catch(() => []);
     setLabExams(lx);
-    // SpA profile (for axial_involvement flag → enables ASDAS/BASDAI/BASFI in PsA)
     if (p && isSpaDiagnosis(p.diagnosi)) {
       const sp = await diseaseProfileApi.get(id, "spa").catch(() => null);
       setSpaProfile(sp?.data || null);
@@ -86,7 +74,6 @@ export default function PatientDetail() {
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
-  // Diagnosi + flag assiale da profilo SpA per suggerire ASDAS/BASDAI/BASFI anche nell'AP con impegno assiale
   const suggestions = useMemo(() => {
     const base = suggestForDiagnosis(patient?.diagnosi);
     if (patient && isSpaDiagnosis(patient.diagnosi) && spaProfile?.axial_involvement) {
@@ -166,8 +153,7 @@ export default function PatientDetail() {
     return "";
   };
 
-  // Returns list of therapies active on a given ISO date
-  const therapiesActiveOn = (isoDate) => {
+  const therapiesActiveOn = useCallback((isoDate) => {
     if (!isoDate || !therapies || therapies.length === 0) return [];
     return therapies.filter((t) => {
       const start = t.start_date || null;
@@ -176,10 +162,9 @@ export default function PatientDetail() {
       if (end && isoDate > end) return false;
       return true;
     });
-  };
+  }, [therapies]);
 
   const chartData = useMemo(() => {
-    // Format wide: una riga per data visita, colonne per ogni indice presente.
     const filtered = selectedIndex === "all"
       ? assessments
       : assessments.filter((a) => a.index_type === selectedIndex);
@@ -197,7 +182,6 @@ export default function PatientDetail() {
         });
       }
       const row = byDate.get(k);
-      // `score_{index_type}` per Recharts dataKey, + metadata
       row[`score_${a.index_type}`] = a.score;
       row.indices[a.index_type] = { score: a.score, interpretation: a.interpretation, type: INDEX_LABELS[a.index_type] || a.index_type };
     }
@@ -207,9 +191,8 @@ export default function PatientDetail() {
         : row.therapies.map((t) => t.name + (t.dose ? ` ${t.dose}` : "")).join(", ");
     }
     return [...byDate.values()];
-  }, [assessments, selectedIndex, therapies]);
+  }, [assessments, selectedIndex, therapiesActiveOn]);
 
-  // Indici unici presenti nel chart corrente (per renderizzare una Line ciascuno)
   const chartIndexTypes = useMemo(() => {
     const set = new Set();
     for (const row of chartData) {
@@ -220,7 +203,6 @@ export default function PatientDetail() {
 
   const drugColorMap = useMemo(() => buildDrugColorMap(chartData), [chartData]);
 
-  // Time domain comune per chart e timeline terapie (allineati orizzontalmente)
   const timelineDomain = useMemo(() => {
     const tsList = [];
     chartData.forEach((d) => { if (d.rawDate) tsList.push(Date.parse(d.rawDate)); });
@@ -231,10 +213,8 @@ export default function PatientDetail() {
     if (tsList.length === 0) return null;
     let min = Math.min(...tsList);
     let max = Math.max(...tsList);
-    // Estendi a "oggi" se ci sono terapie attive
     const hasActive = therapies.some((t) => t.status === "active");
     if (hasActive) max = Math.max(max, Date.now());
-    // Padding ±2.5% per leggibilità
     const span = max - min || 86400000;
     return { min: min - span * 0.025, max: max + span * 0.025 };
   }, [chartData, therapies]);
@@ -273,14 +253,11 @@ export default function PatientDetail() {
     return result;
   }, [assessments, histFilterType, histDateFrom, histDateTo, histSort]);
 
-  // Determine the distinct index types present in the patient's history (or the
-  // single one selected via filter) — these become the columns of the table.
   const historyColumns = useMemo(() => {
     const set = new Set();
     for (const a of filteredAssessments) {
       if (a.index_type) set.add(a.index_type);
     }
-    // Stable, clinically-meaningful ordering: composite RA → SpA → PsA → others
     const order = [
       "das28_esr", "das28_crp", "cdai", "sdai", "dapsa",
       "basdai", "asdas_crp", "asdas_esr", "basfi", "basmi",
@@ -299,7 +276,6 @@ export default function PatientDetail() {
     });
   }, [filteredAssessments]);
 
-  // Group lab exams by date (first 10 chars) for fast lookup in history table
   const examsByDate = useMemo(() => {
     const m = new Map();
     for (const e of labExams) {
@@ -311,8 +287,6 @@ export default function PatientDetail() {
     return m;
   }, [labExams]);
 
-  // Group assessments by date for the new "synthesis-per-visit" history table.
-  // Each entry: { date, assessments[], therapies[], exams[], indexCount }
   const groupedHistory = useMemo(() => {
     const m = new Map();
     for (const a of filteredAssessments) {
@@ -332,7 +306,7 @@ export default function PatientDetail() {
       return (g2.date || "").localeCompare(g1.date || "");
     });
     return groups;
-  }, [filteredAssessments, therapies, examsByDate, histSort]);
+  }, [filteredAssessments, examsByDate, histSort, therapiesActiveOn]);
 
   if (!patient) {
     return <div className="p-10 text-gray-500">Caricamento...</div>;
@@ -340,215 +314,32 @@ export default function PatientDetail() {
 
   return (
     <div className="space-y-6 fade-in" data-testid="patient-detail-page">
-      <Link to="/pazienti" className="inline-flex items-center text-sm text-gray-600 hover:text-[#0A2540]">
-        <ArrowLeft className="w-4 h-4 mr-1" /> Torna ai pazienti
-      </Link>
-
-      {/* Patient header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-1">Paziente</div>
-          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter text-[#0A2540]">
-            {(patient.cognome || patient.nome) ? `${patient.cognome || ""} ${patient.nome || ""}`.trim() : (patient.codice_paziente || "Paziente")}
-          </h1>
-          <div className="mt-3 flex flex-wrap gap-6 text-sm text-gray-700">
-            {patient.codice_paziente && <Info label="Codice" value={patient.codice_paziente} />}
-            {patient.data_nascita && <Info label="Nato il" value={new Date(patient.data_nascita).toLocaleDateString("it-IT")} />}
-            {!patient.data_nascita && patient.anno_nascita && <Info label="Nato nel" value={String(patient.anno_nascita)} />}
-            {patient.sesso && <Info label="Sesso" value={patient.sesso} />}
-            {patient.codice_fiscale && <Info label="CF" value={patient.codice_fiscale} />}
-            {patient.diagnosi && <Info label="Diagnosi" value={patient.diagnosi} />}
-          </div>
-          {patient.note && (
-            <div className="mt-3 text-sm text-gray-600 max-w-3xl">
-              <span className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500">Note: </span>
-              {patient.note}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <VisitImportButton patient={patient} onImported={load} />
-          {(patient.nome || patient.cognome || patient.codice_fiscale || patient.data_nascita) && (
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (!window.confirm(
-                  "Conferma anonimizzazione?\n\nVerranno RIMOSSI definitivamente: nome, cognome, codice fiscale, data di nascita.\n\nResteranno: codice paziente, anno di nascita, sesso, diagnosi, tutti i dati clinici.\n\nOperazione NON reversibile."
-                )) return;
-                try {
-                  await patientsApi.anonymize(patient.id);
-                  await load();
-                  toast.success("Paziente anonimizzato");
-                } catch (e) {
-                  toast.error(e.response?.data?.detail || "Errore");
-                }
-              }}
-              className="border-amber-400 text-amber-700 hover:bg-amber-50"
-              data-testid="anonymize-btn"
-            >
-              <ShieldCheck className="w-4 h-4 mr-2" /> Anonimizza
-            </Button>
-          )}
-          <Link to={`/pazienti/${patient.id}/visita`}>
-            <Button variant="outline" className="border-violet-300 text-violet-700 hover:bg-violet-50" data-testid="quick-visit-btn">
-              <Stethoscope className="w-4 h-4 mr-2" /> Visita rapida
-            </Button>
-          </Link>
-          <Button
-            variant="outline"
-            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-            onClick={() => setProDialogOpen(true)}
-            data-testid="pro-qr-btn"
-          >
-            <QrCode className="w-4 h-4 mr-2" /> QR per il paziente
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="new-assessment-btn">
-                <Plus className="w-4 h-4 mr-2" /> Nuova valutazione <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 max-h-[80vh] overflow-y-auto">
-              {/* Form compositi: priorità massima per le diagnosi pertinenti */}
-              {(isRaDiagnosis(patient.diagnosi) || isSpaDiagnosis(patient.diagnosi)) && (
-                <>
-                  <DropdownMenuLabel className="flex items-center gap-1.5 text-amber-700">
-                    <Zap className="w-3.5 h-3.5" />
-                    Form unificati
-                  </DropdownMenuLabel>
-                  {isRaDiagnosis(patient.diagnosi) && (
-                    <DropdownMenuItem onClick={() => setCompositeMode("ra")} data-testid="new-composite-ra" className="bg-amber-50/60">
-                      <span className="font-medium">AR — DAS28-VES + DAS28-PCR + CDAI + SDAI</span>
-                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">4 in 1</span>
-                    </DropdownMenuItem>
-                  )}
-                  {isSpaDiagnosis(patient.diagnosi) && (
-                    <DropdownMenuItem onClick={() => setCompositeMode("psa")} data-testid="new-composite-psa" className="bg-amber-50/60">
-                      <span className="font-medium">AP — DAPSA + LEI + PASI</span>
-                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">3 in 1</span>
-                    </DropdownMenuItem>
-                  )}
-                  {(isSpaDiagnosis(patient.diagnosi)) && (
-                    <DropdownMenuItem onClick={() => setCompositeMode("spa")} data-testid="new-composite-spa" className="bg-amber-50/60">
-                      <span className="font-medium">SpA — BASDAI + ASDAS-PCR + BASFI</span>
-                      <span className="ml-auto text-[10px] text-amber-800 uppercase font-bold">3 in 1</span>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              {suggestions.indices.length > 0 && (
-                <>
-                  <DropdownMenuLabel className="flex items-center gap-1.5 text-[#0A2540]">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Consigliati per diagnosi
-                  </DropdownMenuLabel>
-                  {suggestions.indices.map((k) => (
-                    <DropdownMenuItem key={`sug-${k}`} onClick={() => startNew(k)} data-testid={`new-suggested-${k}`} className="bg-blue-50/50">
-                      <span className="font-medium">{INDEX_LABELS[k]}</span>
-                      <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={(e) => { e.preventDefault(); setShowAllIndices((v) => !v); }}
-                    className="text-xs text-gray-600 italic justify-center"
-                    data-testid="toggle-all-indices"
-                  >
-                    {showAllIndices ? "↑ Mostra solo i consigliati" : "↓ Mostra tutti gli indici (avanzato)"}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {(suggestions.indices.length === 0 || showAllIndices) && (
-                <>
-                  {suggestions.indices.length > 0 && <DropdownMenuSeparator />}
-                  <DropdownMenuLabel>Artrite Reumatoide</DropdownMenuLabel>
-                  {["das28_esr", "das28_crp", "cdai", "sdai"].map((k) => (
-                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                      {INDEX_LABELS[k]}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Spondiloartrite</DropdownMenuLabel>
-                  {["basdai", "asdas_crp", "basfi", "basmi", "schober", "lei"].map((k) => (
-                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                      {INDEX_LABELS[k]}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Sclerosi Sistemica</DropdownMenuLabel>
-                  {["mrss", "capillaroscopy"].map((k) => (
-                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                      {INDEX_LABELS[k]}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Altri</DropdownMenuLabel>
-                  {["dapsa", "sledai", "essdai", "esspri", "bvas", "mmt8", "fiqr", "haq", "pasi"].map((k) => (
-                    <DropdownMenuItem key={k} onClick={() => startNew(k)} data-testid={`new-${k}`}>
-                      {INDEX_LABELS[k]} <span className="ml-auto text-xs text-gray-500">{INDEX_DISEASES[k]}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" data-testid="export-btn">
-                <Download className="w-4 h-4 mr-2" /> Esporta <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Clinimetria</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => exportPatientPDF(patient, assessments)} data-testid="export-pdf">
-                <FileText className="w-4 h-4 mr-2" /> PDF clinimetria
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportPatientCSV(patient, assessments)} data-testid="export-csv">
-                <FileText className="w-4 h-4 mr-2" /> CSV clinimetria
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Criteri</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => exportCriteriaPDF(patient, criteriaEvals)}
-                disabled={criteriaEvals.length === 0}
-                data-testid="export-criteria-pdf"
-              >
-                <FileCheck2 className="w-4 h-4 mr-2" /> PDF criteri classificativi
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PatientHeader
+        patient={patient}
+        assessments={assessments}
+        criteriaEvals={criteriaEvals}
+        suggestions={suggestions}
+        showAllIndices={showAllIndices}
+        setShowAllIndices={setShowAllIndices}
+        onStartNew={startNew}
+        onSetCompositeMode={setCompositeMode}
+        onOpenPRO={() => setProDialogOpen(true)}
+        onLoad={load}
+      />
 
       {/* Vasculitis header summary (organs & diagnostic basis) */}
       {isAavDiagnosis(patient.diagnosi) && <AavSummaryHeader patient={patient} />}
 
-      {/* CLINICAL PROFILES — visualizzati subito dopo l'intestazione paziente */}
-      {/* Rheumatoid Arthritis profile */}
+      {/* CLINICAL PROFILES */}
       {isRaDiagnosis(patient.diagnosi) && <RaProfileSection patient={patient} />}
-
-      {/* Spondyloarthritis profile (incl. PsA) */}
       {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} onUpdated={(d) => setSpaProfile(d)} />}
-
-      {/* SLE profile */}
       {isSleDiagnosis(patient.diagnosi) && <SleProfileSection patient={patient} />}
-
-      {/* ANCA Vasculitis profile */}
       {isAavDiagnosis(patient.diagnosi) && <AavProfileSection patient={patient} />}
-
-      {/* Sjögren profile */}
       {isSjogrenDiagnosis(patient.diagnosi) && <SjogrenProfileSection patient={patient} />}
-
-      {/* Myositis profile */}
       {isMyositisDiagnosis(patient.diagnosi) && <MyositisProfileSection patient={patient} />}
-
-      {/* Scleroderma profile - only if SSc diagnosis */}
       {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
 
-      {/* SpA peripheral involvement: homunculus 66/68 + LEI body chart sempre visibili */}
+      {/* SpA peripheral involvement: homunculus 66/68 + LEI body chart */}
       {isSpaDiagnosis(patient.diagnosi) && spaProfile?.peripheral_involvement && (
         <SpaJointsPanel patient={patient} assessments={assessments} />
       )}
@@ -557,84 +348,17 @@ export default function PatientDetail() {
       <TherapySection patient={patient} />
 
       {/* Trend chart */}
-      <Card className="border-gray-200 shadow-sm p-6" data-testid="trend-card">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <h2 className="font-heading font-bold text-xl tracking-tight">Andamento nel tempo</h2>
-          <div className="flex items-center gap-3 flex-wrap">
-            <label className="flex items-center gap-2 text-xs select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showTherapies}
-                onChange={(e) => setShowTherapies(e.target.checked)}
-                className="w-4 h-4 accent-[#0A2540]"
-                data-testid="show-therapies-toggle"
-              />
-              <span className="font-medium text-gray-700">Mostra terapie</span>
-            </label>
-            <Select value={selectedIndex} onValueChange={setSelectedIndex}>
-              <SelectTrigger className="w-56" data-testid="trend-filter"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tutti gli indici</SelectItem>
-                {Object.entries(INDEX_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        {chartData.length === 0 ? (
-          <div className="h-64 flex items-center justify-center text-gray-500 border border-dashed border-gray-200 rounded-md">
-            Nessun dato per questo indice
-          </div>
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={Math.max(260, 220 + chartIndexTypes.length * 6)}>
-              <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  type="number"
-                  dataKey="ts"
-                  scale="time"
-                  domain={timelineDomain ? [timelineDomain.min, timelineDomain.max] : ["dataMin", "dataMax"]}
-                  tickFormatter={fmtTickDate}
-                  fontSize={11}
-                  stroke="#6B7280"
-                  height={28}
-                />
-                <YAxis fontSize={11} stroke="#6B7280" width={CHART_LEFT_AXIS_W} />
-                <Tooltip content={<TrendTooltip showTherapies={showTherapies} drugColorMap={drugColorMap} />} />
-                <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 11 }} />
-                {chartIndexTypes.map((idxType, i) => {
-                  const style = INDEX_LINE_STYLE[i % INDEX_LINE_STYLE.length];
-                  return (
-                    <Line
-                      key={idxType}
-                      type="monotone"
-                      dataKey={`score_${idxType}`}
-                      name={INDEX_LABELS[idxType] || idxType}
-                      stroke={style.color}
-                      strokeWidth={2}
-                      strokeDasharray={style.dash}
-                      dot={{ r: 4, fill: style.color, strokeWidth: 0, shape: style.shape }}
-                      activeDot={{ r: 6 }}
-                      connectNulls
-                    />
-                  );
-                })}
-              </LineChart>
-            </ResponsiveContainer>
-            {showTherapies && timelineDomain && (
-              <TherapyGantt
-                therapies={therapies}
-                domain={timelineDomain}
-                drugColorMap={drugColorMap}
-                leftAxisWidth={CHART_LEFT_AXIS_W}
-                rightMargin={24}
-              />
-            )}
-          </>
-        )}
-      </Card>
+      <TrendChartCard
+        chartData={chartData}
+        chartIndexTypes={chartIndexTypes}
+        drugColorMap={drugColorMap}
+        timelineDomain={timelineDomain}
+        therapies={therapies}
+        selectedIndex={selectedIndex}
+        setSelectedIndex={setSelectedIndex}
+        showTherapies={showTherapies}
+        setShowTherapies={setShowTherapies}
+      />
 
       {/* History table - grouped per visit date */}
       <Card className="border-gray-200 shadow-sm overflow-hidden" data-testid="assessment-history">
@@ -717,61 +441,16 @@ export default function PatientDetail() {
       </Card>
 
       {/* Criteria evaluations history */}
-      <Card className="border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
-          <h2 className="font-heading font-bold text-xl tracking-tight">Storico criteri classificativi</h2>
-          <Link to={`/criteri?paziente=${id}`}>
-            <Button variant="outline" size="sm" data-testid="goto-criteria-btn">
-              <FileCheck2 className="w-4 h-4 mr-2" /> Applica criteri
-            </Button>
-          </Link>
-        </div>
-        {criteriaEvals.length === 0 ? (
-          <div className="p-10 text-center text-gray-500" data-testid="empty-criteria">
-            Nessun criterio applicato. Vai a "Criteri" per valutare il paziente.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#F9FAFB] border-b border-gray-200">
-                <tr className="text-left">
-                  <Th>Data</Th>
-                  <Th>Criteri</Th>
-                  <Th>Sorgente</Th>
-                  <Th>Score</Th>
-                  <Th>Esito</Th>
-                  <Th className="text-right">Azioni</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {criteriaEvals.map((ce) => (
-                  <tr key={ce.id} className="border-b border-gray-100 hover:bg-gray-50" data-testid={`criteria-row-${ce.id}`}>
-                    <td className="px-4 py-3 font-medium">{new Date(ce.date).toLocaleDateString("it-IT")}</td>
-                    <td className="px-4 py-3">{ce.criteria_name}</td>
-                    <td className="px-4 py-3 text-gray-600">{ce.source}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-[#0A2540]">{ce.score} / ≥{ce.threshold}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={ce.meets ? "default" : "outline"} className={ce.meets ? "bg-green-700 hover:bg-green-700 text-white" : ""}>
-                        {ce.meets ? "Soddisfatti" : "Non raggiunti"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => removeCriteriaEval(ce.id)} data-testid={`delete-criteria-${ce.id}`}>
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <CriteriaHistorySection
+        patientId={id}
+        criteriaEvals={criteriaEvals}
+        onRemove={removeCriteriaEval}
+      />
 
-      {/* Reminders & richieste — in fondo, dopo storico criteri */}
+      {/* Reminders & richieste */}
       <RemindersSection patient={patient} />
 
-      {/* Lab exams modal — accessible from history rows or the "Esami di laboratorio" button */}
+      {/* Lab exams modal */}
       <ExamsDialog open={examsDialogOpen} onOpenChange={setExamsDialogOpen} patient={patient} />
 
       {/* PRO management dialog */}
@@ -806,260 +485,6 @@ export default function PatientDetail() {
         onClose={() => setCompositeMode(null)}
         onSaved={() => load()}
       />
-    </div>
-  );
-}
-
-const Th = ({ children, className = "" }) => (
-  <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-gray-500 ${className}`}>{children}</th>
-);
-
-const Info = ({ label, value }) => (
-  <div>
-    <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500">{label}</div>
-    <div className="font-medium">{value}</div>
-  </div>
-);
-
-
-// Category colors moved to /app/frontend/src/lib/drugs.js — imported above.
-
-// Palette per singolo farmaco (usata nel grafico/asse/tooltip/legenda)
-const DRUG_PALETTE = [
-  "#0A2540", "#0EA5E9", "#8B5CF6", "#F59E0B", "#10B981",
-  "#EF4444", "#EC4899", "#14B8A6", "#F97316", "#6366F1",
-  "#84CC16", "#06B6D4", "#D946EF", "#E11D48", "#65A30D",
-  "#7C3AED", "#0369A1", "#B45309",
-];
-
-// Deriva una mappa farmaco→colore stabile in base all'ordine di comparsa
-function buildDrugColorMap(chartData) {
-  const map = {};
-  let idx = 0;
-  (chartData || []).forEach((d) => {
-    (d.therapies || []).forEach((t) => {
-      const name = t.name;
-      if (name && !(name in map)) {
-        map[name] = DRUG_PALETTE[idx % DRUG_PALETTE.length];
-        idx += 1;
-      }
-    });
-  });
-  return map;
-}
-
-// Costanti chart
-const CHART_LEFT_AXIS_W = 60;
-
-// Palette colori + dash patterns + shapes per le linee dei diversi indici clinimetrici
-const INDEX_LINE_STYLE = [
-  { color: "#0A2540", dash: "0",     shape: "circle" },
-  { color: "#0EA5E9", dash: "4 3",   shape: "square" },
-  { color: "#8B5CF6", dash: "0",     shape: "diamond" },
-  { color: "#F59E0B", dash: "6 3",   shape: "triangle" },
-  { color: "#10B981", dash: "0",     shape: "circle" },
-  { color: "#EF4444", dash: "3 3",   shape: "square" },
-  { color: "#EC4899", dash: "0",     shape: "diamond" },
-  { color: "#14B8A6", dash: "5 3",   shape: "triangle" },
-  { color: "#F97316", dash: "0",     shape: "circle" },
-  { color: "#6366F1", dash: "4 4",   shape: "square" },
-];
-
-function fmtTickDate(ts) {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return "";
-  // gg/mm/aa breve
-  return d.toLocaleDateString("it-IT", { month: "2-digit", year: "2-digit", day: "2-digit" });
-}
-
-function fmtFullDate(ts) {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("it-IT");
-}
-
-function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
-  if (!active || !payload || payload.length === 0) return null;
-  const d = payload[0].payload;
-  const indices = d.indices || {};
-  const indexEntries = Object.entries(indices);
-  return (
-    <div className="bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs max-w-xs">
-      <div className="font-bold text-[#0A2540]">{d.date}</div>
-      {indexEntries.length > 0 ? (
-        <ul className="mt-1 space-y-0.5">
-          {indexEntries.map(([k, v]) => (
-            <li key={k} className="flex items-center gap-2">
-              <span className="text-gray-600">{v.type}:</span>
-              <span className="font-mono font-bold">{v.score ?? "—"}</span>
-              {v.interpretation && <span className="text-[10px] text-gray-500">{v.interpretation}</span>}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-gray-500 italic mt-1">Nessun punteggio</div>
-      )}
-      {showTherapies && (
-        <div className="mt-2 pt-2 border-t border-gray-100">
-          <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1">
-            Terapia in corso
-          </div>
-          {d.therapies && d.therapies.length > 0 ? (
-            <ul className="space-y-0.5">
-              {d.therapies.map((t, i) => (
-                <li key={i} className="flex items-center gap-1.5">
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: (drugColorMap && drugColorMap[t.name]) || "#6B7280" }}
-                  />
-                  <span className="font-medium">{t.name}</span>
-                  {t.dose && <span className="text-gray-500">{t.dose}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span className="italic text-gray-400">{d.therapyLabel}</span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============ Gantt-style timeline of therapies ============
-// Rendered immediately below the line chart, sharing the same horizontal time domain.
-function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMargin }) {
-  const [hover, setHover] = useState(null); // {therapy, x, y}
-
-  // Sort by start_date ascending; group overlapping therapies into stacked rows
-  const rows = useMemo(() => {
-    const ts = (s) => Date.parse(s);
-    const valid = (therapies || []).filter((t) => t.drug_name && t.start_date);
-    return [...valid].sort((a, b) => ts(a.start_date) - ts(b.start_date));
-  }, [therapies]);
-
-  if (rows.length === 0) {
-    return (
-      <div
-        className="text-[11px] text-gray-500 italic mt-2"
-        style={{ paddingLeft: leftAxisWidth + 4 }}
-      >
-        Nessuna terapia registrata.
-      </div>
-    );
-  }
-
-  const ROW_H = 22;
-  const ROW_GAP = 2;
-  const HEADER_H = 18;
-  const totalH = HEADER_H + rows.length * (ROW_H + ROW_GAP) + 4;
-  const span = domain.max - domain.min;
-  const pct = (ts) => Math.max(0, Math.min(100, ((ts - domain.min) / span) * 100));
-
-  const today = Date.now();
-
-  return (
-    <div className="mt-1 select-none" data-testid="therapy-gantt">
-      {/* Header label row */}
-      <div className="flex items-center" style={{ paddingLeft: leftAxisWidth, paddingRight: rightMargin }}>
-        <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">
-          Linea del tempo terapie
-        </div>
-      </div>
-      <div
-        className="relative"
-        style={{ height: totalH, paddingLeft: leftAxisWidth, paddingRight: rightMargin }}
-      >
-        {/* Plot area background with light grid (vertical lines reuse chart's grid spacing pattern) */}
-        <div className="absolute inset-y-0 border-l border-r border-gray-100 bg-gray-50/40" style={{ left: leftAxisWidth, right: rightMargin }}>
-          {/* "Today" marker */}
-          {today >= domain.min && today <= domain.max && (
-            <div
-              className="absolute top-0 bottom-0 border-l border-dashed border-gray-400"
-              style={{ left: `${pct(today)}%` }}
-              title="Oggi"
-            />
-          )}
-        </div>
-
-        {/* Therapy bars */}
-        {rows.map((t, idx) => {
-          const startTs = Date.parse(t.start_date);
-          const endTs = t.end_date ? Date.parse(t.end_date) : today;
-          const left = pct(startTs);
-          const width = Math.max(0.4, pct(endTs) - left);
-          const color = drugColorMap?.[t.drug_name] || "#6B7280";
-          const isActive = t.status === "active";
-          const top = HEADER_H + idx * (ROW_H + ROW_GAP);
-          const drugLabel = `${t.drug_name}${t.dose ? ` ${t.dose}` : ""}`;
-          return (
-            <React.Fragment key={t.id || idx}>
-              {/* Drug name on the left, fixed-width label */}
-              <div
-                className="absolute text-[11px] font-medium text-gray-700 truncate text-right pr-2"
-                style={{
-                  left: 0,
-                  top: top + (ROW_H - 14) / 2,
-                  height: 14,
-                  width: leftAxisWidth - 4,
-                }}
-                title={drugLabel}
-              >
-                <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: color }} />
-                {t.drug_name}
-              </div>
-              {/* Bar */}
-              <div
-                className="absolute rounded-sm border cursor-pointer"
-                style={{
-                  left: `calc(${leftAxisWidth}px + (100% - ${leftAxisWidth + rightMargin}px) * ${left / 100})`,
-                  width: `calc((100% - ${leftAxisWidth + rightMargin}px) * ${width / 100})`,
-                  top: top,
-                  height: ROW_H,
-                  background: color,
-                  borderColor: color,
-                  opacity: isActive ? 1 : 0.65,
-                }}
-                data-testid={`gantt-bar-${t.id || idx}`}
-                onMouseEnter={(e) => setHover({ t, x: e.clientX, y: e.clientY })}
-                onMouseMove={(e) => setHover({ t, x: e.clientX, y: e.clientY })}
-                onMouseLeave={() => setHover(null)}
-              >
-                {width > 6 && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white px-1.5 truncate">
-                    {drugLabel}
-                  </span>
-                )}
-                {!isActive && (
-                  <span className="absolute -right-1 top-0 bottom-0 w-1 bg-gray-700 rounded-r-sm" title="Sospesa" />
-                )}
-              </div>
-            </React.Fragment>
-          );
-        })}
-      </div>
-
-      {/* Floating tooltip */}
-      {hover && (
-        <div
-          className="fixed z-50 pointer-events-none bg-white border border-gray-200 rounded-md shadow-lg p-2 text-xs max-w-xs"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
-        >
-          <div className="font-bold text-[#0A2540]">{hover.t.drug_name}{hover.t.dose ? ` · ${hover.t.dose}` : ""}</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
-            {hover.t.category}
-            {hover.t.frequency ? ` · ${hover.t.frequency}` : ""}
-          </div>
-          <div className="mt-1 text-gray-700">
-            {fmtFullDate(Date.parse(hover.t.start_date))} → {hover.t.end_date ? fmtFullDate(Date.parse(hover.t.end_date)) : "in corso"}
-          </div>
-          {hover.t.status !== "active" && (
-            <div className="text-[10px] text-amber-700 italic mt-0.5">
-              Sospesa{hover.t.discontinuation_reason ? ` — ${hover.t.discontinuation_reason}` : hover.t.auto_discontinued ? " automaticamente (nuovo biologico)" : ""}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

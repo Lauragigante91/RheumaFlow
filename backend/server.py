@@ -418,39 +418,9 @@ async def register(payload: RegisterRequest, response: Response):
     }
 
 
-@api_router.post("/auth/demo")
-async def login_demo(response: Response):
-    """
-    One-click demo: creates a fresh isolated organization with 3 pre-populated
-    patients (RA, SpA, SLE) with assessments and therapies, and signs the user
-    in immediately. Each call creates a NEW demo org (so multiple users can
-    explore in parallel).
-    """
-    import secrets
-    suffix = secrets.token_hex(4)  # 8 lowercase hex chars; cryptographically strong
-    org = Organization(name=f"Demo UO {suffix}")
-    await db.organizations.insert_one(org.model_dump())
-
-    user_id = str(uuid.uuid4())
-    email = f"demo-{suffix}@clinimetria.demo"
-    user_doc = {
-        "id": user_id,
-        "email": email,
-        "name": "Utente Demo",
-        "password_hash": hash_password(f"demo-{suffix}"),
-        "role": "admin",
-        "organization_id": org.id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "is_demo": True,
-    }
-    await db.users.insert_one(user_doc)
-
-    # Seed 3 demo patients with realistic timelines
-    today = datetime.now(timezone.utc).date()
-    def days_ago(n: int) -> str:
-        return (today - timedelta(days=n)).isoformat()
-
-    seed_patients = [
+def _build_demo_seed_patients(days_ago) -> list:
+    """Returns the 3 demo patients (RA, SpA, SLE) with realistic longitudinal data."""
+    return [
         {
             "codice_paziente": "DEMO-AR-01",
             "cognome": "Bianchi", "nome": "Maria",
@@ -508,49 +478,70 @@ async def login_demo(response: Response):
         },
     ]
 
-    for p_seed in seed_patients:
-        p_id = str(uuid.uuid4())
-        await db.patients.insert_one({
-            "id": p_id,
-            "organization_id": org.id,
-            "codice_paziente": p_seed["codice_paziente"],
-            "cognome": p_seed["cognome"], "nome": p_seed["nome"],
-            "anno_nascita": p_seed["anno_nascita"], "sesso": p_seed["sesso"],
-            "diagnosi": p_seed["diagnosi"], "note": p_seed["note"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "created_by": user_id, "created_by_name": "Utente Demo",
+
+async def _insert_demo_patient(p_seed: dict, org_id: str, user_id: str) -> None:
+    """Inserts one demo patient with its assessments and therapies."""
+    p_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    audit = {"created_at": now_iso, "created_by": user_id, "created_by_name": "Utente Demo"}
+
+    await db.patients.insert_one({
+        "id": p_id, "organization_id": org_id,
+        "codice_paziente": p_seed["codice_paziente"],
+        "cognome": p_seed["cognome"], "nome": p_seed["nome"],
+        "anno_nascita": p_seed["anno_nascita"], "sesso": p_seed["sesso"],
+        "diagnosi": p_seed["diagnosi"], "note": p_seed["note"],
+        **audit,
+    })
+    for a in p_seed["assessments"]:
+        await db.assessments.insert_one({
+            "id": str(uuid.uuid4()), "patient_id": p_id, "organization_id": org_id,
+            "index_type": a["index_type"], "date": a["date"], "score": a["score"],
+            "interpretation": a.get("interpretation"),
+            "tender_joints": [f"j{i}" for i in range(a.get("tender", 0))],
+            "swollen_joints": [f"j{i}" for i in range(a.get("swollen", 0))],
+            "inputs": {}, **audit,
         })
-        for a in p_seed["assessments"]:
-            doc = {
-                "id": str(uuid.uuid4()),
-                "patient_id": p_id,
-                "organization_id": org.id,
-                "index_type": a["index_type"],
-                "date": a["date"],
-                "score": a["score"],
-                "interpretation": a.get("interpretation"),
-                "tender_joints": [f"j{i}" for i in range(a.get("tender", 0))],
-                "swollen_joints": [f"j{i}" for i in range(a.get("swollen", 0))],
-                "inputs": {},
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "created_by": user_id,
-                "created_by_name": "Utente Demo",
-            }
-            await db.assessments.insert_one(doc)
-        for t in p_seed["therapies"]:
-            doc = {
-                "id": str(uuid.uuid4()),
-                "patient_id": p_id,
-                "organization_id": org.id,
-                "drug_name": t["drug_name"], "category": t["category"],
-                "dose": t.get("dose"), "frequency": t.get("frequency"), "route": t.get("route"),
-                "start_date": t["start_date"], "end_date": t.get("end_date"),
-                "status": t["status"],
-                "indication": p_seed["diagnosi"],
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "created_by": user_id, "created_by_name": "Utente Demo",
-            }
-            await db.therapies.insert_one(doc)
+    for t in p_seed["therapies"]:
+        await db.therapies.insert_one({
+            "id": str(uuid.uuid4()), "patient_id": p_id, "organization_id": org_id,
+            "drug_name": t["drug_name"], "category": t["category"],
+            "dose": t.get("dose"), "frequency": t.get("frequency"), "route": t.get("route"),
+            "start_date": t["start_date"], "end_date": t.get("end_date"),
+            "status": t["status"], "indication": p_seed["diagnosi"],
+            **audit,
+        })
+
+
+@api_router.post("/auth/demo")
+async def login_demo(response: Response):
+    """
+    One-click demo: creates a fresh isolated organization with 3 pre-populated
+    patients (RA, SpA, SLE) with assessments and therapies, and signs the user
+    in immediately. Each call creates a NEW demo org (so multiple users can
+    explore in parallel).
+    """
+    import secrets
+    suffix = secrets.token_hex(4)  # 8 lowercase hex chars; cryptographically strong
+    org = Organization(name=f"Demo UO {suffix}")
+    await db.organizations.insert_one(org.model_dump())
+
+    user_id = str(uuid.uuid4())
+    email = f"demo-{suffix}@clinimetria.demo"
+    await db.users.insert_one({
+        "id": user_id, "email": email, "name": "Utente Demo",
+        "password_hash": hash_password(f"demo-{suffix}"),
+        "role": "admin", "organization_id": org.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_demo": True,
+    })
+
+    today = datetime.now(timezone.utc).date()
+    def days_ago(n: int) -> str:
+        return (today - timedelta(days=n)).isoformat()
+
+    for p_seed in _build_demo_seed_patients(days_ago):
+        await _insert_demo_patient(p_seed, org.id, user_id)
 
     access = create_access_token(user_id, email, org.id)
     refresh = create_refresh_token(user_id)
@@ -1806,6 +1797,88 @@ Linee guida operative:
 - Output: SOLO JSON puro. Inizia con { e finisci con }. Niente altro."""
 
 
+def _resolve_lab_file_mime(content_type: str, fname: str) -> tuple:
+    """Return (mime, ext) tuple for supported lab file types, or raise 400."""
+    ct = (content_type or "").lower()
+    fn = fname.lower()
+    if ct == "application/pdf" or fn.endswith(".pdf"):
+        return "application/pdf", ".pdf"
+    if ct in ("image/jpeg", "image/jpg") or fn.endswith((".jpg", ".jpeg")):
+        return "image/jpeg", ".jpg"
+    if ct == "image/png" or fn.endswith(".png"):
+        return "image/png", ".png"
+    if ct == "image/webp" or fn.endswith(".webp"):
+        return "image/webp", ".webp"
+    raise HTTPException(
+        status_code=400,
+        detail="Formato non supportato. Carica PDF, JPEG, PNG o WEBP.",
+    )
+
+
+async def _gemini_extract_lab(tmp_path: str, mime: str) -> dict:
+    """Send the lab file to Gemini 2.5 Pro and return the parsed JSON dict."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
+
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=f"lab-{uuid.uuid4()}",
+        system_message=LAB_PARSING_PROMPT,
+    ).with_model("gemini", "gemini-2.5-pro")
+
+    attachment = FileContentWithMimeType(file_path=tmp_path, mime_type=mime)
+    user_message = UserMessage(
+        text=(
+            "Estrai i valori di laboratorio da questo referto secondo lo schema "
+            "indicato nel system prompt. Restituisci SOLO JSON valido."
+        ),
+        file_contents=[attachment],
+    )
+
+    try:
+        response = await chat.send_message(user_message)
+    except Exception as e:
+        logger.exception("Lab AI parse error")
+        raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
+
+    raw = (response or "").strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
+    if "{" in raw and "}" in raw:
+        raw = raw[raw.index("{") : raw.rindex("}") + 1]
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Risposta AI non valida: {e}")
+
+
+def _reorganize_lab_values(values: dict) -> tuple:
+    """Reorganize "panel__test" flat keys into nested {panel: {test_key: val}}.
+
+    Returns (reorganized_dict, unmatched_keys_list).
+    """
+    reorganized: Dict[str, Dict[str, Any]] = {}
+    unmatched: List[str] = []
+    for key, val in (values or {}).items():
+        if "__" not in key:
+            unmatched.append(key)
+            continue
+        panel, test_key = key.split("__", 1)
+        if panel not in LAB_SCHEMA_KEYS_BY_PANEL:
+            unmatched.append(key)
+            continue
+        if test_key not in LAB_SCHEMA_KEYS_BY_PANEL[panel]:
+            unmatched.append(key)
+            continue
+        reorganized.setdefault(panel, {})[test_key] = val
+    return reorganized, unmatched
+
+
 @api_router.post("/ai/parse-lab")
 async def parse_lab_file(
     file: UploadFile = File(...),
@@ -1819,98 +1892,23 @@ async def parse_lab_file(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File non valido")
 
-    content_type = (file.content_type or "").lower()
-    fname = file.filename.lower()
+    mime, ext = _resolve_lab_file_mime(file.content_type or "", file.filename)
 
-    # Determine MIME and extension
-    if content_type == "application/pdf" or fname.endswith(".pdf"):
-        mime = "application/pdf"
-        ext = ".pdf"
-    elif content_type in ("image/jpeg", "image/jpg") or fname.endswith((".jpg", ".jpeg")):
-        mime = "image/jpeg"
-        ext = ".jpg"
-    elif content_type == "image/png" or fname.endswith(".png"):
-        mime = "image/png"
-        ext = ".png"
-    elif content_type == "image/webp" or fname.endswith(".webp"):
-        mime = "image/webp"
-        ext = ".webp"
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Formato non supportato. Carica PDF, JPEG, PNG o WEBP.",
-        )
-
-    # Persist to a temp file (emergentintegrations expects a file path)
-    import tempfile
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="File vuoto")
     if len(contents) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File troppo grande (max 15 MB)")
 
+    # Persist to a temp file (emergentintegrations expects a file path)
+    import tempfile
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
 
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
-
-        api_key = os.environ.get("EMERGENT_LLM_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
-
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"lab-{uuid.uuid4()}",
-            system_message=LAB_PARSING_PROMPT,
-        ).with_model("gemini", "gemini-2.5-pro")
-
-        attachment = FileContentWithMimeType(file_path=tmp_path, mime_type=mime)
-        user_message = UserMessage(
-            text=(
-                "Estrai i valori di laboratorio da questo referto secondo lo schema "
-                "indicato nel system prompt. Restituisci SOLO JSON valido."
-            ),
-            file_contents=[attachment],
-        )
-
-        try:
-            response = await chat.send_message(user_message)
-        except Exception as e:
-            logger.exception("Lab AI parse error")
-            raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
-
-        raw = (response or "").strip()
-        if raw.startswith("```"):
-            raw = raw.strip("`")
-            if raw.lower().startswith("json"):
-                raw = raw[4:].lstrip()
-        if "{" in raw and "}" in raw:
-            raw = raw[raw.index("{") : raw.rindex("}") + 1]
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=502, detail=f"Risposta AI non valida: {e}")
-
-        # Reorganize values: split keys "panel__test" into nested structure that
-        # matches the existing UI (panel -> {test_key: {value, unit, qualitative}}).
-        values = data.get("values") or {}
-        reorganized: Dict[str, Dict[str, Any]] = {}
-        unmatched: List[str] = []
-        for key, val in values.items():
-            if "__" not in key:
-                unmatched.append(key)
-                continue
-            panel, test_key = key.split("__", 1)
-            if panel not in LAB_SCHEMA_KEYS_BY_PANEL:
-                unmatched.append(key)
-                continue
-            if test_key not in LAB_SCHEMA_KEYS_BY_PANEL[panel]:
-                unmatched.append(key)
-                continue
-            reorganized.setdefault(panel, {})[test_key] = val
-
+        data = await _gemini_extract_lab(tmp_path, mime)
+        reorganized, unmatched = _reorganize_lab_values(data.get("values") or {})
         return {
             "date": data.get("date"),
             "panels": reorganized,

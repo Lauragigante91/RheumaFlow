@@ -1,0 +1,35 @@
+{
+  "summary": "Regression test PASSED after login_demo/parse_lab_file backend refactor and PatientDetail frontend split (PatientHeader/TrendChartCard/CriteriaHistorySection). Backend: 9/9 pytest cases green (demo auth + cookies + 3 demo patients + assessments/therapies + admin /auth/me + PRO QR BASDAI q1..q6=5 -> 5.0 + export diagnoses + cohort-xlsx smoke). Frontend: both admin and demo flows land on /pazienti and render the refactored patient detail page without console errors; New Assessment dropdown (composite RA/PsA/SpA + suggested + full indices) and QR per il paziente dialog open correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_regression.py",
+    "/app/test_reports/pytest/refactor_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor observation: POST /api/auth/demo response includes is_demo=true, but GET /api/auth/me does NOT surface is_demo. If the frontend relies on is_demo for UI gating after a refresh, it must read the flag from the user document via /auth/me. Current /auth/me (server.py:583) returns id/email/name/role/organization_id/organization_name/invite_code/pseudonymized_mode only — no is_demo. Consider adding is_demo to /auth/me for consistency.",
+    "The review spec said demo GET /api/patients should return IDs 'DEMO-AR-01/SPA-02/SLE-03', but those values live in codice_paziente; Patient.id is a uuid4. Not a bug — just a naming mismatch in the spec. Tests validated via codice_paziente and all three codes present.",
+    "Defensive note: _insert_demo_patient loops synchronously over assessments/therapies with sequential awaits. For 3 patients x ~5 docs this is fine; if demo grows, consider asyncio.gather or bulk inserts."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_regression.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (admin flow + demo flow, all PatientHeader/TrendChartCard/CriteriaHistorySection bindings render)"
+  },
+  "test_credentials": "admin@clinimetria.it / admin123 (from /app/memory/test_credentials.md). Demo users are auto-provisioned per /auth/demo call.",
+  "seed_data_creation": "Each /auth/demo call creates a fresh 'Demo UO <hex>' organization with 3 patients (DEMO-AR-01 Bianchi, DEMO-SPA-02 Rossi, DEMO-SLE-03 Verdi) + their seeded assessments/therapies. These demo orgs accumulate — consider a periodic cleanup of orgs whose name starts with 'Demo UO '. TestPROFlow creates one TEST_REF_* patient in the admin org and deletes it in the finally block.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The refactor is behaviorally clean. Regression harness lives at /app/backend/tests/test_refactor_regression.py and can be re-run with `pytest backend/tests/test_refactor_regression.py -v`. Earlier BASDAI/BASFI fix coverage remains at /app/backend/tests/test_pro_basdai_basfi_regression.py. Frontend entry points: /app/frontend/src/pages/PatientDetail.jsx (now 490 LOC) composes PatientHeader + TrendChartCard + CriteriaHistorySection — data-testids preserved. For demo-flow verification, use patient-row-<uuid> testids (rows are <div> not <a>). Patient codes like DEMO-AR-01 map to codice_paziente, not id. Parse_lab_file helpers were not exercised end-to-end (would need an AI key + lab file upload); signatures unchanged and the API route /api/ai/parse-lab still registered.",
+  "rca of the issue": "N/A — no regression. Behavioral parity confirmed across the refactored surface."
+}
