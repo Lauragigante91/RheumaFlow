@@ -329,7 +329,58 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v33 - Fix criteri Emocromatosi secondo Tabella 1 ufficiale)
+## Implemented (2026-05-06 - v34 - Drug interactions DB esteso + check tempo reale + AI iron fist)
+- [x] **Database interazioni farmacologiche esteso** (`drugInteractions.js`): da 21
+  a **35 interazioni** clinicamente rilevanti. Aggiunte 14 nuove voci:
+  - Cotrimoxazolo + Warfarin (maggiore)
+  - Biologici/JAKi - Screening TBC latente obbligatorio (maggiore, "any")
+  - MTX + Probenecid (maggiore)
+  - JAKi + Induttori CYP3A4 (rifampicina) (moderata)
+  - Sulfasalazina + Azatioprina/6-MP (moderata)
+  - Glucocorticoidi - Vaccini vivi ≥20mg/die (maggiore)
+  - MMF + Sali di ferro (minore)
+  - Idrossiclorochina + Digossina (moderata)
+  - Denosumab + Immunosoppressori (ONJ + infezioni) (moderata)
+  - Anti-IL-6 + substrati CYP3A4/CYP2C9 (moderata)
+  - Abatacept + TNFi (ATTAIN/ASSURE) (maggiore)
+  - Anifrolumab - Vaccini vivi e HZ (maggiore)
+  - Tofacitinib + Contraccettivi orali (minore)
+  - Baricitinib + Probenecid (moderata)
+  - Tofacitinib + Inibitori CYP3A4 (moderata)
+  - Anti-IL-1 + altri biologici (maggiore)
+- [x] **Fix critico engine `detectInteractions`**: introdotto flag `mode: "any"`
+  per le voci con drugs[] elencati come "qualsiasi di questi". Prima la logica
+  richiedeva ALL i farmaci elencati insieme (es. tutti i biologici contemporaneamente)
+  → praticamente mai triggerata. Ora "Biologico - Vaccinazioni", "Biologico/JAKi -
+  TBC screening", "JAK inibitori warning", "GC - Vaccini vivi" si attivano
+  correttamente quando UN qualsiasi farmaco della lista è in terapia attiva.
+- [x] **Drug interaction check in tempo reale nel dialog terapia**
+  (`TherapySection.jsx`): mentre l'utente seleziona o scrive il nome del farmaco
+  nel form "Nuova terapia / Modifica terapia", una banner "⚡ Verifica interazioni
+  in tempo reale" mostra SOLO le interazioni NUOVE introdotte dal farmaco corrente
+  (le interazioni preesistenti già visibili sopra non vengono ripetute). Logica:
+  diff fra `detectInteractions(altreAttive)` e `detectInteractions([...altreAttive, form.drug_name])`,
+  filtrato per `id`. Funziona anche per farmaci custom (Cotrimoxazolo, Probenecid)
+  inseriti manualmente. Test: paziente con Adalimumab+MTX+Leflunomide → aggiungendo
+  Tofacitinib mostra "JAK inibitori" come nuova interazione (le 3 globali
+  Adalimumab+TBC+vaccini erano già attive).
+- [x] **AI parse-visit estesa per Criteri EULAR 2025 Emocromatosi**: aggiunto al
+  prompt la sezione `criteria_flags.haemochromatosis` con 7 flag estraibili
+  dal testo della visita:
+  - `iron_fist` (impossibilità chiusura pugno per limitazione MCP 2-5)
+  - `joint_onset_before_50` (esordio sintomi articolari < 50 anni)
+  - `absence_dip_swelling_deformity` (DIP libere, no Heberden)
+  - `mcp_2_5_tenderness` (dolorabilità MCP 2-5)
+  - `hip_ankle_surgery` (none/hip_only/ankle_only/ankle_and_hip)
+  - `hfe_c282y_homozygous` (omozigosi confermata)
+  - `iron_overload` (ferritina/saturazione/biopsia)
+  Test e2e: testo "uomo 47 anni, MCP 2-3 dolenti, non riesce a chiudere il pugno,
+  artroprotesi caviglia destra, omozigosi C282Y, ferritina 1820, saturazione 78%"
+  → l'AI restituisce TUTTI i 7 flag corretti.
+- [x] **Banner dedicato "Criteri Emocromatosi rilevati dall'AI"** nel preview
+  di import visita (`VisitImportButton.jsx` → `CriteriaFlagsHint`): ambra,
+  read-only, NON applicato automaticamente. Suggerisce di aprire la pagina
+  Criteri per inserire manualmente le voci con conferma clinica.
 - [x] **Artropatia da emocromatosi (EULAR 2025) — riallineato a Table 1 ufficiale**
   (Kiely PDW et al., Ann Rheum Dis 2026;85(2):238-245). Le variabili sono ora
   esattamente quelle della tabella 1:
@@ -355,6 +406,13 @@ User requirements:
   per gestire la nota "a" del paper (Rx caviglia + hook osteophytes esclusi
   in caso di chirurgia caviglia). Aggiunto anche supporto per `note` su sezioni
   e item per mostrare avvertenze cliniche inline.
+
+## Implemented (2026-05-06 - v33 - Fix criteri Emocromatosi secondo Tabella 1 ufficiale)
+*(Correzione strutturale dei criteri Emocromatosi inserita prima di v34)*
+- [x] Vedi v34 per i dettagli — i criteri Emocromatosi EULAR 2025 sono stati
+  riallineati alla Table 1 ufficiale di Kiely PDW et al. 2026 (entry non-scored,
+  pesi 2/1/2/1 per le cliniche, radio 0/1/2/2 per chirurgia, sottrazione di
+  Rx caviglia e hook osteophytes in caso di chirurgia della caviglia).
 
 ## Implemented (2026-05-06 - v32 - 3 nuovi criteri classificativi EULAR/ACR)
 - [x] **Artropatia da emocromatosi (EULAR 2025)** — vedi v33 per la versione

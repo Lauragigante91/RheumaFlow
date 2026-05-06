@@ -914,6 +914,17 @@ Restituisci ESCLUSIVAMENTE un oggetto JSON valido (no markdown, no commenti, no 
     "gi": {"gerd": "bool|null", "esophageal_dysmotility": "bool|null", "dysphagia": "bool|null", "gavedeformation": "bool|null", "sibo": "bool|null", "intestinal_pseudo_obstruction": "bool|null", "fecal_incontinence": "bool|null", "weight_loss": "bool|null", "therapy": "string|null"},
     "msk": {"arthralgia": "bool|null", "synovitis": "bool|null", "tendon_friction_rubs": "bool|null", "contractures": "bool|null", "myalgia": "bool|null", "myositis": "bool|null", "weakness": "bool|null", "ck_value": "number|null", "therapy": "string|null"}
   },
+  "criteria_flags": {
+    "haemochromatosis": {
+      "iron_fist": "bool|null",
+      "joint_onset_before_50": "bool|null",
+      "absence_dip_swelling_deformity": "bool|null",
+      "mcp_2_5_tenderness": "bool|null",
+      "hip_ankle_surgery": "none|hip_only|ankle_only|ankle_and_hip|null",
+      "hfe_c282y_homozygous": "bool|null",
+      "iron_overload": "bool|null"
+    }
+  },
   "summary": "breve riepilogo italiano della visita (max 3 righe)"
 }
 
@@ -929,6 +940,14 @@ REGOLE:
   epicondilo dx" → sites: {achilles_l: true, achilles_r: true, lat_epicondyle_r: true} score=3.
 - Per anticorpi: "pos" se positivo, "neg" se negativo, "borderline" se debole/dubbio.
 - Per "sclero_profile" compila SOLO se la diagnosi è sclerosi sistemica/sclerodermia/SSc/VEDOSS.
+- Per "criteria_flags.haemochromatosis" compila SOLO se la nota menziona emocromatosi/HFE/sovraccarico di ferro/artropatia da ferro:
+  * "iron_fist": true se il paziente NON riesce a chiudere completamente il pugno per limitazione MCP 2-5 (es. "non riesce a chiudere il pugno", "iron fist positivo", "limitazione flessione MCP", "pugno serrato impossibile"). False se la chiusura del pugno è documentata come normale.
+  * "joint_onset_before_50": true se l'esordio dei sintomi articolari è prima dei 50 anni.
+  * "absence_dip_swelling_deformity": true se le DIP sono descritte SENZA tumefazione e SENZA deformità (cioè non OA-like). False se sono presenti noduli di Heberden/tumefazione DIP.
+  * "mcp_2_5_tenderness": true se MCP 2°/3°/4°/5° dolorabili all'esame.
+  * "hip_ankle_surgery": "ankle_only" / "hip_only" / "ankle_and_hip" / "none" in base alla storia chirurgica documentata.
+  * "hfe_c282y_homozygous": true se la genetica conferma omozigosi C282Y. false se eterozigosi/altro.
+  * "iron_overload": true se ferritina elevata, saturazione transferrina elevata, o evidenza biopsia/RMN.
 - Output: solo JSON puro. Inizia con { e finisci con }. NIENTE altro."""
 
 

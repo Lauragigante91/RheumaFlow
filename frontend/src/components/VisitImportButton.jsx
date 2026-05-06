@@ -274,6 +274,8 @@ function ExtractedReview({ extracted, selected, setSelected }) {
         </div>
       )}
 
+      <CriteriaFlagsHint flags={extracted.criteria_flags} />
+
       <div className="space-y-2">
         {sections.map((s) => (
           <Card key={s.key} className={`border p-4 ${selected[s.key] ? "border-[#0A2540] bg-white" : "border-gray-200 bg-gray-50"}`}>
@@ -374,4 +376,40 @@ function SectionPreview({ section, data }) {
     );
   }
   return null;
+}
+
+const HC_LABELS = {
+  iron_fist: "Iron fist (impossibilità chiusura pugno)",
+  joint_onset_before_50: "Esordio sintomi articolari < 50 anni",
+  absence_dip_swelling_deformity: "DIP senza tumefazione/deformità",
+  mcp_2_5_tenderness: "Dolorabilità MCP 2-5",
+  hip_ankle_surgery: "Storia di chirurgia anca/caviglia",
+  hfe_c282y_homozygous: "Omozigosi HFE C282Y",
+  iron_overload: "Sovraccarico di ferro",
+};
+
+function CriteriaFlagsHint({ flags }) {
+  if (!flags || !flags.haemochromatosis) return null;
+  const hc = flags.haemochromatosis;
+  const detected = Object.entries(hc).filter(([, v]) => v !== null && v !== undefined && v !== "" && v !== false);
+  if (detected.length === 0) return null;
+  return (
+    <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-900" data-testid="ai-criteria-hint-haemochromatosis">
+      <div className="font-semibold text-xs uppercase tracking-[0.15em] mb-1.5 flex items-center gap-1">
+        <Sparkles className="w-3 h-3" /> Criteri EULAR 2025 Emocromatosi — Voci rilevate dall'AI
+      </div>
+      <ul className="space-y-0.5 text-xs">
+        {detected.map(([k, v]) => (
+          <li key={k}>
+            <span className="font-mono text-amber-700">·</span>{" "}
+            <span className="font-medium">{HC_LABELS[k] || k}:</span>{" "}
+            <span className="font-bold">{typeof v === "boolean" ? (v ? "sì" : "no") : String(v)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="text-[10px] italic mt-2 text-amber-700">
+        Nota: queste voci NON vengono applicate automaticamente. Apri "Criteri" → "Artropatia da emocromatosi (EULAR 2025)" per inserirle manualmente con conferma clinica.
+      </div>
+    </div>
+  );
 }

@@ -113,6 +113,20 @@ export default function TherapySection({ patient }) {
     [active]
   );
 
+  // Preview interactions inside dialog: simulate adding/editing the current form
+  // and show ONLY interactions newly introduced by this drug (not pre-existing).
+  const previewInteractions = useMemo(() => {
+    if (!form.drug_name || form.status !== "active") return [];
+    const otherActiveNames = active
+      .filter((t) => !editing || t.id !== editing.id)
+      .map((t) => t.drug_name)
+      .filter(Boolean);
+    const baseline = detectInteractions(otherActiveNames);
+    const baselineIds = new Set(baseline.map((i) => i.id));
+    const withForm = detectInteractions([...otherActiveNames, form.drug_name]);
+    return withForm.filter((i) => !baselineIds.has(i.id));
+  }, [form.drug_name, form.status, active, editing]);
+
   return (
     <div className="space-y-4" data-testid="therapy-section">
       {/* Suggestions banner */}
@@ -182,6 +196,14 @@ export default function TherapySection({ patient }) {
               {editing ? "Modifica terapia" : "Nuova terapia"}
             </DialogTitle>
           </DialogHeader>
+          {previewInteractions.length > 0 && (
+            <div data-testid="therapy-form-interactions">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-gray-600 mb-1.5">
+                ⚡ Verifica interazioni in tempo reale
+              </div>
+              <InteractionAlerts interactions={previewInteractions} />
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Label className="text-xs uppercase tracking-[0.15em] text-gray-600">Farmaco *</Label>
