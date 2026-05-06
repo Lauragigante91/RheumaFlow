@@ -329,7 +329,35 @@ User requirements:
   dell'ultima valutazione dello stesso indice (per confronto visivo)
 - [x] Diagnosi paziente già salvata in anagrafica (campo persistente)
 
-## Implemented (2026-05-06 - v30 - Date input testuale + Form composito PsA)
+## Implemented (2026-05-06 - v31 - Definizioni cliniche complete per ESSDAI/SLEDAI/BVAS)
+- [x] **ESSDAI completamente rifatto** con definizioni cliniche per ogni livello
+  di ognuno dei 12 domini (basate sul paper Seror et al. EULAR 2010, Ann Rheum
+  Dis). Ora ogni opzione mostra:
+  - Etichetta (Assente/Lieve/Moderato/Alto)
+  - **Descrizione clinica completa** (es. costituzionale Lieve = "Febbre lieve
+    o intermittente 37,5–38,5 °C / sudorazioni notturne e/o calo ponderale del
+    5–10%"; renale Alto = "Proteinuria >1,5 g/die OPPURE ematuria OPPURE GFR<60
+    OPPURE GN proliferativa"; pulmonary Moderato = "ILD con NYHA II o 70% > DLCO
+    ≥40% / 80% > FVC ≥60%"; ecc.)
+  - Nota di contesto del dominio (es. "Esclude la febbre di origine infettiva")
+  - Peso del dominio (×weight)
+  - Card cliccabile su tutta l'area, ring blu sulla selezione corrente.
+- [x] **SLEDAI-2K** (Bombardier 1992 / Gladman 2002): tutti i 24 item ora hanno
+  descrizione clinica esplicativa sotto l'etichetta. Es. "Vasculite: Ulcerazioni,
+  gangrena, noduli digitali dolorosi, infarti periungueali, livedo, vasculite
+  documentata da biopsia/angiografia"; "Cefalea lupica: severa, persistente, di
+  tipo emicranico, refrattaria agli analgesici narcotici"; "Anti-dsDNA aumentati:
+  >25% rispetto al precedente o sopra il limite di normalità", ecc.
+- [x] **BVAS v3** (Mukhtyar 2009): per ognuno dei 9 sistemi è ora visibile la
+  riga "Voci tipiche:" che elenca le manifestazioni cliniche concrete da contare.
+  Es. Generale = "Mialgie, artralgie/artrite, febbre ≥38°C, calo ponderale ≥2 kg";
+  ORL = "Secrezione/ostruzione nasale, perdita uditiva, epistassi/croste,
+  granulomi paranasali, stenosi subglottica"; Renale = "Ipertensione (PA
+  diastolica >95 mmHg), proteinuria >1+, ematuria 1+, creatinina 125-249 /
+  250-499 / ≥500 µmol/L, aumento creatinina >30%". Aiuta a ricordare quali
+  manifestazioni rientrano in ogni sistema senza dover consultare la guida.
+
+
 - [x] **ItalianDatePicker editabile**: il campo data accetta ora input testuale
   diretto in formato `gg/mm/aaaa` con auto-formattazione live (digitando "15032025"
   diventa "15/03/2025" automaticamente). Il calendario popup rimane disponibile

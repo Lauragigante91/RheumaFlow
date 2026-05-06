@@ -97,31 +97,32 @@ export function interpretDAPSA(score) {
 }
 
 // ============ SLEDAI-2K ============
+// SLEDAI-2K (Bombardier 1992 / Gladman 2002) - 24 item con descrizioni cliniche
 export const SLEDAI_ITEMS = [
-  { key: "seizure", label: "Crisi epilettiche", weight: 8 },
-  { key: "psychosis", label: "Psicosi", weight: 8 },
-  { key: "organic_brain", label: "Sindrome cerebrale organica", weight: 8 },
-  { key: "visual", label: "Disturbi visivi", weight: 8 },
-  { key: "cranial_nerve", label: "Disturbi nervi cranici", weight: 8 },
-  { key: "lupus_headache", label: "Cefalea lupica", weight: 8 },
-  { key: "cva", label: "Ictus (CVA)", weight: 8 },
-  { key: "vasculitis", label: "Vasculite", weight: 8 },
-  { key: "arthritis", label: "Artrite (>2 articolazioni)", weight: 4 },
-  { key: "myositis", label: "Miosite", weight: 4 },
-  { key: "urinary_casts", label: "Cilindri urinari", weight: 4 },
-  { key: "hematuria", label: "Ematuria", weight: 4 },
-  { key: "proteinuria", label: "Proteinuria (>0.5 g/24h)", weight: 4 },
-  { key: "pyuria", label: "Piuria", weight: 4 },
-  { key: "rash", label: "Rash cutaneo", weight: 2 },
-  { key: "alopecia", label: "Alopecia", weight: 2 },
-  { key: "mucosal_ulcers", label: "Ulcere mucose", weight: 2 },
-  { key: "pleurisy", label: "Pleurite", weight: 2 },
-  { key: "pericarditis", label: "Pericardite", weight: 2 },
-  { key: "low_complement", label: "Complemento basso", weight: 2 },
-  { key: "increased_dna", label: "Anti-dsDNA aumentati", weight: 2 },
-  { key: "fever", label: "Febbre (>38°C)", weight: 1 },
-  { key: "thrombocytopenia", label: "Piastrinopenia (<100.000)", weight: 1 },
-  { key: "leukopenia", label: "Leucopenia (<3.000)", weight: 1 },
+  { key: "seizure", label: "Crisi epilettiche", weight: 8, description: "Crisi epilettiche di nuova insorgenza. Escludere cause metaboliche, infettive o farmacologiche" },
+  { key: "psychosis", label: "Psicosi", weight: 8, description: "Alterata percezione della realtà con allucinazioni, deliri, pensiero illogico. Escludere uremia e farmaci" },
+  { key: "organic_brain", label: "Sindrome cerebrale organica", weight: 8, description: "Alterazione delle funzioni mentali con disorientamento, deficit di memoria/concentrazione, oscillazioni dello stato di coscienza" },
+  { key: "visual", label: "Disturbi visivi", weight: 8, description: "Coinvolgimento retinico/coroideo da SLE: corpi citoidi, emorragie retiniche, essudati, neurite ottica. Escludere ipertensione, infezioni, farmaci" },
+  { key: "cranial_nerve", label: "Disturbi nervi cranici", weight: 8, description: "Neuropatia sensitiva o motoria di nuova insorgenza che coinvolge i nervi cranici" },
+  { key: "lupus_headache", label: "Cefalea lupica", weight: 8, description: "Cefalea severa, persistente, di tipo emicranico, refrattaria agli analgesici narcotici" },
+  { key: "cva", label: "Ictus (CVA)", weight: 8, description: "Stroke di nuova insorgenza. Escludere arteriosclerosi e ipertensione" },
+  { key: "vasculitis", label: "Vasculite", weight: 8, description: "Ulcerazioni, gangrena, noduli digitali dolorosi, infarti periungueali, livedo, vasculite documentata da biopsia/angiografia" },
+  { key: "arthritis", label: "Artrite (>2 articolazioni)", weight: 4, description: "Più di 2 articolazioni con dolore e segni infiammatori (tumefazione, dolorabilità, versamento)" },
+  { key: "myositis", label: "Miosite", weight: 4, description: "Debolezza/dolore muscolare prossimale associato a CK/aldolasi elevati o EMG/biopsia compatibili" },
+  { key: "urinary_casts", label: "Cilindri urinari", weight: 4, description: "Cilindri di emoglobina, granulari o eritrocitari" },
+  { key: "hematuria", label: "Ematuria", weight: 4, description: ">5 GR/HPF. Escludere calcoli, infezioni, altre cause" },
+  { key: "proteinuria", label: "Proteinuria (>0.5 g/24h)", weight: 4, description: "Proteinuria di nuova insorgenza o aumento >0,5 g/24h rispetto al basale" },
+  { key: "pyuria", label: "Piuria", weight: 4, description: ">5 GB/HPF. Escludere infezioni" },
+  { key: "rash", label: "Rash cutaneo", weight: 2, description: "Rash infiammatorio in atto" },
+  { key: "alopecia", label: "Alopecia", weight: 2, description: "Caduta dei capelli a chiazze o diffusa di nuova insorgenza, in corso" },
+  { key: "mucosal_ulcers", label: "Ulcere mucose", weight: 2, description: "Ulcerazioni orali o nasali in atto" },
+  { key: "pleurisy", label: "Pleurite", weight: 2, description: "Dolore pleuritico classico con sfregamento, versamento o ispessimento pleurico" },
+  { key: "pericarditis", label: "Pericardite", weight: 2, description: "Dolore pericardico con almeno uno tra: sfregamento, versamento, alterazioni ECG/ecocardio confermate" },
+  { key: "low_complement", label: "Complemento basso", weight: 2, description: "C3, C4 o CH50 sotto il limite inferiore di laboratorio" },
+  { key: "increased_dna", label: "Anti-dsDNA aumentati", weight: 2, description: "Anti-dsDNA aumentati >25% rispetto al precedente o sopra il limite di normalità" },
+  { key: "fever", label: "Febbre (>38°C)", weight: 1, description: "Temperatura >38°C dopo esclusione di cause infettive" },
+  { key: "thrombocytopenia", label: "Piastrinopenia (<100.000)", weight: 1, description: "Piastrine <100.000/mm³, escludendo cause farmacologiche" },
+  { key: "leukopenia", label: "Leucopenia (<3.000)", weight: 1, description: "Leucociti <3.000/mm³, escludendo cause farmacologiche" },
 ];
 export function calcSLEDAI(items) {
   return SLEDAI_ITEMS.reduce((sum, it) => sum + (items[it.key] ? it.weight : 0), 0);
@@ -254,20 +255,126 @@ export function interpretBASMI(score) {
   return "Limitazione severa";
 }
 
-// ============ ESSDAI (Sjogren) - 12 domini pesati ============
+// ============ ESSDAI (Sjogren) - 12 domini pesati con definizioni complete ============
+// Definizioni dei livelli secondo il paper EULAR di Seror et al. 2010 (e revisioni)
+// Ogni dominio ha levels[] con { value, label, description } per popup informativo
 export const ESSDAI_DOMAINS = [
-  { key: "constitutional", label: "Costituzionale", weight: 3, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "lymphadenopathy", label: "Linfoadenopatia / linfoma", weight: 4, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "glandular", label: "Ghiandolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)"] },
-  { key: "articular", label: "Articolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "cutaneous", label: "Cutaneo", weight: 3, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "pulmonary", label: "Polmonare", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "renal", label: "Renale", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "muscular", label: "Muscolare", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "pns", label: "SNP", weight: 5, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "cns", label: "SNC", weight: 5, levels: ["Nessuno (0)", "Moderato (1)", "Alto (2)"] },
-  { key: "hematological", label: "Ematologico", weight: 2, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)", "Alto (3)"] },
-  { key: "biological", label: "Biologico", weight: 1, levels: ["Nessuno (0)", "Lieve (1)", "Moderato (2)"] },
+  {
+    key: "constitutional", label: "Costituzionale", weight: 3,
+    note: "Esclude la febbre di origine infettiva e la perdita di peso volontaria",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza dei seguenti criteri" },
+      { value: 1, label: "Lieve", description: "Febbre lieve o intermittente (37,5–38,5 °C) / sudorazioni notturne e/o calo ponderale involontario del 5–10% del peso corporeo" },
+      { value: 2, label: "Moderato", description: "Febbre severa (>38,5 °C) / sudorazioni notturne e/o calo ponderale involontario >10% del peso corporeo" },
+    ],
+  },
+  {
+    key: "lymphadenopathy", label: "Linfoadenopatia / linfoma", weight: 4,
+    note: "Linfomi a cellule B compaiono nel 5-10% dei pazienti con Sjögren",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza dei seguenti criteri" },
+      { value: 1, label: "Lieve", description: "Linfoadenopatia ≥1 cm in qualsiasi regione nodale (≥2 cm in regione inguinale)" },
+      { value: 2, label: "Moderato", description: "Linfoadenopatia ≥2 cm in qualsiasi regione nodale (≥3 cm in regione inguinale) e/o splenomegalia (clinicamente palpabile o all'imaging)" },
+      { value: 3, label: "Alto", description: "Disordine linfoproliferativo a cellule B maligno in atto" },
+    ],
+  },
+  {
+    key: "glandular", label: "Ghiandolare", weight: 2,
+    note: "Riferito a ingrossamento ghiandolare, NON alla secchezza/sicca",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di tumefazione ghiandolare" },
+      { value: 1, label: "Lieve", description: "Tumefazione ghiandolare modesta: parotide ingrossata (≤3 cm) o sottomandibolare limitata (≤2 cm) o ghiandola lacrimale (≤1 cm)" },
+      { value: 2, label: "Moderato", description: "Tumefazione ghiandolare importante: parotide ingrossata (>3 cm) o sottomandibolare importante (>2 cm) o lacrimale (>1 cm)" },
+    ],
+  },
+  {
+    key: "articular", label: "Articolare", weight: 2,
+    note: "Le erosioni sono tipicamente assenti (a differenza dell'AR)",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento articolare attualmente attivo" },
+      { value: 1, label: "Lieve", description: "Artralgie a mani, polsi, caviglie e piedi accompagnate da rigidità mattutina (>30 min)" },
+      { value: 2, label: "Moderato", description: "1-5 sinoviti articolari (su 28)" },
+      { value: 3, label: "Alto", description: "≥6 sinoviti articolari (su 28)" },
+    ],
+  },
+  {
+    key: "cutaneous", label: "Cutaneo", weight: 3,
+    note: "Non include la secchezza cutanea",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento cutaneo attualmente attivo" },
+      { value: 1, label: "Lieve", description: "Eritema multiforme" },
+      { value: 2, label: "Moderato", description: "Vasculite cutanea limitata (incluse vasculite urticarioide, porpora limitata a piedi e caviglie) o lupus cutaneo subacuto" },
+      { value: 3, label: "Alto", description: "Vasculite cutanea diffusa (inclusa vasculite urticarioide), porpora diffusa o ulcere correlate a vasculite" },
+    ],
+  },
+  {
+    key: "pulmonary", label: "Polmonare", weight: 5,
+    note: "Manifestazioni: malattia delle vie aeree, ILD, ipertensione polmonare",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento polmonare attualmente attivo" },
+      { value: 1, label: "Lieve", description: "Tosse persistente da interessamento bronchiale senza alterazioni RX, OPPURE evidenza radiologica/HRCT di ILD senza dispnea e con PFR normali" },
+      { value: 2, label: "Moderato", description: "ILD con dispnea da sforzo (NYHA II) o PFR alterate: 70% > DLCO ≥40% oppure 80% > FVC ≥60%" },
+      { value: 3, label: "Alto", description: "ILD con dispnea a riposo (NYHA III-IV) o PFR alterate: DLCO <40% o FVC <60%" },
+    ],
+  },
+  {
+    key: "renal", label: "Renale", weight: 5,
+    note: "Domain meno frequentemente documentato (~7% dei pazienti)",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento renale attivo: proteinuria <0,5 g/die, no ematuria/leucocituria/acidosi" },
+      { value: 1, label: "Lieve", description: "Acidosi tubulare senza insufficienza renale, OPPURE coinvolgimento glomerulare con proteinuria 0,5–1 g/die senza ematuria o IRC (GFR ≥60)" },
+      { value: 2, label: "Moderato", description: "Acidosi tubulare con IRC (GFR <60), OPPURE proteinuria 1–1,5 g/die, OPPURE GN extra-membranosa o infiltrato linfoide interstiziale importante" },
+      { value: 3, label: "Alto", description: "Proteinuria >1,5 g/die, OPPURE ematuria, OPPURE IRC (GFR <60), OPPURE GN proliferativa o coinvolgimento renale crioglobulinemico" },
+    ],
+  },
+  {
+    key: "muscular", label: "Muscolare", weight: 2,
+    note: "Distingue dolore senza debolezza vs miosite con deficit",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento muscolare attualmente attivo" },
+      { value: 1, label: "Lieve", description: "Miosite lieve: EMG/RMN/biopsia anormali senza debolezza, CK normale o ≤2× ULN" },
+      { value: 2, label: "Moderato", description: "Miosite moderata: EMG/RMN/biopsia anormali con debolezza (deficit max 4/5) o CK 2–4× ULN" },
+      { value: 3, label: "Alto", description: "Miosite severa: EMG/RMN/biopsia anormali con debolezza (deficit ≤3/5) o CK >4× ULN" },
+    ],
+  },
+  {
+    key: "pns", label: "SNP", weight: 5,
+    note: "Per il danno cronico stabile classificare come 'assente'",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento del SNP attualmente attivo" },
+      { value: 1, label: "Lieve", description: "Polineuropatia sensitiva assonale lieve dimostrata dall'EMG, OPPURE neuropatia trigeminale (V) dolorosa pura" },
+      { value: 2, label: "Moderato", description: "Polineuropatia sensitivo-motoria assonale all'EMG con deficit motorio 4/5, neuropatia sensitiva pura con presenza di vasculite criogloblulinemica, ganglionopatia con sintomi limitati a atassia lieve-moderata, polineuropatia infiammatoria demielinizzante (CIDP) con deficit funzionale lieve (deficit motorio 4/5 o atassia lieve)" },
+      { value: 3, label: "Alto", description: "Polineuropatia sensitivo-motoria assonale all'EMG con deficit motorio ≤3/5, vasculite del nervo periferico (mononeurite multipla, ecc.), atassia severa per ganglionopatia, CIDP con deficit funzionale severo (deficit motorio ≤3/5 o atassia severa)" },
+    ],
+  },
+  {
+    key: "cns", label: "SNC", weight: 5,
+    note: "Considerare 'assente' i deficit stabili da danno pregresso",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di interessamento SNC attualmente attivo" },
+      { value: 1, label: "Moderato", description: "Coinvolgimento dei nervi cranici di origine centrale, neurite ottica, sindrome MS-like con sintomi limitati a deficit sensitivo puro o deficit cognitivo provato" },
+      { value: 2, label: "Alto", description: "Vasculite cerebrale con TIA/ictus, crisi epilettiche, mielite trasversa, meningite linfocitaria, sindrome MS-like con deficit motorio" },
+    ],
+  },
+  {
+    key: "hematological", label: "Ematologico", weight: 2,
+    note: "Manifestazioni: anemia, neutropenia, piastrinopenia, linfopenia, AIHA",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di citopenia autoimmune" },
+      { value: 1, label: "Lieve", description: "Citopenia autoimmune con neutropenia (1000–1500/mm³), e/o anemia (10–12 g/dL), e/o piastrinopenia (100.000–150.000/mm³) — OPPURE linfopenia (500–1000/mm³)" },
+      { value: 2, label: "Moderato", description: "Neutropenia 500–1000/mm³, e/o anemia 8–10 g/dL, e/o piastrinopenia 50.000–100.000/mm³ — OPPURE linfopenia ≤500/mm³" },
+      { value: 3, label: "Alto", description: "Neutropenia <500/mm³, e/o anemia <8 g/dL, e/o piastrinopenia <50.000/mm³" },
+    ],
+  },
+  {
+    key: "biological", label: "Biologico", weight: 1,
+    note: "Tra i domini meno frequentemente documentati (~9%)",
+    levels: [
+      { value: 0, label: "Assente", description: "Assenza di alterazioni biologiche" },
+      { value: 1, label: "Lieve", description: "Componente clonale e/o ipocomplementemia (basso C4, C3 o CH50), e/o ipergammaglobulinemia o IgG elevate tra 16 e 20 g/L" },
+      { value: 2, label: "Moderato", description: "Crioglobulinemia, e/o ipergammaglobulinemia o IgG >20 g/L, e/o ipogammaglobulinemia di nuova insorgenza o calo recente di IgG (<5 g/L)" },
+    ],
+  },
 ];
 export function calcESSDAI(values) {
   return ESSDAI_DOMAINS.reduce((sum, d) => sum + (Number(values?.[d.key]) || 0) * d.weight, 0);
@@ -293,16 +400,17 @@ export function interpretESSPRI(score) {
 
 // ============ BVAS v3 (Birmingham Vasculitis Activity Score) ============
 // Semplificato: 9 sistemi, per ogni sistema score "New/Worse" (peso maggiore) o "Persistent" (peso minore)
+// Le voci di ogni sistema seguono BVAS v3 (Mukhtyar et al. 2009)
 export const BVAS_SYSTEMS = [
-  { key: "general", label: "Generale", newMax: 3, persistentMax: 2 },
-  { key: "cutaneous", label: "Cutaneo", newMax: 6, persistentMax: 3 },
-  { key: "mucous_eyes", label: "Mucose / occhi", newMax: 6, persistentMax: 3 },
-  { key: "ent", label: "ORL", newMax: 6, persistentMax: 3 },
-  { key: "chest", label: "Torace / polmone", newMax: 6, persistentMax: 4 },
-  { key: "cardiovascular", label: "Cardiovascolare", newMax: 6, persistentMax: 3 },
-  { key: "abdominal", label: "Addominale", newMax: 9, persistentMax: 4 },
-  { key: "renal", label: "Renale", newMax: 12, persistentMax: 6 },
-  { key: "nervous", label: "Sistema nervoso", newMax: 9, persistentMax: 6 },
+  { key: "general", label: "Generale", newMax: 3, persistentMax: 2, examples: "Mialgie, artralgie/artrite, febbre ≥38°C, calo ponderale ≥2 kg" },
+  { key: "cutaneous", label: "Cutaneo", newMax: 6, persistentMax: 3, examples: "Infarti cutanei, porpora, ulcera, gangrena, altre vasculiti cutanee" },
+  { key: "mucous_eyes", label: "Mucose / occhi", newMax: 6, persistentMax: 3, examples: "Ulcere mucose, granulomi mucosi, congiuntivite/blefarite/cheratite, retinopatia (vasculite, trombosi, essudati, emorragie), uveite, episclerite/sclerite, proptosi, perdita di vista da neurite ottica" },
+  { key: "ent", label: "ORL", newMax: 6, persistentMax: 3, examples: "Secrezione/ostruzione nasale, perdita uditiva conduttiva o neurosensoriale, epistassi/croste, granulomi paranasali/iperemia/ulcera, stenosi subglottica" },
+  { key: "chest", label: "Torace / polmone", newMax: 6, persistentMax: 4, examples: "Wheezing, noduli/cavitazioni, pleurite o versamento pleurico, infiltrato, alveolite emorragica, insufficienza respiratoria" },
+  { key: "cardiovascular", label: "Cardiovascolare", newMax: 6, persistentMax: 3, examples: "Assenza di polso, valvulopatia, pericardite, dolore toracico ischemico, cardiomiopatia, scompenso" },
+  { key: "abdominal", label: "Addominale", newMax: 9, persistentMax: 4, examples: "Peritonite, diarrea sanguinolenta, dolore addominale ischemico" },
+  { key: "renal", label: "Renale", newMax: 12, persistentMax: 6, examples: "Ipertensione (PA diastolica >95 mmHg), proteinuria >1+, ematuria 1+ (≥10 GR/HPF), creatinina 125-249 / 250-499 / ≥500 µmol/L, aumento creatinina >30% o calo CrCl >25%" },
+  { key: "nervous", label: "Sistema nervoso", newMax: 9, persistentMax: 6, examples: "Cefalea (meningea o lupica), meningite, stato confusionale organico, crisi epilettiche, ictus/TIA, lesione cordone spinale, neuropatia cranica, neuropatia sensitiva periferica, mononeurite multipla" },
 ];
 export function calcBVAS(values) {
   return BVAS_SYSTEMS.reduce((sum, s) => {

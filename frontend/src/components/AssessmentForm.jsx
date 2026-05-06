@@ -408,20 +408,30 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
       );
     case "sledai":
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {SLEDAI_ITEMS.map((item) => (
-            <label key={item.key} className="flex items-center gap-3 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer">
-              <Checkbox
-                checked={!!sledaiData[item.key]}
-                onCheckedChange={(v) => setSledaiData((p) => ({ ...p, [item.key]: !!v }))}
-                data-testid={`sledai-${item.key}`}
-              />
-              <div className="flex-1">
-                <div className="text-sm">{item.label}</div>
-              </div>
-              <span className="text-xs font-mono font-bold text-gray-500">+{item.weight}</span>
-            </label>
-          ))}
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            <strong>SLEDAI-2K</strong> — flagga ogni manifestazione presente negli ultimi 30 giorni.
+            Le definizioni cliniche seguono Bombardier 1992 / Gladman 2002.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {SLEDAI_ITEMS.map((item) => (
+              <label key={item.key} className="flex items-start gap-3 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={!!sledaiData[item.key]}
+                  onCheckedChange={(v) => setSledaiData((p) => ({ ...p, [item.key]: !!v }))}
+                  data-testid={`sledai-${item.key}`}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{item.label}</div>
+                  {item.description && (
+                    <div className="text-[11px] text-gray-600 leading-snug mt-0.5">{item.description}</div>
+                  )}
+                </div>
+                <span className="text-xs font-mono font-bold text-gray-500 flex-shrink-0">+{item.weight}</span>
+              </label>
+            ))}
+          </div>
         </div>
       );
     case "haq":
@@ -473,30 +483,59 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
       );
     case "essdai":
       return (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">Per ogni dominio, indica il livello di attività attuale.</p>
-          {ESSDAI_DOMAINS.map((d) => (
-            <div key={d.key} className="border border-gray-200 rounded-md p-3">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-semibold">{d.label}</Label>
-                <span className="text-xs font-mono text-gray-500">peso ×{d.weight}</span>
+        <div className="space-y-3" data-testid="essdai-form">
+          <p className="text-sm text-gray-600">
+            Per ogni dominio seleziona il livello di attività attuale. Le definizioni cliniche
+            sono quelle del paper EULAR di Seror et al. 2010 (Ann Rheum Dis).
+          </p>
+          {ESSDAI_DOMAINS.map((d) => {
+            const selected = essdaiData[d.key] ?? null;
+            return (
+              <div key={d.key} className="border border-gray-200 rounded-md p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <Label className="text-sm font-semibold">{d.label}</Label>
+                    {d.note && <p className="text-[10px] text-gray-500 italic mt-0.5">{d.note}</p>}
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-500 whitespace-nowrap">peso ×{d.weight}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {d.levels.map((lv) => {
+                    const isSelected = selected === lv.value;
+                    return (
+                      <button
+                        key={lv.value}
+                        type="button"
+                        onClick={() => setEssdaiData((p) => ({ ...p, [d.key]: lv.value }))}
+                        className={`w-full text-left flex gap-3 border rounded-md p-2.5 transition ${
+                          isSelected
+                            ? "border-[#0A2540] bg-[#F9FAFB] ring-1 ring-[#0A2540]"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                        data-testid={`essdai-${d.key}-${lv.value}`}
+                      >
+                        <span
+                          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            isSelected ? "bg-[#0A2540] text-white" : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {lv.value}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-semibold ${isSelected ? "text-[#0A2540]" : "text-gray-800"}`}>
+                            {lv.label}
+                          </div>
+                          <div className="text-[11px] text-gray-600 leading-snug mt-0.5">
+                            {lv.description}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {d.levels.map((lv, idx) => (
-                  <Button
-                    key={idx}
-                    variant={essdaiData[d.key] === idx ? "default" : "outline"}
-                    size="sm"
-                    className={essdaiData[d.key] === idx ? "bg-[#0A2540] text-white" : ""}
-                    onClick={() => setEssdaiData((p) => ({ ...p, [d.key]: idx }))}
-                    data-testid={`essdai-${d.key}-${idx}`}
-                  >
-                    {lv}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     case "esspri":
@@ -511,13 +550,22 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
     case "bvas":
       return (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">Per ogni sistema, indica se l'attività è di nuova insorgenza (peso maggiore) o persistente (peso minore) e specifica i punti.</p>
+          <p className="text-sm text-gray-600">
+            Per ogni sistema, indica se l&apos;attività è di nuova insorgenza/peggiorata
+            (peso maggiore) o persistente (peso minore) e specifica i punti.
+            BVAS v3 (Mukhtyar et al. 2009).
+          </p>
           {BVAS_SYSTEMS.map((s) => (
             <div key={s.key} className="border border-gray-200 rounded-md p-3">
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                 <Label className="text-sm font-semibold">{s.label}</Label>
-                <span className="text-xs text-gray-500">max nuovo: {s.newMax} · max persistente: {s.persistentMax}</span>
+                <span className="text-[10px] font-mono text-gray-500">max nuovo: {s.newMax} · max persistente: {s.persistentMax}</span>
               </div>
+              {s.examples && (
+                <p className="text-[11px] text-gray-600 italic mb-2 leading-snug">
+                  Voci tipiche: {s.examples}
+                </p>
+              )}
               <div className="flex gap-2 items-center flex-wrap">
                 <Button
                   variant={bvasData[s.key]?.type === "new" ? "default" : "outline"}
