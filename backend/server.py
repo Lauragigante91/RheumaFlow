@@ -723,6 +723,121 @@ async def delete_patient(patient_id: str, user: dict = Depends(get_current_user)
     return {"success": True}
 
 
+# ==================== RECALL FLAGS (pazienti da ricontrollare) ====================
+# Each patient can have at most one recall flag, with three states:
+#   - flag = "private"  → visibile solo all'autore (es. "stellina blu")
+#   - flag = "shared"   → visibile a tutti i membri dell'organizzazione (es. "stellina rossa")
+#   - flag = None       → nessun ricontrollo
+# Stored as `patients.recall = {flag, note, set_at, set_by, set_by_name}`.
+
+class RecallFlagPayload(BaseModel):
+    flag: Optional[str] = None  # "private" | "shared" | None
+    note: Optional[str] = None
+
+
+@api_router.put("/patients/{patient_id}/recall")
+async def set_patient_recall(
+    patient_id: str,
+    payload: RecallFlagPayload,
+    user: dict = Depends(get_current_user),
+):
+    if payload.flag not in (None, "", "private", "shared"):
+        raise HTTPException(status_code=400, detail="flag deve essere 'private', 'shared' o nullo")
+    p = await db.patients.find_one({"id": patient_id, "organization_id": user["organization_id"]}, {"_id": 0, "id": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Paziente non trovato")
+
+    if not payload.flag:
+        await db.patients.update_one({"id": patient_id}, {"$unset": {"recall": ""}})
+        return {"success": True, "recall": None}
+
+    recall = {
+        "flag": payload.flag,
+        "note": (payload.note or "").strip(),
+        "set_at": datetime.now(timezone.utc).isoformat(),
+        "set_by": user["id"],
+        "set_by_name": user.get("name") or user.get("email"),
+    }
+    await db.patients.update_one({"id": patient_id}, {"$set": {"recall": recall}})
+    return {"success": True, "recall": recall}
+
+
+@api_router.get("/patients-recall")
+async def list_patients_to_recall(user: dict = Depends(get_current_user)):
+    """Pazienti con recall flag visibili a questo utente:
+    - tutti i 'shared' dell'org
+    - solo i 'private' che ho creato io
+    """
+    org_id = user["organization_id"]
+    cursor = db.patients.find(
+        {
+            "organization_id": org_id,
+            "$or": [
+                {"recall.flag": "shared"},
+                {"recall.flag": "private", "recall.set_by": user["id"]},
+            ],
+        },
+        {"_id": 0},
+    )
+    out = []
+    async for p in cursor:
+        out.append(p)
+    out.sort(key=lambda p: (p.get("recall", {}).get("set_at") or ""), reverse=True)
+    return out
+
+
+@api_router.get("/patients-recent-mine")
+async def list_recent_patients_mine(days: int = 7, user: dict = Depends(get_current_user)):
+    """Pazienti su cui IO ho lavorato (creato/aggiornato un assessment) negli ultimi `days` giorni."""
+    org_id = user["organization_id"]
+    if days < 1:
+        days = 7
+    if days > 365:
+        days = 365
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    pipeline = [
+        {"$match": {
+            "organization_id": org_id,
+            "created_by": user["id"],
+            "created_at": {"$gte": cutoff},
+        }},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$patient_id",
+            "last_assessment_at": {"$first": "$created_at"},
+            "last_index_type": {"$first": "$index_type"},
+            "last_score": {"$first": "$score"},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"last_assessment_at": -1}},
+        {"$limit": 20},
+    ]
+    items = []
+    async for doc in db.assessments.aggregate(pipeline):
+        items.append(doc)
+    if not items:
+        return []
+    pids = [i["_id"] for i in items]
+    patients = {
+        p["id"]: p
+        for p in await db.patients.find({"id": {"$in": pids}, "organization_id": org_id}, {"_id": 0}).to_list(1000)
+    }
+    out = []
+    for it in items:
+        p = patients.get(it["_id"])
+        if not p:
+            continue
+        out.append({
+            **p,
+            "last_assessment_at": it["last_assessment_at"],
+            "last_index_type": it["last_index_type"],
+            "last_score": it["last_score"],
+            "assessments_in_window": it["count"],
+        })
+    return out
+
+
 # ==================== ASSESSMENTS ====================
 async def _verify_patient_in_org(patient_id: str, organization_id: str):
     p = await db.patients.find_one({"id": patient_id, "organization_id": organization_id}, {"_id": 0, "id": 1})

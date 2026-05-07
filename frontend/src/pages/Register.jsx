@@ -72,7 +72,7 @@ export default function Register() {
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-heading font-black text-2xl tracking-tighter">CLINIMETRIA</div>
+              <div className="font-heading font-black text-2xl tracking-tighter">RHEUMAFLOW</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Reumatologia</div>
             </div>
           </div>

@@ -31,6 +31,9 @@ export const patientsApi = {
   update: (id, data) => api.put(`/patients/${id}`, data).then((r) => r.data),
   remove: (id) => api.delete(`/patients/${id}`).then((r) => r.data),
   anonymize: (id) => api.post(`/patients/${id}/anonymize`).then((r) => r.data),
+  setRecall: (id, payload) => api.put(`/patients/${id}/recall`, payload).then((r) => r.data),
+  listRecall: () => api.get("/patients-recall").then((r) => r.data),
+  recentMine: (days = 7) => api.get(`/patients-recent-mine?days=${days}`).then((r) => r.data),
 };
 
 export const orgApi = {

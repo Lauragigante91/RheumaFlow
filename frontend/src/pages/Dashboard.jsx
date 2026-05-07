@@ -5,12 +5,13 @@ import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
-  Users, Activity, TrendingUp, Bell, Calendar as CalendarIcon,
-  FileCheck2, BookOpen, ChevronRight, Stethoscope,
+  Users, Activity, TrendingUp, Calendar as CalendarIcon,
+  FileCheck2, BookOpen, ChevronRight, Stethoscope, Star, Clock, ListTodo,
 } from "lucide-react";
 import { INDEX_LABELS } from "../lib/clinimetrics";
 import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
 import { GUIDELINES } from "../lib/guidelines";
+import { RecallBadge } from "../components/RecallFlagControl";
 
 // Pinned items shown on dashboard for quick access
 const PINNED_CRITERIA = [
@@ -35,11 +36,15 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ patients: 0, assessments: 0, recent_assessments: [] });
   const [patients, setPatients] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
+  const [recallList, setRecallList] = useState([]);
+  const [recentMine, setRecentMine] = useState([]);
 
   useEffect(() => {
     statsApi.get().then(setStats).catch(() => {});
     patientsApi.list().then(setPatients).catch(() => {});
     remindersApi.upcoming().then(setUpcoming).catch(() => setUpcoming([]));
+    patientsApi.listRecall().then(setRecallList).catch(() => setRecallList([]));
+    patientsApi.recentMine(7).then(setRecentMine).catch(() => setRecentMine([]));
   }, []);
 
   const patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
@@ -89,7 +94,7 @@ export default function Dashboard() {
         <StatCard icon={Users} label="Pazienti" value={stats.patients} testid="stat-patients" />
         <StatCard icon={Activity} label="Valutazioni totali" value={stats.assessments} testid="stat-assessments" />
         <StatCard icon={TrendingUp} label="Ultime 5" value={(stats.recent_assessments || []).length} testid="stat-recent" />
-        <StatCard icon={Bell} label="Richieste urgenti" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
+        <StatCard icon={ListTodo} label="To-do list" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
       </div>
 
       {/* ILD Spotlight - feature card prominently because user explicitly requested it */}
@@ -215,17 +220,69 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Reminders + Recent assessments */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming reminders (URGENT only) */}
+      {/* My personal widgets: Pazienti recenti + To-do list + Pazienti da ricontrollare */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Pazienti recenti (visitati da ME negli ultimi 7gg) */}
+        <Card className="border-gray-200 shadow-sm" data-testid="recent-mine-card">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
+                <Clock className="w-5 h-5" /> Pazienti recenti
+              </h2>
+              <Badge variant="outline" className="text-[10px]">7 giorni</Badge>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Pazienti su cui hai inserito valutazioni di recente. Click → riapri la scheda.
+            </p>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
+            {recentMine.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 text-sm">
+                Nessun paziente visitato negli ultimi 7 giorni.
+              </div>
+            ) : (
+              recentMine.slice(0, 8).map((p) => (
+                <Link
+                  key={p.id}
+                  to={`/pazienti/${p.id}`}
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  data-testid={`recent-mine-${p.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[#0A2540] truncate flex items-center gap-1.5">
+                      {p.recall && <RecallBadge flag={p.recall.flag} />}
+                      {(p.cognome || p.nome)
+                        ? `${p.cognome || ""} ${p.nome || ""}`.trim()
+                        : (p.codice_paziente || "Paziente")}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {p.diagnosi || "—"} · ultimo: {INDEX_LABELS[p.last_index_type] || p.last_index_type}{" "}
+                      {p.last_score != null && <span className="font-mono font-semibold">{p.last_score}</span>}
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-gray-500 text-right flex-shrink-0 ml-2">
+                    {(() => {
+                      const d = daysUntil(p.last_assessment_at);
+                      const ago = -d;
+                      return ago === 0 ? "Oggi" : ago === 1 ? "Ieri" : `${ago}gg fa`;
+                    })()}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* To-do list (richieste urgenti) */}
         <Card className="border-gray-200 shadow-sm" data-testid="upcoming-reminders-card">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
               <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
-                <Bell className="w-5 h-5" /> Richieste urgenti
+                <ListTodo className="w-5 h-5" /> To-do list
               </h2>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                Solo richieste contrassegnate "da fare prima possibile". I follow-up programmati sono nella scheda paziente.
+              <p className="text-[11px] text-gray-500 mt-1">
+                Richieste contrassegnate "da fare prima possibile" (es. comitato etico, chiamare specialista, discutere il pz).
               </p>
             </div>
             {overdueCount > 0 && <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{overdueCount} scaduti</Badge>}
@@ -250,7 +307,7 @@ export default function Dashboard() {
                         {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "—") : "—"}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0 ml-2">
                       <div className={`text-xs font-medium ${cls}`}>
                         {days < 0 ? `Scaduto ${Math.abs(days)}gg fa` : days === 0 ? "Oggi" : `Tra ${days}gg`}
                       </div>
@@ -265,44 +322,93 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        {/* Recent assessments */}
-        <Card className="border-gray-200 shadow-sm">
+        {/* Pazienti da ricontrollare (recall flagged) */}
+        <Card className="border-gray-200 shadow-sm" data-testid="recall-card">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="font-heading text-xl font-bold tracking-tight">Valutazioni recenti</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
+                <Star className="w-5 h-5" /> Da ricontrollare
+              </h2>
+              <Badge variant="outline" className="text-[10px]">{recallList.length}</Badge>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Pazienti flaggati ⭐ <span className="text-red-600 font-semibold">rosso</span> (visibile a tutti) o
+              ⭐ <span className="text-blue-600 font-semibold">blu</span> (solo per te). Imposta il flag dalla scheda paziente.
+            </p>
           </div>
           <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
-            {(stats.recent_assessments || []).length === 0 && (
-              <div className="p-10 text-center text-gray-500">
-                Nessuna valutazione registrata.
+            {recallList.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 text-sm">
+                Nessun paziente da ricontrollare. Apri la scheda di un paziente e clicca <span className="font-semibold">Ricontrollo</span>.
               </div>
-            )}
-            {(stats.recent_assessments || []).map((a) => {
-              const p = patientsById[a.patient_id];
-              return (
+            ) : (
+              recallList.slice(0, 10).map((p) => (
                 <Link
-                  key={a.id}
-                  to={p ? `/pazienti/${p.id}` : "/pazienti"}
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  key={p.id}
+                  to={`/pazienti/${p.id}`}
+                  className="flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors"
+                  data-testid={`recall-row-${p.id}`}
                 >
-                  <div>
-                    <div className="font-medium text-[#0A2540]">
-                      {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "Paziente") : "Paziente rimosso"}
+                  <RecallBadge flag={p.recall?.flag} className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[#0A2540] truncate">
+                      {(p.cognome || p.nome)
+                        ? `${p.cognome || ""} ${p.nome || ""}`.trim()
+                        : (p.codice_paziente || "Paziente")}
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {INDEX_LABELS[a.index_type] || a.index_type} · {new Date(a.date).toLocaleDateString("it-IT")}
-                      {a.created_by_name && ` · ${a.created_by_name}`}
+                    <div className="text-xs text-gray-500 mt-0.5 truncate">{p.diagnosi || "—"}</div>
+                    {p.recall?.note && (
+                      <div className="text-[11px] text-gray-700 mt-1 leading-snug bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
+                        {p.recall.note}
+                      </div>
+                    )}
+                    <div className="text-[10px] text-gray-500 mt-1.5">
+                      {p.recall?.set_by_name && <span>Da {p.recall.set_by_name} · </span>}
+                      {p.recall?.set_at && new Date(p.recall.set_at).toLocaleDateString("it-IT")}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono font-bold text-lg">{a.score ?? "-"}</div>
-                    <div className="text-xs text-gray-500">{a.interpretation || ""}</div>
                   </div>
                 </Link>
-              );
-            })}
+              ))
+            )}
           </div>
         </Card>
       </div>
+
+      {/* Recent assessments (organization-wide) */}
+      <Card className="border-gray-200 shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="font-heading text-xl font-bold tracking-tight">Valutazioni recenti (tutta l'organizzazione)</h2>
+        </div>
+        <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
+          {(stats.recent_assessments || []).length === 0 && (
+            <div className="p-10 text-center text-gray-500">Nessuna valutazione registrata.</div>
+          )}
+          {(stats.recent_assessments || []).map((a) => {
+            const p = patientsById[a.patient_id];
+            return (
+              <Link
+                key={a.id}
+                to={p ? `/pazienti/${p.id}` : "/pazienti"}
+                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div>
+                  <div className="font-medium text-[#0A2540]">
+                    {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "Paziente") : "Paziente rimosso"}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {INDEX_LABELS[a.index_type] || a.index_type} · {new Date(a.date).toLocaleDateString("it-IT")}
+                    {a.created_by_name && ` · ${a.created_by_name}`}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-lg">{a.score ?? "-"}</div>
+                  <div className="text-xs text-gray-500">{a.interpretation || ""}</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 }

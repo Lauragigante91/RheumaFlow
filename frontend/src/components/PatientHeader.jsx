@@ -9,6 +9,7 @@ import { ArrowLeft, Plus, Download, FileText, ChevronDown, Sparkles, FileCheck2,
 import { toast } from "sonner";
 import VisitImportButton from "./VisitImportButton";
 import PatientGuidelinesShortcut from "./PatientGuidelinesShortcut";
+import RecallFlagControl from "./RecallFlagControl";
 import { patientsApi } from "../lib/api";
 import { INDEX_LABELS, INDEX_DISEASES } from "../lib/clinimetrics";
 import { isRaDiagnosis, isSpaDiagnosis } from "../lib/diseaseDetection";
@@ -93,6 +94,7 @@ export default function PatientHeader({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <RecallFlagControl patient={patient} onChanged={onLoad} />
           <VisitImportButton patient={patient} onImported={onLoad} />
           {(patient.nome || patient.cognome || patient.codice_fiscale || patient.data_nascita) && (
             <Button

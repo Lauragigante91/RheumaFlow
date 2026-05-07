@@ -1,7 +1,7 @@
 // Service worker minimal: shell caching for offline-friendly experience.
 // Critical: all /api/* requests bypass cache (always network) for clinical data correctness.
 
-const CACHE_NAME = "clinimetria-v1";
+const CACHE_NAME = "rheumaflow-v1";
 const SHELL = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
