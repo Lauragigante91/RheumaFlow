@@ -1,430 +1,388 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { statsApi, patientsApi, remindersApi } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
+import { Checkbox } from "../components/ui/checkbox";
 import {
-  Users, Activity, TrendingUp, Calendar as CalendarIcon,
-  FileCheck2, BookOpen, ChevronRight, Stethoscope, Star, Clock, ListTodo,
+  Star, Clock, ListTodo, ChevronRight, Plus, AlertTriangle,
+  Users, ClipboardList, Loader2,
 } from "lucide-react";
 import { INDEX_LABELS } from "../lib/clinimetrics";
-import { CRITERIA, CRITERIA_GROUPS } from "../lib/criteria";
-import { GUIDELINES } from "../lib/guidelines";
 import { RecallBadge } from "../components/RecallFlagControl";
+import { toast } from "sonner";
 
-// Pinned items shown on dashboard for quick access
-const PINNED_CRITERIA = [
-  "acr_eular_2010_ra",
-  "acr_eular_2019_sle",
-  "acr_eular_2013_ssc",
-  "acr_eular_2023_aps",
-  "acr_eular_2022_gca",
-  "acr_eular_2022_tak",
-];
+// =============================================================================
+// Cockpit operativo: 3 KPI compatti + Clinical To-do List + side widgets.
+// =============================================================================
 
-const PINNED_GUIDELINES = [
-  "ers_eular_2025_ctd_ild",
-  "eular_2025_ra",
-  "eular_2025_behcet",
-  "eular_2024_pregnancy",
-  "eular_2019_vaccination",
-  "acr_aahks_2022_perioperative",
-];
+function daysUntil(iso) {
+  if (!iso) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(iso);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
 
-export default function Dashboard() {
-  const [stats, setStats] = useState({ patients: 0, assessments: 0, recent_assessments: [] });
-  const [patients, setPatients] = useState([]);
-  const [upcoming, setUpcoming] = useState([]);
-  const [recallList, setRecallList] = useState([]);
-  const [recentMine, setRecentMine] = useState([]);
+function deadlineLabel(iso) {
+  const d = daysUntil(iso);
+  if (d == null) return null;
+  if (d === 0) return { text: "Oggi", color: "text-amber-700 bg-amber-50 border-amber-200" };
+  if (d === 1) return { text: "Domani", color: "text-amber-700 bg-amber-50 border-amber-200" };
+  if (d < 0) return { text: `Scaduto ${Math.abs(d)}gg`, color: "text-red-700 bg-red-50 border-red-200" };
+  if (d <= 7) return { text: `Tra ${d}gg`, color: "text-gray-700 bg-gray-50 border-gray-200" };
+  return { text: `Tra ${d}gg`, color: "text-gray-500 bg-gray-50 border-gray-200" };
+}
 
-  useEffect(() => {
-    statsApi.get().then(setStats).catch(() => {});
-    patientsApi.list().then(setPatients).catch(() => {});
-    remindersApi.upcoming().then(setUpcoming).catch(() => setUpcoming([]));
-    patientsApi.listRecall().then(setRecallList).catch(() => setRecallList([]));
-    patientsApi.recentMine(7).then(setRecentMine).catch(() => setRecentMine([]));
-  }, []);
-
-  const patientsById = Object.fromEntries(patients.map((p) => [p.id, p]));
-
-  const daysUntil = (iso) => {
-    const due = new Date(iso);
-    const now = new Date(); now.setHours(0, 0, 0, 0);
-    return Math.floor((due - now) / 86400000);
-  };
-
-  const overdueCount = upcoming.filter((r) => daysUntil(r.due_date) < 0).length;
-
-  const pinnedCriteria = PINNED_CRITERIA
-    .map((id) => CRITERIA.find((c) => c.id === id))
-    .filter(Boolean);
-
-  const pinnedGuidelines = PINNED_GUIDELINES
-    .map((id) => GUIDELINES.find((g) => g.id === id))
-    .filter(Boolean);
-
-  const ildGuide = GUIDELINES.find((g) => g.id === "ers_eular_2025_ctd_ild") || GUIDELINES.find((g) => g.id === "ers_acr_eular_2023_ild");
-
+// ─────────────────────────────────────────────────────────────────────────────
+// 3 KPI compatti
+// ─────────────────────────────────────────────────────────────────────────────
+function Kpi({ icon: Icon, label, value, accent, testid }) {
   return (
-    <div className="space-y-8" data-testid="dashboard-page">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 mb-2">
-            Panoramica clinica
-          </div>
-          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter text-[#0A2540]">
-            Dashboard
-          </h1>
-          <p className="mt-2 text-gray-600 max-w-2xl">
-            Gestione delle valutazioni clinimetriche per le malattie reumatiche.
-          </p>
+    <Card className="border-gray-200 shadow-none p-5 hover:shadow-sm transition-shadow" data-testid={testid}>
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-semibold">{label}</span>
+          <span className="font-mono font-black text-4xl text-[#0A2540] mt-1.5 leading-none">{value}</span>
         </div>
-        <Link to="/pazienti">
-          <Button className="bg-[#0A2540] hover:bg-[#051626] text-white" data-testid="dashboard-go-patients-btn">
-            <Users className="w-4 h-4 mr-2" /> Vai ai pazienti
-          </Button>
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard icon={Users} label="Pazienti" value={stats.patients} testid="stat-patients" />
-        <StatCard icon={Activity} label="Valutazioni totali" value={stats.assessments} testid="stat-assessments" />
-        <StatCard icon={TrendingUp} label="Ultime 5" value={(stats.recent_assessments || []).length} testid="stat-recent" />
-        <StatCard icon={ListTodo} label="To-do list" value={upcoming.length} testid="stat-reminders" highlight={overdueCount > 0} />
-      </div>
-
-      {/* ILD Spotlight - feature card prominently because user explicitly requested it */}
-      {ildGuide && (
-        <Link
-          to="/linee-guida"
-          className="block group"
-          data-testid="dashboard-ild-spotlight"
-        >
-          <Card className="relative overflow-hidden border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white p-6 hover:shadow-lg transition-shadow">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-amber-200/30 rounded-full -translate-y-20 translate-x-20 blur-3xl pointer-events-none" />
-            <div className="relative flex items-start gap-4">
-              <div className="w-12 h-12 rounded-sm bg-amber-600 text-white flex items-center justify-center flex-shrink-0">
-                <Stethoscope className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-amber-800 font-semibold">
-                  {ildGuide.source} · {ildGuide.year}
-                </div>
-                <h3 className="font-heading text-xl md:text-2xl font-black tracking-tight text-[#0A2540] mt-1">
-                  {ildGuide.name}
-                </h3>
-                <p className="mt-1.5 text-sm text-gray-700 line-clamp-2">{ildGuide.intro}</p>
-                <div className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-800 group-hover:text-amber-900">
-                  Apri linee guida ILD <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Link>
-      )}
-
-      {/* Criteria + Guidelines widgets */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Criteria classificativi */}
-        <Card className="border-gray-200 shadow-sm" data-testid="dashboard-criteria-widget">
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-sm bg-[#0A2540] flex items-center justify-center">
-                <FileCheck2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-heading text-xl font-bold tracking-tight">Criteri Classificativi</h2>
-                <div className="text-xs text-gray-500">{CRITERIA.length} criteri · {CRITERIA_GROUPS.length} malattie</div>
-              </div>
-            </div>
-            <Link to="/criteri">
-              <Button variant="outline" size="sm" data-testid="dashboard-criteria-all-btn">
-                Tutti <ChevronRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {pinnedCriteria.map((c) => (
-              <Link
-                key={c.id}
-                to={`/criteri?open=${c.id}`}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
-                data-testid={`dashboard-criterion-${c.id}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-[#0A2540] truncate">{c.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{c.source} · {c.disease}</div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A2540] flex-shrink-0" />
-              </Link>
-            ))}
-          </div>
-        </Card>
-
-        {/* Guidelines */}
-        <Card className="border-gray-200 shadow-sm" data-testid="dashboard-guidelines-widget">
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-sm bg-[#0A2540] flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-heading text-xl font-bold tracking-tight">Linee Guida ACR/EULAR/ERS</h2>
-                <div className="text-xs text-gray-500">{GUIDELINES.length} documenti di sintesi</div>
-              </div>
-            </div>
-            <Link to="/linee-guida">
-              <Button variant="outline" size="sm" data-testid="dashboard-guidelines-all-btn">
-                Tutte <ChevronRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {pinnedGuidelines.map((g) => {
-              const isILD = g.id === "ers_acr_eular_2023_ild" || g.id === "ers_eular_2025_ctd_ild";
-              const isPreg = g.disease === "Gravidanza e RMD";
-              const isAPS = g.disease === "APS";
-              const isLVV = g.disease === "Vasculiti grandi vasi";
-              const isVacc = g.disease === "Vaccinazioni e profilassi";
-              const isPeriop = g.disease === "Perioperatorio";
-              const isNew = g.year === 2025;
-              return (
-                <Link
-                  key={g.id}
-                  to="/linee-guida"
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
-                  data-testid={`dashboard-guideline-${g.id}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-[#0A2540] truncate flex items-center gap-2">
-                      {isILD && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] px-1.5 py-0">ILD</Badge>}
-                      {isPreg && <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-100 text-[10px] px-1.5 py-0">Gravidanza</Badge>}
-                      {isAPS && <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-[10px] px-1.5 py-0">APS</Badge>}
-                      {isLVV && <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 text-[10px] px-1.5 py-0">LVV</Badge>}
-                      {isVacc && <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 text-[10px] px-1.5 py-0">Vaccini</Badge>}
-                      {isPeriop && <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 text-[10px] px-1.5 py-0">Perioperatorio</Badge>}
-                      {isNew && <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] px-1.5 py-0">2025</Badge>}
-                      {g.name}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">{g.source} · {g.year}</div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A2540] flex-shrink-0" />
-                </Link>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      {/* My personal widgets: Pazienti recenti + To-do list + Pazienti da ricontrollare */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Pazienti recenti (visitati da ME negli ultimi 7gg) */}
-        <Card className="border-gray-200 shadow-sm" data-testid="recent-mine-card">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
-                <Clock className="w-5 h-5" /> Pazienti recenti
-              </h2>
-              <Badge variant="outline" className="text-[10px]">7 giorni</Badge>
-            </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Pazienti su cui hai inserito valutazioni di recente. Click → riapri la scheda.
-            </p>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
-            {recentMine.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">
-                Nessun paziente visitato negli ultimi 7 giorni.
-              </div>
-            ) : (
-              recentMine.slice(0, 8).map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/pazienti/${p.id}`}
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-                  data-testid={`recent-mine-${p.id}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-[#0A2540] truncate flex items-center gap-1.5">
-                      {p.recall && <RecallBadge flag={p.recall.flag} />}
-                      {(p.cognome || p.nome)
-                        ? `${p.cognome || ""} ${p.nome || ""}`.trim()
-                        : (p.codice_paziente || "Paziente")}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {p.diagnosi || "—"} · ultimo: {INDEX_LABELS[p.last_index_type] || p.last_index_type}{" "}
-                      {p.last_score != null && <span className="font-mono font-semibold">{p.last_score}</span>}
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-gray-500 text-right flex-shrink-0 ml-2">
-                    {(() => {
-                      const d = daysUntil(p.last_assessment_at);
-                      const ago = -d;
-                      return ago === 0 ? "Oggi" : ago === 1 ? "Ieri" : `${ago}gg fa`;
-                    })()}
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        </Card>
-
-        {/* To-do list (richieste urgenti) */}
-        <Card className="border-gray-200 shadow-sm" data-testid="upcoming-reminders-card">
-          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
-                <ListTodo className="w-5 h-5" /> To-do list
-              </h2>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Richieste contrassegnate "da fare prima possibile" (es. comitato etico, chiamare specialista, discutere il pz).
-              </p>
-            </div>
-            {overdueCount > 0 && <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{overdueCount} scaduti</Badge>}
-          </div>
-          <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
-            {upcoming.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">Nessuna richiesta urgente.</div>
-            ) : (
-              upcoming.slice(0, 8).map((r) => {
-                const p = patientsById[r.patient_id];
-                const days = daysUntil(r.due_date);
-                const cls = days < 0 ? "text-red-700" : days <= 7 ? "text-amber-700" : "text-gray-700";
-                return (
-                  <Link
-                    key={r.id}
-                    to={p ? `/pazienti/${p.id}` : "/pazienti"}
-                    className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-[#0A2540] truncate">{r.title}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "—") : "—"}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className={`text-xs font-medium ${cls}`}>
-                        {days < 0 ? `Scaduto ${Math.abs(days)}gg fa` : days === 0 ? "Oggi" : `Tra ${days}gg`}
-                      </div>
-                      <div className="text-[10px] text-gray-500 flex items-center justify-end gap-1 mt-0.5">
-                        <CalendarIcon className="w-2.5 h-2.5" /> {new Date(r.due_date).toLocaleDateString("it-IT")}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-        </Card>
-
-        {/* Pazienti da ricontrollare (recall flagged) */}
-        <Card className="border-gray-200 shadow-sm" data-testid="recall-card">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-xl font-bold tracking-tight flex items-center gap-2">
-                <Star className="w-5 h-5" /> Da ricontrollare
-              </h2>
-              <Badge variant="outline" className="text-[10px]">{recallList.length}</Badge>
-            </div>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Pazienti flaggati ⭐ <span className="text-red-600 font-semibold">rosso</span> (visibile a tutti) o
-              ⭐ <span className="text-blue-600 font-semibold">blu</span> (solo per te). Imposta il flag dalla scheda paziente.
-            </p>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
-            {recallList.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">
-                Nessun paziente da ricontrollare. Apri la scheda di un paziente e clicca <span className="font-semibold">Ricontrollo</span>.
-              </div>
-            ) : (
-              recallList.slice(0, 10).map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/pazienti/${p.id}`}
-                  className="flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors"
-                  data-testid={`recall-row-${p.id}`}
-                >
-                  <RecallBadge flag={p.recall?.flag} className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-[#0A2540] truncate">
-                      {(p.cognome || p.nome)
-                        ? `${p.cognome || ""} ${p.nome || ""}`.trim()
-                        : (p.codice_paziente || "Paziente")}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5 truncate">{p.diagnosi || "—"}</div>
-                    {p.recall?.note && (
-                      <div className="text-[11px] text-gray-700 mt-1 leading-snug bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
-                        {p.recall.note}
-                      </div>
-                    )}
-                    <div className="text-[10px] text-gray-500 mt-1.5">
-                      {p.recall?.set_by_name && <span>Da {p.recall.set_by_name} · </span>}
-                      {p.recall?.set_at && new Date(p.recall.set_at).toLocaleDateString("it-IT")}
-                    </div>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Recent assessments (organization-wide) */}
-      <Card className="border-gray-200 shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="font-heading text-xl font-bold tracking-tight">Valutazioni recenti (tutta l'organizzazione)</h2>
+        <div className={`w-9 h-9 rounded-md flex items-center justify-center ${accent || "bg-gray-100 text-gray-600"}`}>
+          <Icon className="w-4.5 h-4.5" />
         </div>
-        <div className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
-          {(stats.recent_assessments || []).length === 0 && (
-            <div className="p-10 text-center text-gray-500">Nessuna valutazione registrata.</div>
+      </div>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task card — Clinical To-do List item
+// ─────────────────────────────────────────────────────────────────────────────
+function TaskRow({ task, patient, onToggleComplete, busy }) {
+  const dl = deadlineLabel(task.due_date);
+  const isAsap = task.priority === "asap";
+  const isOverdue = task.due_date && daysUntil(task.due_date) < 0;
+  return (
+    <div
+      className="group flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50/70 transition border-b border-gray-100 last:border-0"
+      data-testid={`task-row-${task.id}`}
+    >
+      <Checkbox
+        checked={task.completed}
+        onCheckedChange={(v) => onToggleComplete(task, !!v)}
+        disabled={busy}
+        className="mt-1 flex-shrink-0"
+        data-testid={`task-complete-${task.id}`}
+        aria-label="Segna come completato"
+      />
+      <Link
+        to={patient ? `/pazienti/${patient.id}` : "/pazienti"}
+        className="flex-1 min-w-0 flex items-start justify-between gap-3"
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isAsap && (
+              <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-[0.12em] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
+                <AlertTriangle className="w-2.5 h-2.5" /> ASAP
+              </span>
+            )}
+            <span className={`text-sm font-semibold ${task.completed ? "line-through text-gray-400" : "text-[#0A2540]"} truncate`}>
+              {task.title}
+            </span>
+          </div>
+          <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+            {patient
+              ? (patient.cognome && patient.nome
+                  ? `${patient.cognome} ${patient.nome}`
+                  : patient.codice_paziente || "Paziente")
+              : "Paziente non disponibile"}
+            {task.notes && <span className="text-gray-400"> · {task.notes}</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {dl && (
+            <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border ${dl.color} ${isOverdue && !task.completed ? "" : ""}`}>
+              {dl.text}
+            </span>
           )}
-          {(stats.recent_assessments || []).map((a) => {
-            const p = patientsById[a.patient_id];
-            return (
-              <Link
-                key={a.id}
-                to={p ? `/pazienti/${p.id}` : "/pazienti"}
-                className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div>
-                  <div className="font-medium text-[#0A2540]">
-                    {p ? (p.cognome && p.nome ? `${p.cognome} ${p.nome}` : p.codice_paziente || "Paziente") : "Paziente rimosso"}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {INDEX_LABELS[a.index_type] || a.index_type} · {new Date(a.date).toLocaleDateString("it-IT")}
-                    {a.created_by_name && ` · ${a.created_by_name}`}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono font-bold text-lg">{a.score ?? "-"}</div>
-                  <div className="text-xs text-gray-500">{a.interpretation || ""}</div>
-                </div>
-              </Link>
-            );
-          })}
+          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
         </div>
-      </Card>
+      </Link>
     </div>
   );
 }
 
-function StatCard({ icon: Icon, label, value, testid, highlight }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Compact patient row used by side widgets
+// ─────────────────────────────────────────────────────────────────────────────
+function PatientCompactRow({ patient, right, badge, testid }) {
   return (
-    <Card className={`border-gray-200 shadow-sm p-6 ${highlight ? "ring-2 ring-red-300" : ""}`} data-testid={testid}>
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">{label}</div>
-          <div className="mt-3 font-heading font-black text-4xl text-[#0A2540]">{value}</div>
+    <Link
+      to={`/pazienti/${patient.id}`}
+      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50/70 transition border-b border-gray-100 last:border-0"
+      data-testid={testid}
+    >
+      {badge}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-[#0A2540] truncate">
+          {(patient.cognome || patient.nome)
+            ? `${patient.cognome || ""} ${patient.nome || ""}`.trim()
+            : (patient.codice_paziente || "Paziente")}
         </div>
-        <div className={`w-10 h-10 ${highlight ? "bg-red-600" : "bg-[#0A2540]"} flex items-center justify-center rounded-sm`}>
-          <Icon className="w-5 h-5 text-white" />
+        <div className="text-[11px] text-gray-500 truncate">{patient.diagnosi || "—"}</div>
+      </div>
+      {right && <div className="text-[10px] text-gray-500 flex-shrink-0">{right}</div>}
+    </Link>
+  );
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+export default function Dashboard() {
+  const [stats, setStats] = useState({ patients: 0, assessments: 0 });
+  const [patients, setPatients] = useState([]);
+  const [reminders, setReminders] = useState([]); // raw upcoming (asap, not completed)
+  const [recallList, setRecallList] = useState([]);
+  const [recentMine, setRecentMine] = useState([]);
+  const [taskFilter, setTaskFilter] = useState("active"); // active | all
+  const [busyTaskId, setBusyTaskId] = useState(null);
+
+  const refresh = async () => {
+    const [s, p, u, r, rm] = await Promise.all([
+      statsApi.get().catch(() => ({})),
+      patientsApi.list().catch(() => []),
+      remindersApi.upcoming().catch(() => []),
+      patientsApi.listRecall().catch(() => []),
+      patientsApi.recentMine(7).catch(() => []),
+    ]);
+    setStats(s || {});
+    setPatients(p || []);
+    setReminders(u || []);
+    setRecallList(r || []);
+    setRecentMine(rm || []);
+  };
+  useEffect(() => { refresh(); }, []);
+
+  const patientsById = useMemo(
+    () => Object.fromEntries(patients.map((p) => [p.id, p])),
+    [patients]
+  );
+
+  // Sort reminders: incomplete first (overdue, today, soon, future), then completed
+  const sortedTasks = useMemo(() => {
+    const arr = [...reminders];
+    arr.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      const da = daysUntil(a.due_date) ?? 9999;
+      const db = daysUntil(b.due_date) ?? 9999;
+      return da - db;
+    });
+    return arr;
+  }, [reminders]);
+
+  const visibleTasks = useMemo(() => {
+    if (taskFilter === "all") return sortedTasks;
+    return sortedTasks.filter((t) => !t.completed);
+  }, [sortedTasks, taskFilter]);
+
+  const overdueCount = useMemo(
+    () => reminders.filter((r) => !r.completed && daysUntil(r.due_date) < 0).length,
+    [reminders]
+  );
+  const activeTodoCount = reminders.filter((r) => !r.completed).length;
+
+  const toggleComplete = async (task, completed) => {
+    setBusyTaskId(task.id);
+    try {
+      await remindersApi.update(task.id, { completed });
+      setReminders((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, completed } : t))
+      );
+      toast.success(completed ? "Task completato" : "Task riaperto");
+    } catch (e) {
+      toast.error("Errore aggiornamento task");
+    } finally {
+      setBusyTaskId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6 fade-in" data-testid="dashboard-cockpit">
+      {/* ─── Header minimale ──────────────────────────────────────────── */}
+      <div className="flex items-end justify-between flex-wrap gap-2">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">Cockpit</div>
+          <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tighter text-[#0A2540] mt-1">
+            Buon lavoro.
+          </h1>
+        </div>
+        <div className="text-[11px] text-gray-500 hidden md:block">
+          {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
         </div>
       </div>
-    </Card>
+
+      {/* ─── 3 KPI ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Kpi
+          icon={Clock}
+          label="Pazienti recenti (7gg)"
+          value={recentMine.length}
+          accent="bg-blue-50 text-blue-700"
+          testid="kpi-recent-mine"
+        />
+        <Kpi
+          icon={ListTodo}
+          label="To-do list"
+          value={activeTodoCount}
+          accent={overdueCount > 0 ? "bg-red-50 text-red-700" : "bg-violet-50 text-violet-700"}
+          testid="kpi-todos"
+        />
+        <Kpi
+          icon={Star}
+          label="Da ricontrollare"
+          value={recallList.length}
+          accent="bg-amber-50 text-amber-700"
+          testid="kpi-recall"
+        />
+      </div>
+
+      {/* ─── Main: To-do list + Side widgets ──────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* MAIN — Clinical To-do List */}
+        <Card className="lg:col-span-2 border-gray-200 shadow-none overflow-hidden" data-testid="todo-card">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-heading text-lg font-bold tracking-tight flex items-center gap-2 text-[#0A2540]">
+                <ClipboardList className="w-5 h-5" /> Clinical To-do
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Rivalutare PCR · Discussione MDT · Controllare HRCT · Contattare specialista · Richiesta PT biologico
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setTaskFilter("active")}
+                className={`text-[11px] px-2.5 py-1 rounded-md font-semibold transition ${
+                  taskFilter === "active"
+                    ? "bg-[#0A2540] text-white"
+                    : "text-gray-500 hover:bg-gray-100"
+                }`}
+                data-testid="filter-active"
+              >
+                Attivi
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskFilter("all")}
+                className={`text-[11px] px-2.5 py-1 rounded-md font-semibold transition ${
+                  taskFilter === "all"
+                    ? "bg-[#0A2540] text-white"
+                    : "text-gray-500 hover:bg-gray-100"
+                }`}
+                data-testid="filter-all"
+              >
+                Tutti
+              </button>
+            </div>
+          </div>
+          {visibleTasks.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <ClipboardList className="w-8 h-8 mx-auto text-gray-300" />
+              <p className="text-sm text-gray-500 mt-3">
+                {taskFilter === "active"
+                  ? "Nessun task attivo. Crea una richiesta dalla scheda paziente."
+                  : "Nessun task creato."}
+              </p>
+              <Link
+                to="/pazienti"
+                className="inline-flex items-center gap-1.5 mt-4 text-[11px] text-violet-700 hover:underline font-semibold"
+              >
+                <Plus className="w-3 h-3" /> Apri un paziente
+              </Link>
+            </div>
+          ) : (
+            <div data-testid="task-list">
+              {visibleTasks.map((t) => (
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  patient={patientsById[t.patient_id]}
+                  onToggleComplete={toggleComplete}
+                  busy={busyTaskId === t.id}
+                />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* SIDE — Pazienti recenti + Da ricontrollare */}
+        <div className="space-y-5">
+
+          {/* Pazienti recenti */}
+          <Card className="border-gray-200 shadow-none overflow-hidden" data-testid="recent-mine-card">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h3 className="font-heading text-sm font-bold tracking-tight text-[#0A2540] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" /> Pazienti recenti
+              </h3>
+            </div>
+            {recentMine.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[11px] text-gray-400">Nessuna visita negli ultimi 7gg.</div>
+            ) : (
+              recentMine.slice(0, 6).map((p) => {
+                const d = daysUntil(p.last_assessment_at);
+                const ago = -d;
+                const right = ago === 0 ? "Oggi" : ago === 1 ? "Ieri" : `${ago}gg`;
+                return (
+                  <PatientCompactRow
+                    key={p.id}
+                    patient={p}
+                    right={right}
+                    badge={p.recall ? <RecallBadge flag={p.recall.flag} className="w-3 h-3" /> : null}
+                    testid={`recent-mine-${p.id}`}
+                  />
+                );
+              })
+            )}
+          </Card>
+
+          {/* Da ricontrollare */}
+          <Card className="border-gray-200 shadow-none overflow-hidden" data-testid="recall-card">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h3 className="font-heading text-sm font-bold tracking-tight text-[#0A2540] flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5" /> Da ricontrollare
+              </h3>
+            </div>
+            {recallList.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[11px] text-gray-400">
+                Nessun paziente flaggato.
+              </div>
+            ) : (
+              recallList.slice(0, 6).map((p) => (
+                <PatientCompactRow
+                  key={p.id}
+                  patient={p}
+                  badge={<RecallBadge flag={p.recall?.flag} className="w-3.5 h-3.5" />}
+                  right={p.recall?.set_at ? new Date(p.recall.set_at).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) : null}
+                  testid={`recall-row-${p.id}`}
+                />
+              ))
+            )}
+          </Card>
+
+          {/* CTA discreto */}
+          <Link
+            to="/pazienti"
+            className="block text-center text-[11px] text-gray-500 hover:text-violet-700 transition"
+            data-testid="goto-patients"
+          >
+            <Users className="w-3 h-3 inline mr-1" />
+            {stats.patients ? `${stats.patients} pazienti totali` : "Vedi tutti i pazienti"}
+            <ChevronRight className="w-3 h-3 inline ml-0.5" />
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
