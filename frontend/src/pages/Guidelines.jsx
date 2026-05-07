@@ -194,7 +194,7 @@ function GuidelineDetail({ g }) {
               )}
               {(g.urls || []).map((u, i) => (
                 <a
-                  key={i}
+                  key={u.href}
                   href={u.href}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -212,7 +212,7 @@ function GuidelineDetail({ g }) {
 
       <div className="space-y-4">
         {g.sections.map((sec, idx) => (
-          <Card key={idx} className="border-gray-200 shadow-sm p-5" data-testid={`guideline-section-${idx}`}>
+          <Card key={sec.title} className="border-gray-200 shadow-sm p-5" data-testid={`guideline-section-${idx}`}>
             <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-[#0A2540] mb-3 flex items-center gap-2">
               <span className="w-6 h-6 rounded-sm bg-[#0A2540] text-white inline-flex items-center justify-center text-[11px] font-mono">
                 {idx + 1}
@@ -220,8 +220,8 @@ function GuidelineDetail({ g }) {
               {sec.title}
             </h3>
             <ul className="space-y-2 ml-1">
-              {sec.items.map((it, i) => (
-                <li key={i} className="text-sm text-gray-700 leading-relaxed flex gap-2">
+              {sec.items.map((it) => (
+                <li key={it} className="text-sm text-gray-700 leading-relaxed flex gap-2">
                   <span className="text-[#0A2540] font-bold mt-0.5">›</span>
                   <span>{it}</span>
                 </li>

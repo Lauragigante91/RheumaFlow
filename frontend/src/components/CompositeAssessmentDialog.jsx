@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { Save, Zap, Copy } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import EnthesisBodyChart from "./EnthesisBodyChart";
+import { VasSlider, ResultTile } from "./CompositeFormParts";
+import { applyPrevToRa, applyPrevToSpa, applyPrevToPsa } from "../lib/compositeReusePrev";
 
 /**
  * Form compositi che condividono input tra indici della stessa malattia.
@@ -28,40 +30,6 @@ import EnthesisBodyChart from "./EnthesisBodyChart";
  */
 
 const VAS_DEFAULT = 0;
-
-function VasSlider({ label, value, onChange, hint, testid }) {
-  const v = Number(value) || 0;
-  return (
-    <div className="space-y-1" data-testid={testid}>
-      <div className="flex items-center justify-between gap-3">
-        <Label className="text-sm font-medium leading-snug flex-1">{label}</Label>
-        <Input
-          type="number" min={0} max={10} step="0.1"
-          className="w-20 text-sm h-8"
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
-      <Slider min={0} max={10} step={0.1} value={[v]} onValueChange={([val]) => onChange(val)} />
-      {hint && <p className="text-[10px] text-gray-500 leading-tight">{hint}</p>}
-    </div>
-  );
-}
-
-function ResultTile({ title, score, interp, subtitle, testid }) {
-  return (
-    <div className="border border-gray-200 rounded-md p-3" data-testid={testid}>
-      <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">{title}</div>
-      <div className="flex items-baseline gap-2 mt-0.5">
-        <span className="font-mono font-black text-2xl text-[#0A2540]" data-testid={`${testid}-score`}>
-          {score === null || isNaN(score) ? "—" : score}
-        </span>
-        {subtitle && <span className="text-[10px] text-gray-500">{subtitle}</span>}
-      </div>
-      {interp && <div className="text-xs font-medium mt-0.5 text-gray-700">{interp}</div>}
-    </div>
-  );
-}
 
 export default function CompositeAssessmentDialog({ open, onClose, mode, patient, onSaved }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -123,59 +91,14 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   // ===== Applica precompilazione dal prevVisit =====
   const applyCopyFromPrev = () => {
     if (!prevVisit?.items) return;
-    const byType = Object.fromEntries(prevVisit.items.map((a) => [a.index_type, a]));
-    if (mode === "ra") {
-      // Ricostruisci joints dall'ultimo das28_esr o cdai (hanno tender_joints/swollen_joints)
-      const srcJoints = byType.das28_esr || byType.das28_crp || byType.cdai || byType.sdai;
-      const newJoints = {};
-      (srcJoints?.tender_joints || []).forEach((k) => { newJoints[k] = "tender"; });
-      (srcJoints?.swollen_joints || []).forEach((k) => {
-        newJoints[k] = newJoints[k] === "tender" ? "both" : "swollen";
-      });
-      setJoints(newJoints);
-      const ins = srcJoints?.inputs || {};
-      setEsr(ins.esr ?? "");
-      setCrp(ins.crp ?? "");
-      setPga(Number(ins.pga) || 0);
-      setEga(Number(ins.ega) || 0);
-    } else if (mode === "spa") {
-      const basdai = byType.basdai?.inputs || {};
-      const asdas = byType.asdas_crp?.inputs || {};
-      const basfi = byType.basfi?.inputs || {};
-      setBas({
-        q1: basdai.q1 ?? "", q2: basdai.q2 ?? asdas.backPain ?? "",
-        q3: basdai.q3 ?? asdas.peripheralPain ?? "", q4: basdai.q4 ?? "",
-        q5: basdai.q5 ?? "", q6: basdai.q6 ?? asdas.morningStiffness ?? "",
-      });
-      setAsdasPga(Number(asdas.pga) || 0);
-      setCrp(asdas.crp ?? "");
-      const bf = {};
-      for (let i = 1; i <= 10; i++) bf[`q${i}`] = basfi[`q${i}`] ?? "";
-      setBasfiVals(bf);
-    } else if (mode === "psa") {
-      // DAPSA — ricostruisci joints + PGA + dolore paziente + CRP
-      const dapsa = byType.dapsa;
-      const dapsaIns = dapsa?.inputs || {};
-      const newJoints = {};
-      (dapsa?.tender_joints || []).forEach((k) => { newJoints[k] = "tender"; });
-      (dapsa?.swollen_joints || []).forEach((k) => {
-        newJoints[k] = newJoints[k] === "tender" ? "both" : "swollen";
-      });
-      setJoints(newJoints);
-      setPga(Number(dapsaIns.pga) || 0);
-      setPatientPain(Number(dapsaIns.patientPain) || 0);
-      setCrp(dapsaIns.crp ?? "");
-      // LEI
-      const lei = byType.lei?.inputs || {};
-      setLeiSites(lei.sites || {});
-      // PASI
-      const pasiIns = byType.pasi?.inputs || {};
-      const pd = { head: {}, upper: {}, trunk: {}, lower: {} };
-      ["head", "upper", "trunk", "lower"].forEach((reg) => {
-        if (pasiIns[reg]) pd[reg] = { ...pasiIns[reg] };
-      });
-      setPasiData(pd);
-    }
+    const setters = {
+      setJoints, setEsr, setCrp, setPga, setEga,
+      setBas, setAsdasPga, setBasfiVals,
+      setPatientPain, setLeiSites, setPasiData,
+    };
+    if (mode === "ra") applyPrevToRa(prevVisit, setters);
+    else if (mode === "spa") applyPrevToSpa(prevVisit, setters);
+    else if (mode === "psa") applyPrevToPsa(prevVisit, setters);
     setCopied(true);
     toast.success(`Valori precompilati dalla visita del ${new Date(prevVisit.date).toLocaleDateString("it-IT")}`);
   };

@@ -11,6 +11,11 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+if not BASE_URL:
+    with open("/app/frontend/.env") as f:
+        for line in f:
+            if line.startswith("REACT_APP_BACKEND_URL="):
+                BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@clinimetria.it"

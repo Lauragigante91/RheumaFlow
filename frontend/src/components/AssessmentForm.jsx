@@ -12,20 +12,15 @@ import { Checkbox } from "./ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import ItalianDatePicker from "./ItalianDatePicker";
 import {
-  calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
-  calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
-  calcMRSS, calcSchober, calcCapillaroscopy, calcLEI, calcProgettoCuore,
   haqCategoryScore,
-  interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
-  interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
-  interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR, interpretMRSS, interpretSchober, interpretCapillaroscopy,
-  interpretLEI, interpretProgettoCuore,
+  interpretBASDAI,
   SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS, BASFI_QUESTIONS, BASMI_MEASURES, ESSDAI_DOMAINS,
   BVAS_SYSTEMS, MMT8_GROUPS, FIQR_FUNCTION, FIQR_OVERALL, FIQR_SYMPTOMS,
   MRSS_AREAS, CAPILLAROSCOPY_PATTERNS, CAPILLAROSCOPY_FEATURES, LEI_SITES,
   JOINTS_DAS28,
   INDEX_LABELS,
 } from "../lib/clinimetrics";
+import { computeAssessmentScore } from "../lib/assessmentScoring";
 
 /**
  * props: indexType, onSubmit({ inputs, score, interpretation, tender_joints, swollen_joints }), previousAssessments, initial (per modifica)
@@ -65,80 +60,11 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
 
   const set = (k, v) => setInputs((p) => ({ ...p, [k]: v }));
 
-  const computeScore = () => {
-    // Ora il homunculus è sempre 66/68: per DAS28/CDAI/SDAI estraiamo il subset 28
-    const tjc28 = countTenderIn(joints, JOINTS_DAS28);
-    const sjc28 = countSwollenIn(joints, JOINTS_DAS28);
-    const tjcAll = countTender(joints);
-    const sjcAll = countSwollen(joints);
-    switch (indexType) {
-      case "das28_esr":
-        return { score: calcDAS28_ESR({ tjc: tjc28, sjc: sjc28, esr: inputs.esr, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc: tjc28, sjc: sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
-      case "das28_crp":
-        return { score: calcDAS28_CRP({ tjc: tjc28, sjc: sjc28, crp: inputs.crp, gh: inputs.gh }), interp: interpretDAS28, ins: { ...inputs, tjc: tjc28, sjc: sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
-      case "cdai": {
-        const s = calcCDAI({ tjc28, sjc28, pga: inputs.pga, ega: inputs.ega });
-        return { score: s, interp: interpretCDAI, ins: { ...inputs, tjc28, sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
-      }
-      case "sdai": {
-        const s = calcSDAI({ tjc28, sjc28, pga: inputs.pga, ega: inputs.ega, crp: inputs.crp });
-        return { score: s, interp: interpretSDAI, ins: { ...inputs, tjc28, sjc28, tjc_all: tjcAll, sjc_all: sjcAll } };
-      }
-      case "basdai":
-        return { score: calcBASDAI(inputs), interp: interpretBASDAI, ins: { ...inputs } };
-      case "asdas_crp":
-        return { score: calcASDAS_CRP(inputs), interp: interpretASDAS, ins: { ...inputs } };
-      case "dapsa":
-        return { score: calcDAPSA({ tjc68: tjcAll, sjc66: sjcAll, pga: inputs.pga, patientPain: inputs.patientPain, crp: inputs.crp }), interp: interpretDAPSA, ins: { ...inputs, tjc68: tjcAll, sjc66: sjcAll } };
-      case "lei":
-        return { score: calcLEI(leiSites), interp: interpretLEI, ins: { sites: leiSites } };
-      case "sledai":
-        return { score: calcSLEDAI(sledaiData), interp: interpretSLEDAI, ins: { items: sledaiData } };
-      case "haq":
-        return { score: calcHAQ(haqData), interp: interpretHAQ, ins: { categories: haqData } };
-      case "pasi":
-        return { score: calcPASI(pasiData), interp: interpretPASI, ins: { regions: pasiData } };
-      case "basfi":
-        return { score: calcBASFI(inputs), interp: interpretBASFI, ins: { ...inputs } };
-      case "basmi":
-        return { score: calcBASMI(inputs), interp: interpretBASMI, ins: { ...inputs } };
-      case "essdai":
-        return { score: calcESSDAI(essdaiData), interp: interpretESSDAI, ins: { domains: essdaiData } };
-      case "esspri":
-        return { score: calcESSPRI(inputs), interp: interpretESSPRI, ins: { ...inputs } };
-      case "bvas":
-        return { score: calcBVAS(bvasData), interp: interpretBVAS, ins: { systems: bvasData } };
-      case "mmt8":
-        return { score: calcMMT8(mmtData), interp: interpretMMT8, ins: { groups: mmtData } };
-      case "fiqr":
-        return { score: calcFIQR(fiqrData), interp: interpretFIQR, ins: fiqrData };
-      case "mrss":
-        return { score: calcMRSS(mrssData), interp: interpretMRSS, ins: { areas: mrssData } };
-      case "schober":
-        return { score: calcSchober(inputs), interp: interpretSchober, ins: { ...inputs } };
-      case "capillaroscopy": {
-        const sc = calcCapillaroscopy(capData);
-        return { score: sc, interp: () => interpretCapillaroscopy(capData), ins: { ...capData } };
-      }
-      case "progetto_cuore": {
-        const sc = calcProgettoCuore({
-          sex: inputs.sex,
-          age: inputs.age,
-          sbp: inputs.sbp,
-          tc: inputs.tc,
-          hdl: inputs.hdl,
-          diabetes: !!inputs.diabetes,
-          smoker: !!inputs.smoker,
-          antihtn_tx: !!inputs.antihtn_tx,
-        });
-        return { score: sc, interp: interpretProgettoCuore, ins: { ...inputs } };
-      }
-      default:
-        return { score: null, interp: () => "-", ins: {} };
-    }
-  };
-
-  const { score, interp, ins } = computeScore();
+  const { score, interp, ins } = computeAssessmentScore({
+    indexType, inputs, joints,
+    pasiData, sledaiData, haqData, essdaiData, bvasData,
+    mmtData, fiqrData, mrssData, capData, leiSites,
+  });
   const interpretation = interp ? interp(score) : "-";
 
   const handleSubmit = () => {

@@ -83,8 +83,8 @@ export default function Miscellanea() {
                 </tr>
               </thead>
               <tbody>
-                {MYOSITIS_ANTIBODIES.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                {MYOSITIS_ANTIBODIES.map((r) => (
+                  <tr key={r.antibody} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-3 font-bold text-[#0A2540] whitespace-nowrap">{r.antibody}</td>
                     <td className="px-3 py-3 text-gray-700">{r.phenotype}</td>
                     <Cell>{r.muscle}</Cell>
@@ -126,8 +126,8 @@ export default function Miscellanea() {
                 </tr>
               </thead>
               <tbody>
-                {AUTOINFLAMMATORY_DISEASES.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
+                {AUTOINFLAMMATORY_DISEASES.map((r) => (
+                  <tr key={r.disease} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-3 font-bold text-[#0A2540] whitespace-nowrap">{r.disease}</td>
                     <td className="px-3 py-3 text-gray-700">{r.onset}</td>
                     <Cell>{r.fever}</Cell>
@@ -166,8 +166,8 @@ export default function Miscellanea() {
                 </tr>
               </thead>
               <tbody>
-                {ANA_PATTERNS.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
+                {ANA_PATTERNS.map((r) => (
+                  <tr key={r.pattern} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-4 py-3 font-bold text-[#0A2540]">{r.pattern}</td>
                     <td className="px-4 py-3 text-gray-700">{r.antibodies}</td>
                     <td className="px-4 py-3 text-gray-700">{r.diseases}</td>
@@ -224,7 +224,7 @@ export default function Miscellanea() {
               </div>
               <div className="space-y-3">
                 {openAlgo.steps.map((s, i) => (
-                  <Card key={i} className="border-gray-200 shadow-sm p-4">
+                  <Card key={s.title} className="border-gray-200 shadow-sm p-4">
                     <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-[#0A2540] mb-2 flex items-center gap-2">
                       <span className="w-6 h-6 rounded-sm bg-[#0A2540] text-white inline-flex items-center justify-center text-[11px] font-mono">
                         {i + 1}
@@ -232,8 +232,8 @@ export default function Miscellanea() {
                       {s.title}
                     </h3>
                     <ul className="space-y-1.5 ml-1">
-                      {s.items.map((it, j) => (
-                        <li key={j} className="text-sm text-gray-700 leading-relaxed flex gap-2">
+                      {s.items.map((it) => (
+                        <li key={it} className="text-sm text-gray-700 leading-relaxed flex gap-2">
                           <span className="text-[#0A2540] font-bold mt-0.5">›</span>
                           <span>{it}</span>
                         </li>
