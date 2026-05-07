@@ -5,9 +5,10 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-import { Activity, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { authApi } from "../lib/api";
+import BrandMark, { BrandWordmark } from "../components/BrandMark";
 
 function formatDetail(detail) {
   if (!detail) return "Errore di accesso";
@@ -63,12 +64,10 @@ export default function Login() {
     <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4" data-testid="login-page">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-[#0A2540] flex items-center justify-center rounded-sm">
-              <Activity className="w-5 h-5 text-white" />
-            </div>
+          <div className="inline-flex items-center gap-2.5 mb-4">
+            <BrandMark className="w-12 h-12" testid="login-brand-mark" />
             <div className="text-left">
-              <div className="font-heading font-black text-2xl tracking-tighter leading-none">Rheumaflow</div>
+              <BrandWordmark className="text-2xl leading-none" />
               <div className="text-[10px] font-medium tracking-[0.05em] text-gray-500 mt-1">
                 The intelligent workspace for rheumatologists
               </div>

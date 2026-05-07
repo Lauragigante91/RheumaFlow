@@ -1,7 +1,7 @@
 {
-  "short_name": "Rheumaflow",
-  "name": "Rheumaflow — The intelligent workspace for rheumatologists",
-  "description": "Rheumaflow: piattaforma per le clinimetrie nelle malattie reumatiche — calcolatori (DAS28, BASDAI, mRSS...), criteri classificativi, follow-up longitudinale, AI per import visite e referti.",
+  "short_name": "RheumaFlow",
+  "name": "RheumaFlow — The intelligent workspace for rheumatologists",
+  "description": "RheumaFlow: piattaforma per le clinimetrie nelle malattie reumatiche — calcolatori (DAS28, BASDAI, mRSS...), criteri classificativi, follow-up longitudinale, AI per import visite e referti.",
   "icons": [
     {
       "src": "/icon-192.png",
