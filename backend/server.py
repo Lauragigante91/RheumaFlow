@@ -142,6 +142,7 @@ class PatientBase(BaseModel):
     sesso: Optional[str] = None
     codice_fiscale: Optional[str] = None
     diagnosi: Optional[str] = None
+    diagnosi_secondarie: List[str] = Field(default_factory=list)  # overlap diagnoses (es. fibromialgia, osteoporosi)
     note: Optional[str] = None
 
 
@@ -163,6 +164,7 @@ class PatientUpdate(BaseModel):
     sesso: Optional[str] = None
     codice_fiscale: Optional[str] = None
     diagnosi: Optional[str] = None
+    diagnosi_secondarie: Optional[List[str]] = None
     note: Optional[str] = None
 
 
@@ -306,7 +308,7 @@ class ReminderUpdate(BaseModel):
 # When submitted, results are stored on the token and the doctor reviews +
 # approves them, optionally turning them into formal assessments.
 PRO_INSTRUMENTS_ALLOWED = {
-    "haq", "basdai", "basfi", "raid", "psaid", "fiqr", "ess_pri",
+    "haq", "basdai", "basfi", "raid", "psaid", "fiqr", "esspri",
     "vas_pain", "vas_pga", "vas_fatigue",
 }
 

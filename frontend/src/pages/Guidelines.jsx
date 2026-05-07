@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -11,6 +12,15 @@ export default function Guidelines() {
   const [search, setSearch] = useState("");
   const [selectedDisease, setSelectedDisease] = useState("all");
   const [open, setOpen] = useState(null);
+  const location = useLocation();
+
+  // Read ?q=... from URL on mount and whenever it changes (e.g., navigated from
+  // the patient guidelines shortcut).
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q) setSearch(q);
+  }, [location.search]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

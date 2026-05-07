@@ -29,6 +29,7 @@ import PatientHeader from "../components/PatientHeader";
 import TrendChartCard, { buildDrugColorMap } from "../components/TrendChartCard";
 import CriteriaHistorySection from "../components/CriteriaHistorySection";
 import VisitDetailsDialog from "../components/VisitDetailsDialog";
+import ClinicalAlerts from "../components/ClinicalAlerts";
 import { isRaDiagnosis, isSpaDiagnosis, isSleDiagnosis, isAavDiagnosis, isSjogrenDiagnosis, isMyositisDiagnosis } from "../lib/diseaseDetection";
 import { INDEX_LABELS, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
@@ -67,7 +68,7 @@ export default function PatientDetail() {
     setTherapies(th);
     const lx = await labExamsApi.listByPatient(id).catch(() => []);
     setLabExams(lx);
-    if (p && isSpaDiagnosis(p.diagnosi)) {
+    if (p && isSpaDiagnosis(p)) {
       const sp = await diseaseProfileApi.get(id, "spa").catch(() => null);
       setSpaProfile(sp?.data || null);
     } else {
@@ -78,7 +79,7 @@ export default function PatientDetail() {
 
   const suggestions = useMemo(() => {
     const base = suggestForDiagnosis(patient?.diagnosi);
-    if (patient && isSpaDiagnosis(patient.diagnosi) && spaProfile?.axial_involvement) {
+    if (patient && isSpaDiagnosis(patient) && spaProfile?.axial_involvement) {
       const axialIdx = ["asdas_crp", "basdai", "basfi"];
       const merged = Array.from(new Set([...(base.indices || []), ...axialIdx]));
       return { ...base, indices: merged };
@@ -330,19 +331,22 @@ export default function PatientDetail() {
       />
 
       {/* Vasculitis header summary (organs & diagnostic basis) */}
-      {isAavDiagnosis(patient.diagnosi) && <AavSummaryHeader patient={patient} />}
+      {isAavDiagnosis(patient) && <AavSummaryHeader patient={patient} />}
+
+      {/* Clinical alerts — ILD screening / GIOP / PJP prophylaxis */}
+      <ClinicalAlerts patient={patient} therapies={therapies} />
 
       {/* CLINICAL PROFILES */}
-      {isRaDiagnosis(patient.diagnosi) && <RaProfileSection patient={patient} />}
-      {isSpaDiagnosis(patient.diagnosi) && <SpaProfileSection patient={patient} onUpdated={(d) => setSpaProfile(d)} />}
-      {isSleDiagnosis(patient.diagnosi) && <SleProfileSection patient={patient} />}
-      {isAavDiagnosis(patient.diagnosi) && <AavProfileSection patient={patient} />}
-      {isSjogrenDiagnosis(patient.diagnosi) && <SjogrenProfileSection patient={patient} />}
-      {isMyositisDiagnosis(patient.diagnosi) && <MyositisProfileSection patient={patient} />}
+      {isRaDiagnosis(patient) && <RaProfileSection patient={patient} />}
+      {isSpaDiagnosis(patient) && <SpaProfileSection patient={patient} onUpdated={(d) => setSpaProfile(d)} />}
+      {isSleDiagnosis(patient) && <SleProfileSection patient={patient} />}
+      {isAavDiagnosis(patient) && <AavProfileSection patient={patient} />}
+      {isSjogrenDiagnosis(patient) && <SjogrenProfileSection patient={patient} />}
+      {isMyositisDiagnosis(patient) && <MyositisProfileSection patient={patient} />}
       {isScleroDiagnosis(patient.diagnosi) && <ScleroProfileSection patient={patient} />}
 
       {/* SpA peripheral involvement: homunculus 66/68 + LEI body chart */}
-      {isSpaDiagnosis(patient.diagnosi) && spaProfile?.peripheral_involvement && (
+      {isSpaDiagnosis(patient) && spaProfile?.peripheral_involvement && (
         <SpaJointsPanel patient={patient} assessments={assessments} />
       )}
 

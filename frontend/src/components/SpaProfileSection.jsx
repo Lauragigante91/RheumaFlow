@@ -27,6 +27,18 @@ const FLAGS = [
     hint: "Morbo di Crohn o Rettocolite ulcerosa",
     Icon: Stethoscope,
   },
+  {
+    key: "dactylitis",
+    label: "Dattilite",
+    hint: "Tumefazione \"a salsicciotto\" di un intero dito (presente o pregressa)",
+    Icon: Bone,
+  },
+  {
+    key: "enthesitis",
+    label: "Entesite",
+    hint: "Inserzione di Achille, fascia plantare, tuberosità ischiatica, epicondilo (es. LEI ≥1)",
+    Icon: MoveVertical,
+  },
 ];
 
 export default function SpaProfileSection({ patient, onUpdated }) {
@@ -36,6 +48,8 @@ export default function SpaProfileSection({ patient, onUpdated }) {
     psoriasis: false,
     uveitis: false,
     ibd: false,
+    dactylitis: false,
+    enthesitis: false,
     altro: "",
   });
   const [saving, setSaving] = useState(false);

@@ -16,7 +16,7 @@ import ItalianDatePicker from "../components/ItalianDatePicker";
 const emptyForm = {
   codice_paziente: "", nome: "", cognome: "",
   anno_nascita: "", data_nascita: "", sesso: "",
-  codice_fiscale: "", diagnosi: "", note: "",
+  codice_fiscale: "", diagnosi: "", diagnosi_secondarie: [], note: "",
 };
 
 const SORT_OPTIONS = [
@@ -66,7 +66,15 @@ export default function Patients() {
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setOpen(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ ...emptyForm, ...p }); setOpen(true); };
+  const openEdit = (p) => {
+    setEditing(p);
+    setForm({
+      ...emptyForm,
+      ...p,
+      diagnosi_secondarie: Array.isArray(p?.diagnosi_secondarie) ? p.diagnosi_secondarie : [],
+    });
+    setOpen(true);
+  };
 
   const save = async () => {
     const hasCode = !!(form.codice_paziente || "").trim();
@@ -84,6 +92,10 @@ export default function Patients() {
       if (!payload[k]) payload[k] = null;
     });
     payload.anno_nascita = form.anno_nascita ? Number(form.anno_nascita) : null;
+    // Clean diagnosi_secondarie: array of trimmed non-empty strings
+    payload.diagnosi_secondarie = (form.diagnosi_secondarie || [])
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
     try {
       if (editing) {
         await patientsApi.update(editing.id, payload);
@@ -241,9 +253,25 @@ export default function Patients() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Diagnosi">
+              <Field label="Diagnosi (principale)">
                 <Input data-testid="patient-diagnosi" value={form.diagnosi || ""} onChange={(e) => setForm({ ...form, diagnosi: e.target.value })} />
               </Field>
+              <div className="md:col-span-2">
+                <Field label="Diagnosi secondarie / overlap (separate da virgola)">
+                  <Input
+                    data-testid="patient-diagnosi-secondarie"
+                    value={(form.diagnosi_secondarie || []).join(", ")}
+                    onChange={(e) => setForm({
+                      ...form,
+                      diagnosi_secondarie: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    })}
+                    placeholder="es. Fibromialgia, Osteoporosi, Sjögren secondario"
+                  />
+                  <div className="text-[11px] text-gray-500 italic mt-1">
+                    Le diagnosi qui inserite contribuiscono ai profili clinici e alle linee guida suggerite (es. AR + Fibromialgia → entrambe le sezioni vengono mostrate).
+                  </div>
+                </Field>
+              </div>
               <div className="md:col-span-2">
                 <Field label="Note cliniche">
                   <Textarea data-testid="patient-note" value={form.note || ""} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} />

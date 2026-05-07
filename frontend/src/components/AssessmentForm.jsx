@@ -14,12 +14,12 @@ import ItalianDatePicker from "./ItalianDatePicker";
 import {
   calcDAS28_ESR, calcDAS28_CRP, calcCDAI, calcSDAI, calcBASDAI, calcASDAS_CRP, calcDAPSA,
   calcSLEDAI, calcHAQ, calcPASI, calcBASFI, calcBASMI, calcESSDAI, calcESSPRI, calcBVAS, calcMMT8, calcFIQR,
-  calcMRSS, calcSchober, calcCapillaroscopy, calcLEI,
+  calcMRSS, calcSchober, calcCapillaroscopy, calcLEI, calcProgettoCuore,
   haqCategoryScore,
   interpretDAS28, interpretCDAI, interpretSDAI, interpretBASDAI, interpretASDAS, interpretDAPSA,
   interpretSLEDAI, interpretHAQ, interpretPASI, interpretBASFI, interpretBASMI, interpretESSDAI,
   interpretESSPRI, interpretBVAS, interpretMMT8, interpretFIQR, interpretMRSS, interpretSchober, interpretCapillaroscopy,
-  interpretLEI,
+  interpretLEI, interpretProgettoCuore,
   SLEDAI_ITEMS, HAQ_CATEGORIES, PASI_REGIONS, BASFI_QUESTIONS, BASMI_MEASURES, ESSDAI_DOMAINS,
   BVAS_SYSTEMS, MMT8_GROUPS, FIQR_FUNCTION, FIQR_OVERALL, FIQR_SYMPTOMS,
   MRSS_AREAS, CAPILLAROSCOPY_PATTERNS, CAPILLAROSCOPY_FEATURES, LEI_SITES,
@@ -119,6 +119,19 @@ export default function AssessmentForm({ indexType, onSubmit, onCancel, previous
       case "capillaroscopy": {
         const sc = calcCapillaroscopy(capData);
         return { score: sc, interp: () => interpretCapillaroscopy(capData), ins: { ...capData } };
+      }
+      case "progetto_cuore": {
+        const sc = calcProgettoCuore({
+          sex: inputs.sex,
+          age: inputs.age,
+          sbp: inputs.sbp,
+          tc: inputs.tc,
+          hdl: inputs.hdl,
+          diabetes: !!inputs.diabetes,
+          smoker: !!inputs.smoker,
+          antihtn_tx: !!inputs.antihtn_tx,
+        });
+        return { score: sc, interp: interpretProgettoCuore, ins: { ...inputs } };
       }
       default:
         return { score: null, interp: () => "-", ins: {} };
@@ -775,6 +788,61 @@ function IndexForm({ indexType, inputs, set, sledaiData, setSledaiData, haqData,
                 </label>
               ))}
             </div>
+          </div>
+        </div>
+      );
+    case "progetto_cuore":
+      return (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-100 rounded-md p-3 text-xs text-blue-900 leading-relaxed">
+            <strong>Progetto Cuore (ISS)</strong> — stima del rischio di primo evento cardiovascolare
+            maggiore a 10 anni in soggetti 35-69 anni asintomatici. Modello di Cox sviluppato su
+            coorti italiane (Giampaoli et al.).<br />
+            <span className="italic">Stima orientativa basata su coefficienti pubblicati. Per il valore ufficiale di riferimento usa il calcolatore ISS:{" "}
+              <a className="underline" href="https://www.cuore.iss.it/valutazione/calc-rischio" target="_blank" rel="noreferrer">cuore.iss.it</a>.</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Sesso</Label>
+              <div className="flex gap-2 mt-1">
+                <Button type="button" variant={inputs.sex === "M" ? "default" : "outline"} size="sm"
+                  className={inputs.sex === "M" ? "bg-[#0A2540] text-white flex-1" : "flex-1"}
+                  onClick={() => set("sex", "M")} data-testid="pc-sex-M">Maschio</Button>
+                <Button type="button" variant={inputs.sex === "F" ? "default" : "outline"} size="sm"
+                  className={inputs.sex === "F" ? "bg-[#0A2540] text-white flex-1" : "flex-1"}
+                  onClick={() => set("sex", "F")} data-testid="pc-sex-F">Femmina</Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Età (35-69 anni)</Label>
+              <Input type="number" min="35" max="69" value={inputs.age || ""} onChange={(e) => set("age", e.target.value)} data-testid="pc-age" />
+            </div>
+            <div>
+              <Label className="text-xs">PA sistolica (mmHg, 90-200)</Label>
+              <Input type="number" min="90" max="200" value={inputs.sbp || ""} onChange={(e) => set("sbp", e.target.value)} data-testid="pc-sbp" />
+            </div>
+            <div>
+              <Label className="text-xs">Colesterolo totale (mg/dL, 110-342)</Label>
+              <Input type="number" min="110" max="342" value={inputs.tc || ""} onChange={(e) => set("tc", e.target.value)} data-testid="pc-tc" />
+            </div>
+            <div>
+              <Label className="text-xs">HDL (mg/dL, 15-116)</Label>
+              <Input type="number" min="15" max="116" value={inputs.hdl || ""} onChange={(e) => set("hdl", e.target.value)} data-testid="pc-hdl" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
+            <label className="flex items-center gap-2 p-2 border border-gray-200 rounded-md text-sm cursor-pointer hover:bg-gray-50">
+              <Checkbox checked={!!inputs.diabetes} onCheckedChange={(v) => set("diabetes", v)} data-testid="pc-diabetes" />
+              <span>Diabete (glicemia ≥126 mg/dL o in trattamento)</span>
+            </label>
+            <label className="flex items-center gap-2 p-2 border border-gray-200 rounded-md text-sm cursor-pointer hover:bg-gray-50">
+              <Checkbox checked={!!inputs.smoker} onCheckedChange={(v) => set("smoker", v)} data-testid="pc-smoker" />
+              <span>Fumatore (≥1 sigaretta/die)</span>
+            </label>
+            <label className="flex items-center gap-2 p-2 border border-gray-200 rounded-md text-sm cursor-pointer hover:bg-gray-50">
+              <Checkbox checked={!!inputs.antihtn_tx} onCheckedChange={(v) => set("antihtn_tx", v)} data-testid="pc-antihtn" />
+              <span>Terapia anti-ipertensiva</span>
+            </label>
           </div>
         </div>
       );

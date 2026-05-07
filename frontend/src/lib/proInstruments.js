@@ -13,7 +13,7 @@
 //        type "ord4"  → 0-3 (HAQ-like)
 //   - score(responses) → returns { score, interpretation, inputs }
 // ==========================================================================
-import { calcHAQ, HAQ_CATEGORIES, calcBASDAI, calcBASFI, interpretBASDAI } from "./clinimetrics";
+import { calcHAQ, HAQ_CATEGORIES, calcBASDAI, calcBASFI, interpretBASDAI, calcESSPRI, interpretESSPRI, calcFIQR, interpretFIQR } from "./clinimetrics";
 
 // RAID: weighted sum (Gossec et al, 2009): pain 0.21, function 0.16, fatigue 0.15,
 // sleep 0.12, physical 0.12, emotional 0.12, coping 0.12. Range 0-10.
@@ -209,6 +209,81 @@ export const PRO_INSTRUMENTS = {
       let interpretation = "Affaticamento lieve";
       if (score >= 30 && score < 60) interpretation = "Affaticamento moderato";
       else if (score >= 60) interpretation = "Affaticamento grave";
+      return { score, interpretation, inputs: responses };
+    },
+  },
+
+  esspri: {
+    id: "esspri",
+    label: "ESSPRI",
+    title: "EULAR Sjögren Syndrome Patient Reported Index",
+    intro: "Pensando alle ULTIME 2 SETTIMANE, valuta i seguenti sintomi (0 = nessun sintomo, 10 = massimo immaginabile):",
+    items: [
+      { key: "dryness", type: "nrs", question: "Secchezza (occhi, bocca, vagina, cute, vie respiratorie)" },
+      { key: "fatigue", type: "nrs", question: "Affaticamento fisico e mentale" },
+      { key: "pain", type: "nrs", question: "Dolore articolare e muscolare" },
+    ],
+    score: (responses) => {
+      const score = calcESSPRI(responses);
+      const interpretation = interpretESSPRI(score);
+      return { score, interpretation, inputs: responses };
+    },
+  },
+
+  fiqr: {
+    id: "fiqr",
+    label: "FIQR",
+    title: "Fibromyalgia Impact Questionnaire Revised",
+    intro:
+      "Pensa all'ULTIMA SETTIMANA. Per ogni voce sposta il cursore tra 0 (nessuna difficoltà / nessun sintomo) e 10 (massima difficoltà / sintomo intollerabile):",
+    items: [
+      // Function (9) — 0-10 each
+      { key: "f_q1", type: "nrs", category: "Capacità funzionale", question: "Spazzolare o pettinare i capelli" },
+      { key: "f_q2", type: "nrs", category: "Capacità funzionale", question: "Camminare in modo continuo per 20 minuti" },
+      { key: "f_q3", type: "nrs", category: "Capacità funzionale", question: "Preparare un pasto fatto in casa" },
+      { key: "f_q4", type: "nrs", category: "Capacità funzionale", question: "Passare l'aspirapolvere, pulire i pavimenti o rifare il letto" },
+      { key: "f_q5", type: "nrs", category: "Capacità funzionale", question: "Sollevare e portare una borsa piena di spesa" },
+      { key: "f_q6", type: "nrs", category: "Capacità funzionale", question: "Salire un piano di scale" },
+      { key: "f_q7", type: "nrs", category: "Capacità funzionale", question: "Cambiare le lenzuola" },
+      { key: "f_q8", type: "nrs", category: "Capacità funzionale", question: "Stare seduto su una sedia per 45 minuti" },
+      { key: "f_q9", type: "nrs", category: "Capacità funzionale", question: "Andare a fare la spesa" },
+      // Overall impact (2)
+      { key: "o_balance", type: "nrs", category: "Impatto globale", question: "Sensazione di equilibrio / dolore globale negli ultimi 7 giorni" },
+      { key: "o_environmental", type: "nrs", category: "Impatto globale", question: "Sensibilità ad ambienti (luce, rumori, temperatura)" },
+      // Symptoms (10)
+      { key: "s_pain", type: "nrs", category: "Sintomi", question: "Dolore" },
+      { key: "s_energy", type: "nrs", category: "Sintomi", question: "Mancanza di energia" },
+      { key: "s_stiffness", type: "nrs", category: "Sintomi", question: "Rigidità" },
+      { key: "s_sleep", type: "nrs", category: "Sintomi", question: "Qualità del sonno (0 = ottima, 10 = pessima)" },
+      { key: "s_depression", type: "nrs", category: "Sintomi", question: "Depressione" },
+      { key: "s_memory", type: "nrs", category: "Sintomi", question: "Problemi di memoria" },
+      { key: "s_anxiety", type: "nrs", category: "Sintomi", question: "Ansia" },
+      { key: "s_tenderness", type: "nrs", category: "Sintomi", question: "Dolorabilità al tocco" },
+      { key: "s_balance_sym", type: "nrs", category: "Sintomi", question: "Problemi di equilibrio" },
+      { key: "s_environmental_sym", type: "nrs", category: "Sintomi", question: "Sensibilità a stimoli ambientali" },
+    ],
+    score: (responses) => {
+      const nested = {
+        function: {
+          q1: responses.f_q1, q2: responses.f_q2, q3: responses.f_q3,
+          q4: responses.f_q4, q5: responses.f_q5, q6: responses.f_q6,
+          q7: responses.f_q7, q8: responses.f_q8, q9: responses.f_q9,
+        },
+        overall: {
+          balance: responses.o_balance,
+          environmental: responses.o_environmental,
+        },
+        symptoms: {
+          pain: responses.s_pain, energy: responses.s_energy,
+          stiffness: responses.s_stiffness, sleep: responses.s_sleep,
+          depression: responses.s_depression, memory: responses.s_memory,
+          anxiety: responses.s_anxiety, tenderness: responses.s_tenderness,
+          balance_sym: responses.s_balance_sym,
+          environmental_sym: responses.s_environmental_sym,
+        },
+      };
+      const score = calcFIQR(nested);
+      const interpretation = interpretFIQR(score);
       return { score, interpretation, inputs: responses };
     },
   },
