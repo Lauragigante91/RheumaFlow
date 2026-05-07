@@ -3,6 +3,34 @@
 ## Problem Statement
 "Costruiscimi un'applicazione per fare le clinimetrie nelle malattie reumatiche"
 
+## Implemented (2026-05-07 - v43 - PRO ESSPRI/FIQR + SpA flags + Clinical Alerts + Progetto Cuore + multi-diagnosis + guidelines shortcut)
+
+- [x] **ESSPRI e FIQR ai PRO via QR code**:
+  - ESSPRI: 3 NRS (secchezza, affaticamento, dolore) → score = media; ricalibrate le chiavi backend (`esspri` invece di `ess_pri`).
+  - FIQR: 21 items su 3 sezioni (Capacità funzionale 9 items / Impatto globale 2 items / Sintomi 10 items) → score lineare 0-100 con formula function/3 + overall + symptoms/2.
+  - In `proInstruments.js` le risposte flat sono mappate alla struttura nested prima di chiamare `calcFIQR` (evita lo stesso bug BASDAI/BASFI).
+- [x] **Flag dattiliti ed entesiti nel profilo SpA/PsA**:
+  - In `SpaProfileSection.jsx` aggiunti i flag `dactylitis` (Bone icon) e `enthesitis` (MoveVertical icon) accanto a Psoriasi, Uveite, IBD.
+- [x] **Clinical Alerts (suggerimenti gestionali)** — nuovo banner `ClinicalAlerts.jsx`:
+  - **Screening ILD** in pz AR: si attiva con ≥2 fattori di rischio (età ≥60, sesso maschile, FR+, ACPA+, fumo da note, PCR/VES alti) E ILD non ancora documentata. Linka EULAR/ACR/ERS 2025 CTD-ILD.
+  - **GIOP** (osteoporosi da steroidi): steroide attivo da ≥3 mesi → DEXA + Ca/VitD + bifosfonato/denosumab. Linka ACR 2017 GIOP.
+  - **Profilassi PJP**: GC ≥20 mg/die o ciclofosfamide o rituximab attivi → cotrimoxazolo o alternative. Linka ACR/VF 2021 / EULAR 2024.
+  - Ogni alert mostra fattori rilevati nel paziente + azione suggerita + evidenza + link a Linee Guida.
+- [x] **Score Progetto Cuore (rischio CV 10y, ISS)**:
+  - In `clinimetrics.js` `calcProgettoCuore({sex, age, sbp, tc, hdl, diabetes, smoker, antihtn_tx})` — modello di Cox approssimato (Giampaoli et al.) con coefficienti calibrati su carte ISS.
+  - Form in `AssessmentForm.jsx` con disclaimer e link a `cuore.iss.it/valutazione/calc-rischio`.
+  - Calibrazione verificata: uomo 55 fumatore SBP 145 TC 240 HDL 35 → 17.9% (Arancio); donna 60 dm SBP 160 TC 220 HDL 50 tx → 12% (Giallo scuro); uomo 40 sano → 1.6% (Verde).
+- [x] **Multiple diagnosi (overlap)**:
+  - Aggiunto campo `diagnosi_secondarie: List[str]` a Patient model nel backend (`PatientBase` + `PatientUpdate`).
+  - Frontend `Patients.jsx`: nuovo input chips comma-separated con esempio "Fibromialgia, Osteoporosi, Sjögren secondario".
+  - `diseaseDetection.js` reso retrocompatibile: ora `isXxxDiagnosis()` accetta string OR patient object, e legge sia `diagnosi` che `diagnosi_secondarie`. Se un paziente AR ha Fibromialgia secondaria, entrambi i profili clinici vengono mostrati.
+  - Header del paziente: badge viola "Overlap / secondarie" sotto le info anagrafiche.
+- [x] **Pulsante shortcut Linee Guida sulla scheda paziente** — `PatientGuidelinesShortcut.jsx`:
+  - Riga "Linee guida:" con badge cliccabili colorati per ogni diagnosi rilevata (AR, AP, AxSpA, LES, AAV, Sjögren, Miositi, Behçet, SSc, Gotta, Fibromialgia, ILD, Osteoporosi, APS, IgG4, PMR, GCA).
+  - Click → naviga a `/linee-guida?q=<query>` e la pagina Guidelines auto-popola il search field via `useLocation`.
+- [x] **Test agent v3 fork**: 100% pass (backend 9/9 + frontend 12/12 UI checks).
+  Test files: `/app/backend/tests/test_iter5_features.py`.
+
 ## Implemented (2026-05-06 - v42 - Visit details dialog + cohort export anchored to therapy)
 - [x] **Click sulla data nello Storico valutazioni → dialog dettagli visita**:
   cliccando la data della visita (ora con underline tratteggiato e hover blu),
