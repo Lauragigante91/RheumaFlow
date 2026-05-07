@@ -71,9 +71,11 @@ export default function Register() {
             <div className="w-10 h-10 bg-[#0A2540] flex items-center justify-center rounded-sm">
               <Activity className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="font-heading font-black text-2xl tracking-tighter">RHEUMAFLOW</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Reumatologia</div>
+            <div className="text-left">
+              <div className="font-heading font-black text-2xl tracking-tighter leading-none">Rheumaflow</div>
+              <div className="text-[10px] font-medium tracking-[0.05em] text-gray-500 mt-1">
+                The intelligent workspace for rheumatologists
+              </div>
             </div>
           </div>
           <h1 className="font-heading text-3xl font-black tracking-tighter text-[#0A2540]">Registrazione</h1>

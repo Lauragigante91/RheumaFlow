@@ -119,8 +119,10 @@ export default function Layout({ children }) {
                 <Activity className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="font-heading font-black text-lg leading-none tracking-tight">RHEUMAFLOW</div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mt-1">Reumatologia</div>
+                <div className="font-heading font-black text-lg leading-none tracking-tight">Rheumaflow</div>
+                <div className="text-[9px] font-medium tracking-[0.05em] text-gray-500 mt-1 leading-tight">
+                  The intelligent workspace for rheumatologists
+                </div>
               </div>
             </div>
           </Link>
@@ -212,7 +214,7 @@ export default function Layout({ children }) {
               <div className="w-7 h-7 bg-[#0A2540] flex items-center justify-center rounded-sm">
                 <Activity className="w-4 h-4 text-white" />
               </div>
-              <div className="font-heading font-black tracking-tight">RHEUMAFLOW</div>
+              <div className="font-heading font-black tracking-tight">Rheumaflow</div>
             </Link>
             <div className="flex items-center gap-1">
               {location.pathname !== "/" && (
