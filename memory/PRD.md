@@ -3,6 +3,30 @@
 ## Problem Statement
 "Costruiscimi un'applicazione per fare le clinimetrie nelle malattie reumatiche"
 
+## Implemented (2026-05-07 - v44 - Refactor backend + frontend, is_demo, UUID keys)
+
+- [x] **Refactor `export_cohort_xlsx`**: monolite ~280 righe spezzato in 8 helper con singola responsabilità:
+  - `_load_cohort_data` (patients + assessments + therapies + profiles + sclero, parallelizzabile)
+  - `_build_visits_pivot` (raggruppa per data e calcola max_visits + all_indices)
+  - `_compute_anchor_dates` (mappa pid → t0_anchor in base a anchor_drug)
+  - `_collect_profile_columns` (estrae le chiavi per profilo malattia + sclero)
+  - `_build_cohort_columns` (intestazione foglio Coorte)
+  - `_build_patient_row` (riga dati per paziente, con anchor cols opzionali)
+  - `_style_header_row`, `_autosize_columns`, `_write_long_sheet`
+  - L'endpoint principale è ora ~70 righe di orchestrazione lineare.
+- [x] **Refactor `AssessmentForm.jsx`** (912 → 837 righe):
+  - `computeScore` estratto come funzione pura `computeAssessmentScore` in `lib/assessmentScoring.js` (125 righe), ora unit-testabile in isolamento.
+- [x] **Refactor `CompositeAssessmentDialog.jsx`** (585 → 508 righe):
+  - `VasSlider` e `ResultTile` estratti in `components/CompositeFormParts.jsx` (riusabili).
+  - `applyCopyFromPrev` (3 mode-blocks) estratto in `lib/compositeReusePrev.js` come 3 funzioni pure `applyPrevToRa/Spa/Psa(prev, setters)` con helper privato `_rebuildJointsFrom`.
+- [x] **`is_demo` in GET /api/auth/me**: ora restituisce `is_demo: bool(user.get('is_demo', False))`. Verificato: admin → false, demo session → true.
+- [x] **UUID-stable keys**:
+  - `Miscellanea.jsx`: `MYOSITIS_ANTIBODIES → r.antibody`, `AUTOINFLAMMATORY_DISEASES → r.disease`, `ANA_PATTERNS → r.pattern`, `openAlgo.steps → s.title`, `step.items → it text`.
+  - `Guidelines.jsx`: `urls → u.href`, `sections → sec.title`, `items → it text`.
+  - Verificato: zero React duplicate-key warnings al render full + scroll su entrambe le pagine.
+- [x] **Test agent v3 fork — 100% pass**: 24/24 backend (iter5 + iter6 + refactor_regression + pro_basdai), zero regressioni.
+  Test files: `/app/backend/tests/test_iter6_refactor.py` (5 nuovi casi) + fix portabilità di `test_pro_basdai_basfi_regression.py`.
+
 ## Implemented (2026-05-07 - v43 - PRO ESSPRI/FIQR + SpA flags + Clinical Alerts + Progetto Cuore + multi-diagnosis + guidelines shortcut)
 
 - [x] **ESSPRI e FIQR ai PRO via QR code**:
