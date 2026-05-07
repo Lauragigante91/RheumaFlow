@@ -153,6 +153,9 @@ class Patient(PatientBase):
     created_by: str
     created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    # Recall flag for "Pazienti da ricontrollare" widget. Stored as nested dict
+    # {flag, note, set_at, set_by, set_by_name} where flag ∈ {'private', 'shared'}.
+    recall: Optional[Dict[str, Any]] = None
 
 
 class PatientUpdate(BaseModel):

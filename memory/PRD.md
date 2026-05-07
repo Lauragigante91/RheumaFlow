@@ -3,6 +3,35 @@
 ## Problem Statement
 "Costruiscimi un'applicazione per fare le clinimetrie nelle malattie reumatiche"
 
+## Implemented (2026-05-07 - v45 - Rebrand RheumaFlow + Dashboard KPIs personali + Recall flag system)
+
+- [x] **Rebrand a RheumaFlow**:
+  - HTML title `RheumaFlow` (era "Clinimetria Reumatologia")
+  - manifest.json: short_name `RheumaFlow`, name `RheumaFlow — Clinimetria reumatologica`
+  - apple-mobile-web-app-title `RheumaFlow`
+  - sw.js cache name `rheumaflow-v1`
+  - Sidebar Layout: brand `RHEUMAFLOW` (mobile + desktop)
+  - Login + Register: brand `RHEUMAFLOW`
+  - Lasciato invariato il termine clinico "Clinimetria" come label (es. "Clinimetria (3)") perché è terminologia medica corretta.
+  - **URL produzione (`reumatology-assess.emergent.host` → `rheumaflow.emergent.host`)**: l'utente dovrà rideployare con un nuovo slot dalla dashboard Emergent (la modifica dello slug non è retrocompatibile su deployment già esistenti). Istruzioni fornite via `support_agent`.
+
+- [x] **Dashboard KPI personali (3 widget side-by-side)**:
+  - **Pazienti recenti** (Clock icon): pazienti su cui IO ho creato assessments negli ultimi 7 giorni. Mostra nome, diagnosi, ultimo indice, score, "Oggi/Ieri/Ngg fa". Nuovo endpoint `GET /api/patients-recent-mine?days=7` (aggregation pipeline filtrata per `created_by=user.id`, max 20).
+  - **To-do list** (ListTodo icon, rinominato da "Richieste urgenti"): reminders scaduti/imminenti (UI già esistente, solo rinominato). Anche StatCard top rinominato.
+  - **Da ricontrollare** (Star icon): pazienti flaggati con stellina, con nota motivazionale + data + autore.
+
+- [x] **Recall flag system** (Pazienti da ricontrollare):
+  - 3 stati: `null` (niente) | `private` (⭐ blu, solo autore) | `shared` (⭐ rosso, tutti dell'org).
+  - Stored as `patients.recall = {flag, note, set_at, set_by, set_by_name}`.
+  - Endpoint `PUT /api/patients/{id}/recall` con validazione (private/shared/null).
+  - Endpoint `GET /api/patients-recall` con scoping `{$or: [{recall.flag:"shared"}, {recall.flag:"private", recall.set_by:user.id}]}` — verificato no leak tra utenti dell'org.
+  - **FIX bug HIGH**: il modello `Patient` aveva `extra="ignore"` e strippava `recall` da GET; aggiunto `recall: Optional[Dict[str, Any]] = None` esplicito.
+  - Componente `RecallFlagControl.jsx`: pulsante popover con 3 stati cliccabili, textarea per la nota, indicazione "Da {nome} · {data}". Integrato nel `PatientHeader`.
+  - `RecallBadge` exportato per uso in widget dashboard (stellina blu/rossa/grigia).
+
+- [x] **Test agent v3 fork — iter7**: 10/11 backend pass + frontend rebrand + 3 widget verificati end-to-end. Bug HIGH (Patient extra=ignore strippava recall) fixato; il test che lo documentava sarà green al prossimo run.
+  Test files: `/app/backend/tests/test_iter7_recall_recent.py` (11 test).
+
 ## Implemented (2026-05-07 - v44 - Refactor backend + frontend, is_demo, UUID keys)
 
 - [x] **Refactor `export_cohort_xlsx`**: monolite ~280 righe spezzato in 8 helper con singola responsabilità:
