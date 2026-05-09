@@ -269,7 +269,7 @@ class LabExam(LabExamBase):
 
 
 class ReminderBase(BaseModel):
-    patient_id: str
+    patient_id: Optional[str] = None  # null = "free" task non legato a un paziente
     due_date: str
     title: str
     type: Optional[str] = None  # follow_up, lab, imaging, therapy, other
@@ -1047,7 +1047,8 @@ def _reminder_visibility_query(user: dict) -> dict:
 
 @api_router.post("/reminders", response_model=Reminder)
 async def create_reminder(payload: ReminderBase, user: dict = Depends(get_current_user)):
-    await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    if payload.patient_id:
+        await _verify_patient_in_org(payload.patient_id, user["organization_id"])
     r = Reminder(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.reminders.insert_one(r.model_dump())
     return r

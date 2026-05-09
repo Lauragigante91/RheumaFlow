@@ -6,10 +6,11 @@ import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Star, Clock, ListTodo, ChevronRight, Plus, AlertTriangle,
-  Users, ClipboardList, Loader2,
+  Users, ClipboardList, Loader2, Keyboard,
 } from "lucide-react";
 import { INDEX_LABELS } from "../lib/clinimetrics";
 import { RecallBadge } from "../components/RecallFlagControl";
+import QuickTaskDialog from "../components/QuickTaskDialog";
 import { toast } from "sonner";
 
 // =============================================================================
