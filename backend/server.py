@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 
+import re
 import bcrypt
 import jwt
 import json
@@ -18,8 +19,9 @@ import io
 import zipfile
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+import httpx
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
@@ -103,10 +105,12 @@ class Organization(BaseModel):
     invite_code: str = Field(default_factory=lambda: secrets.token_urlsafe(8))
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     pseudonymized_mode: bool = False  # se True l'UI nasconde nome/cognome/CF/data_nascita
+    ai_strict_privacy: bool = False   # se True de-identifica il testo prima dell'AI e non archivia documenti sorgente
 
 
 class OrganizationSettings(BaseModel):
     pseudonymized_mode: Optional[bool] = None
+    ai_strict_privacy: Optional[bool] = None
 
 
 class UserPublic(BaseModel):
@@ -144,6 +148,14 @@ class PatientBase(BaseModel):
     diagnosi: Optional[str] = None
     diagnosi_secondarie: List[str] = Field(default_factory=list)  # overlap diagnoses (es. fibromialgia, osteoporosi)
     note: Optional[str] = None
+    # Disease onset — strongly influences classification, prognosis and treatment strategy
+    onset_year: Optional[int] = None   # anno esordio di malattia (sempre)
+    onset_month: Optional[int] = None  # mese esordio (1-12, facoltativo)
+    # Clinical workflow state machine
+    # None              → prima visita non ancora effettuata
+    # "workup_in_progress" → prima visita effettuata, iter diagnostico in corso
+    # "follow_up"          → diagnosi definitiva stabilita, follow-up malattia-specifica
+    patient_state: Optional[str] = None
 
 
 class Patient(PatientBase):
@@ -169,6 +181,9 @@ class PatientUpdate(BaseModel):
     diagnosi: Optional[str] = None
     diagnosi_secondarie: Optional[List[str]] = None
     note: Optional[str] = None
+    onset_year: Optional[int] = None
+    onset_month: Optional[int] = None
+    patient_state: Optional[str] = None
 
 
 class AssessmentBase(BaseModel):
@@ -181,6 +196,8 @@ class AssessmentBase(BaseModel):
     tender_joints: List[str] = []
     swollen_joints: List[str] = []
     notes: Optional[str] = None
+    visit_id: Optional[str] = None    # links this assessment to a specific visit record
+    visit_type: Optional[str] = None  # "workup" | "followup" | "prima_visita"
 
 
 class Assessment(AssessmentBase):
@@ -214,6 +231,27 @@ class CriteriaEvaluation(CriteriaEvaluationBase):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+class TherapyEvent(BaseModel):
+    """A single clinical event inside a therapy episode."""
+    type: str
+    date: str
+    voided: Optional[bool] = None
+    dose: Optional[str] = None
+    dose_before: Optional[str] = None
+    dose_after: Optional[str] = None
+    frequency_before: Optional[str] = None
+    frequency_after: Optional[str] = None
+    route_before: Optional[str] = None
+    route_after: Optional[str] = None
+    status_before: Optional[str] = None
+    status_after: Optional[str] = None
+    reason: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    notes: Optional[str] = None
+
+
 class TherapyBase(BaseModel):
     patient_id: str
     drug_name: str
@@ -227,6 +265,7 @@ class TherapyBase(BaseModel):
     discontinuation_reason: Optional[str] = None
     auto_discontinued: Optional[bool] = None
     notes: Optional[str] = None
+    events: List[TherapyEvent] = Field(default_factory=list)
 
 
 class Therapy(TherapyBase):
@@ -260,6 +299,24 @@ class LabExamBase(BaseModel):
 
 
 class LabExam(LabExamBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class SpecialistVisitBase(BaseModel):
+    patient_id: str
+    visit_date: str
+    visit_type: str                         # es. "Visita pneumologica", "Consulenza dermatologica"
+    specialty: Optional[str] = None         # chiave normalizzata: pneumologia, cardiologia, …
+    source_text: Optional[str] = None       # testo completo del referto / consulenza
+    sintesi: Optional[str] = None           # sintesi clinica a una riga
+
+
+class SpecialistVisit(SpecialistVisitBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     organization_id: str
@@ -343,6 +400,24 @@ class PROToken(BaseModel):
 
 class PROSubmit(BaseModel):
     responses: Dict[str, Any]
+
+
+# ==================== CONSULT TOKENS ====================
+class ConsultTokenCreate(BaseModel):
+    expires_in_hours: int = 168  # default 7 days
+
+
+class ConsultToken(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    token: str = Field(default_factory=lambda: secrets.token_urlsafe(16))
+    patient_id: str
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    expires_at: str
+    views: int = 0
 
 
 # ==================== SCLERODERMA PROFILE ====================
@@ -593,6 +668,7 @@ async def me(user: dict = Depends(get_current_user)):
         "organization_id": user["organization_id"], "organization_name": org["name"] if org else None,
         "invite_code": org["invite_code"] if org else None,
         "pseudonymized_mode": bool(org.get("pseudonymized_mode", False)) if org else False,
+        "ai_strict_privacy": bool(org.get("ai_strict_privacy", False)) if org else False,
         "is_demo": bool(user.get("is_demo", False)),
     }
 
@@ -727,15 +803,18 @@ async def delete_patient(patient_id: str, user: dict = Depends(get_current_user)
 
 
 # ==================== RECALL FLAGS (pazienti da ricontrollare) ====================
-# Each patient can have at most one recall flag, with three states:
-#   - flag = "private"  → visibile solo all'autore (es. "stellina blu")
-#   - flag = "shared"   → visibile a tutti i membri dell'organizzazione (es. "stellina rossa")
+# Each patient can have at most one recall flag, with four states:
+#   - flag = "private"  → visibile solo all'autore (stellina BLU)
+#   - flag = "selected" → visibile all'autore + colleghi scelti (stellina GIALLA)
+#   - flag = "shared"   → visibile a tutti i membri dell'organizzazione (stellina ROSSA)
 #   - flag = None       → nessun ricontrollo
-# Stored as `patients.recall = {flag, note, set_at, set_by, set_by_name}`.
+# Stored as `patients.recall = {flag, note, set_at, set_by, set_by_name, shared_with}`.
+# `shared_with` is a list of user IDs; only used when flag == "selected".
 
 class RecallFlagPayload(BaseModel):
-    flag: Optional[str] = None  # "private" | "shared" | None
+    flag: Optional[str] = None  # "private" | "selected" | "shared" | None
     note: Optional[str] = None
+    shared_with: Optional[List[str]] = None  # user IDs; only for flag == "selected"
 
 
 @api_router.put("/patients/{patient_id}/recall")
@@ -744,8 +823,8 @@ async def set_patient_recall(
     payload: RecallFlagPayload,
     user: dict = Depends(get_current_user),
 ):
-    if payload.flag not in (None, "", "private", "shared"):
-        raise HTTPException(status_code=400, detail="flag deve essere 'private', 'shared' o nullo")
+    if payload.flag not in (None, "", "private", "selected", "shared"):
+        raise HTTPException(status_code=400, detail="flag deve essere 'private', 'selected', 'shared' o nullo")
     p = await db.patients.find_one({"id": patient_id, "organization_id": user["organization_id"]}, {"_id": 0, "id": 1})
     if not p:
         raise HTTPException(status_code=404, detail="Paziente non trovato")
@@ -761,6 +840,12 @@ async def set_patient_recall(
         "set_by": user["id"],
         "set_by_name": user.get("name") or user.get("email"),
     }
+    if payload.flag == "selected":
+        # Store the explicit list of colleague IDs (excluding the setter themselves)
+        recall["shared_with"] = [uid for uid in (payload.shared_with or []) if uid != user["id"]]
+    else:
+        recall["shared_with"] = []
+
     await db.patients.update_one({"id": patient_id}, {"$set": {"recall": recall}})
     return {"success": True, "recall": recall}
 
@@ -770,14 +855,18 @@ async def list_patients_to_recall(user: dict = Depends(get_current_user)):
     """Pazienti con recall flag visibili a questo utente:
     - tutti i 'shared' dell'org
     - solo i 'private' che ho creato io
+    - i 'selected' che ho creato io, oppure in cui sono nella lista shared_with
     """
     org_id = user["organization_id"]
+    uid = user["id"]
     cursor = db.patients.find(
         {
             "organization_id": org_id,
             "$or": [
                 {"recall.flag": "shared"},
-                {"recall.flag": "private", "recall.set_by": user["id"]},
+                {"recall.flag": "private", "recall.set_by": uid},
+                {"recall.flag": "selected", "recall.set_by": uid},
+                {"recall.flag": "selected", "recall.shared_with": uid},
             ],
         },
         {"_id": 0},
@@ -920,11 +1009,65 @@ async def delete_criteria_evaluation(evaluation_id: str, user: dict = Depends(ge
 EXCLUSIVE_CATEGORIES = {"bDMARD", "tsDMARD"}
 
 
+def _extract_dose_mg(dose_str: Optional[str]) -> Optional[float]:
+    """Extract the numeric mg value from a free-text dose string, or None."""
+    if not dose_str:
+        return None
+    m = re.search(r"(\d+(?:[.,]\d+)?)\s*mg", dose_str, re.IGNORECASE)
+    return float(m.group(1).replace(",", ".")) if m else None
+
+
+def _therapy_event_projection(event: dict) -> dict:
+    """Project the current therapy fields implied by a non-voided therapy event."""
+    if event.get("voided"):
+        return {}
+
+    event_type = event.get("type")
+    set_fields: dict = {}
+    if event_type == "discontinued":
+        set_fields["status"] = event.get("status_after") or "discontinued"
+        set_fields["end_date"] = event.get("date")
+        if event.get("reason"):
+            set_fields["discontinuation_reason"] = event.get("reason")
+    elif event_type in ("dose_increased", "dose_reduced", "regimen_changed"):
+        if event.get("dose_after"):
+            set_fields["dose"] = event.get("dose_after")
+        if event.get("frequency_after"):
+            set_fields["frequency"] = event.get("frequency_after")
+        if event.get("route_after"):
+            set_fields["route"] = event.get("route_after")
+    elif event_type == "resumed_within":
+        set_fields["status"] = "active"
+        set_fields["end_date"] = None
+        if event.get("dose"):
+            set_fields["dose"] = event.get("dose")
+    elif event_type == "status_changed" and event.get("status_after"):
+        set_fields["status"] = event.get("status_after")
+
+    return set_fields
+
+
+async def _append_therapy_event_and_project(
+    therapy_filter: dict,
+    event: dict,
+    extra_set: Optional[dict] = None,
+):
+    """
+    Append a therapy event and project event-derived current fields atomically.
+    All writes to therapy longitudinal fields must go through this helper.
+    """
+    set_fields = dict(extra_set or {})
+    set_fields.update(_therapy_event_projection(event))
+
+    update_op: dict = {"$push": {"events": event}}
+    if set_fields:
+        update_op["$set"] = set_fields
+
+    return await db.therapies.update_one(therapy_filter, update_op)
+
+
 async def _auto_discontinue_competing(patient_id: str, organization_id: str, new_category: str, new_start_date: Optional[str], exclude_id: Optional[str] = None) -> int:
-    """If new therapy is in EXCLUSIVE_CATEGORIES (biologic/tsDMARD), discontinue any
-    other active therapy of those categories for the same patient. Sets end_date to
-    the new therapy's start_date (or today) and status='discontinued'.
-    Returns the number of therapies auto-discontinued."""
+    """If new therapy is in EXCLUSIVE_CATEGORIES, append discontinued events to other active biologic/tsDMARD therapies."""
     if new_category not in EXCLUSIVE_CATEGORIES:
         return 0
     end_date = new_start_date or datetime.now(timezone.utc).date().isoformat()
@@ -936,11 +1079,23 @@ async def _auto_discontinue_competing(patient_id: str, organization_id: str, new
     }
     if exclude_id:
         query["id"] = {"$ne": exclude_id}
-    result = await db.therapies.update_many(
-        query,
-        {"$set": {"status": "discontinued", "end_date": end_date, "auto_discontinued": True}},
-    )
-    return result.modified_count
+    modified = 0
+    async for therapy in db.therapies.find(query, {"_id": 0, "id": 1, "status": 1, "dose": 1}):
+        event = TherapyEvent(
+            type="discontinued",
+            date=end_date,
+            dose=therapy.get("dose"),
+            status_before=therapy.get("status"),
+            status_after="discontinued",
+            reason="auto_discontinued_competing_therapy",
+        ).model_dump()
+        result = await _append_therapy_event_and_project(
+            {"id": therapy["id"], "organization_id": organization_id},
+            event,
+            {"auto_discontinued": True},
+        )
+        modified += result.modified_count
+    return modified
 
 
 @api_router.post("/therapies", response_model=Therapy)
@@ -951,7 +1106,24 @@ async def create_therapy(payload: TherapyBase, user: dict = Depends(get_current_
         await _auto_discontinue_competing(
             payload.patient_id, user["organization_id"], payload.category, payload.start_date
         )
-    t = Therapy(**payload.model_dump(), organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
+
+    data = payload.model_dump()
+    if not data.get("events"):
+        event_type = "started" if (payload.status or "active") == "active" else "discontinued"
+        data["events"] = [TherapyEvent(
+            type=event_type,
+            date=payload.start_date or payload.end_date or datetime.now(timezone.utc).date().isoformat(),
+            dose=payload.dose,
+            frequency_after=payload.frequency,
+            route_after=payload.route,
+            status_after=payload.status,
+            reason=payload.discontinuation_reason if event_type == "discontinued" else None,
+            created_by=user["id"],
+            created_by_name=user.get("name"),
+            notes=payload.notes,
+        ).model_dump()]
+
+    t = Therapy(**data, organization_id=user["organization_id"], created_by=user["id"], created_by_name=user.get("name"))
     await db.therapies.insert_one(t.model_dump())
     return t
 
@@ -972,6 +1144,18 @@ async def update_therapy(therapy_id: str, payload: TherapyUpdate, user: dict = D
     current = await db.therapies.find_one({"id": therapy_id, "organization_id": user["organization_id"]}, {"_id": 0})
     if not current:
         raise HTTPException(status_code=404, detail="Terapia non trovata")
+
+    longitudinal_fields = {
+        "status",
+        "dose",
+        "frequency",
+        "route",
+        "end_date",
+        "discontinuation_reason",
+    }
+    direct_update = {k: v for k, v in update_data.items() if k not in longitudinal_fields}
+    longitudinal_update = {k: v for k, v in update_data.items() if k in longitudinal_fields}
+
     # Apply exclusivity if the (resulting) therapy is an active biologic/tsDMARD
     new_status = update_data.get("status", current.get("status"))
     new_category = update_data.get("category", current.get("category"))
@@ -980,13 +1164,63 @@ async def update_therapy(therapy_id: str, payload: TherapyUpdate, user: dict = D
         await _auto_discontinue_competing(
             current["patient_id"], user["organization_id"], new_category, new_start, exclude_id=therapy_id
         )
-    result = await db.therapies.update_one(
-        {"id": therapy_id, "organization_id": user["organization_id"]},
-        {"$set": update_data},
-    )
-    if result.matched_count == 0:
+
+    if longitudinal_update:
+        today = datetime.now(timezone.utc).date().isoformat()
+        event_date = longitudinal_update.get("end_date") or today
+        reason = longitudinal_update.get("discontinuation_reason") or update_data.get("notes")
+        status_after = longitudinal_update.get("status")
+        event_type = None
+
+        if status_after == "active" and current.get("status") != "active":
+            event_type = "resumed_within"
+        elif status_after in {"discontinued", "completed"} or "end_date" in longitudinal_update or "discontinuation_reason" in longitudinal_update:
+            event_type = "discontinued"
+        elif "dose" in longitudinal_update:
+            current_mg = _extract_dose_mg(current.get("dose"))
+            new_mg = _extract_dose_mg(longitudinal_update.get("dose"))
+            if current_mg is not None and new_mg is not None and new_mg != current_mg:
+                event_type = "dose_increased" if new_mg > current_mg else "dose_reduced"
+            else:
+                event_type = "regimen_changed"
+        elif "frequency" in longitudinal_update or "route" in longitudinal_update:
+            event_type = "regimen_changed"
+        elif status_after:
+            event_type = "status_changed"
+
+        event = TherapyEvent(
+            type=event_type or "status_changed",
+            date=event_date,
+            dose=longitudinal_update.get("dose", current.get("dose")),
+            dose_before=current.get("dose") if "dose" in longitudinal_update else None,
+            dose_after=longitudinal_update.get("dose") if "dose" in longitudinal_update else None,
+            frequency_before=current.get("frequency") if "frequency" in longitudinal_update else None,
+            frequency_after=longitudinal_update.get("frequency") if "frequency" in longitudinal_update else None,
+            route_before=current.get("route") if "route" in longitudinal_update else None,
+            route_after=longitudinal_update.get("route") if "route" in longitudinal_update else None,
+            status_before=current.get("status") if "status" in longitudinal_update else None,
+            status_after=status_after,
+            reason=reason,
+            created_by=user["id"],
+            created_by_name=user.get("name"),
+            notes=update_data.get("notes"),
+        ).model_dump()
+        result = await _append_therapy_event_and_project(
+            {"id": therapy_id, "organization_id": user["organization_id"]},
+            event,
+            direct_update,
+        )
+    elif direct_update:
+        result = await db.therapies.update_one(
+            {"id": therapy_id, "organization_id": user["organization_id"]},
+            {"$set": direct_update},
+        )
+    else:
+        result = None
+
+    if result and result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Terapia non trovata")
-    return await db.therapies.find_one({"id": therapy_id}, {"_id": 0})
+    return await db.therapies.find_one({"id": therapy_id, "organization_id": user["organization_id"]}, {"_id": 0})
 
 
 @api_router.delete("/therapies/{therapy_id}")
@@ -1028,8 +1262,48 @@ async def update_lab_exam(exam_id: str, payload: LabExamBase, user: dict = Depen
 @api_router.delete("/lab-exams/{exam_id}")
 async def delete_lab_exam(exam_id: str, user: dict = Depends(get_current_user)):
     result = await db.lab_exams.delete_one({"id": exam_id, "organization_id": user["organization_id"]})
+
+
+# ==================== SPECIALIST VISITS ====================
+@api_router.post("/specialist-visits", response_model=SpecialistVisit)
+async def create_specialist_visit(payload: SpecialistVisitBase, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(payload.patient_id, user["organization_id"])
+    sv = SpecialistVisit(
+        **payload.model_dump(),
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name") or user.get("email"),
+    )
+    await db.specialist_visits.insert_one(sv.model_dump())
+    return sv
+
+
+@api_router.get("/patients/{patient_id}/specialist-visits", response_model=List[SpecialistVisit])
+async def list_specialist_visits(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.specialist_visits.find(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    ).sort("visit_date", -1).to_list(500)
+    return docs
+
+
+@api_router.put("/specialist-visits/{visit_id}", response_model=SpecialistVisit)
+async def update_specialist_visit(visit_id: str, payload: SpecialistVisitBase, user: dict = Depends(get_current_user)):
+    await db.specialist_visits.update_one(
+        {"id": visit_id, "organization_id": user["organization_id"]},
+        {"$set": payload.model_dump()},
+    )
+    return await db.specialist_visits.find_one({"id": visit_id}, {"_id": 0})
+
+
+@api_router.delete("/specialist-visits/{visit_id}")
+async def delete_specialist_visit(visit_id: str, user: dict = Depends(get_current_user)):
+    result = await db.specialist_visits.delete_one(
+        {"id": visit_id, "organization_id": user["organization_id"]}
+    )
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Esame non trovato")
+        raise HTTPException(status_code=404, detail="Visita non trovata")
     return {"success": True}
 
 
@@ -1068,14 +1342,15 @@ async def list_patient_reminders(patient_id: str, user: dict = Depends(get_curre
 
 @api_router.get("/reminders/upcoming", response_model=List[Reminder])
 async def upcoming_reminders(user: dict = Depends(get_current_user)):
-    """Dashboard widget: only PRIORITY=asap items, respecting visibility."""
+    """Dashboard widget: ALL non-completed tasks visible to user.
+    Standalone tasks (no patient) always appear; patient-linked tasks also included.
+    Sorted by due_date ascending (overdue first), limit 100."""
     q = {
         "organization_id": user["organization_id"],
         "completed": False,
-        "priority": "asap",
         **_reminder_visibility_query(user),
     }
-    docs = await db.reminders.find(q, {"_id": 0}).sort("due_date", 1).limit(50).to_list(50)
+    docs = await db.reminders.find(q, {"_id": 0}).sort("due_date", 1).limit(100).to_list(100)
     return docs
 
 
@@ -1111,6 +1386,140 @@ async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_use
     if existing.get("visibility") == "private" and existing.get("created_by") != user["id"]:
         raise HTTPException(status_code=403, detail="Solo il creatore può eliminare una richiesta privata")
     await db.reminders.delete_one({"id": reminder_id, "organization_id": user["organization_id"]})
+    return {"success": True}
+
+
+# ==================== VISIT TEMPLATES ====================
+
+class VisitTemplateBase(BaseModel):
+    category: str   # "rheumatic_history" | "physical_exam"
+    name: str
+    content: str
+
+class VisitTemplate(VisitTemplateBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    organization_id: str
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+class VisitTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    content: Optional[str] = None
+
+@api_router.get("/visit-templates", response_model=List[VisitTemplate])
+async def list_visit_templates(category: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query: Dict[str, Any] = {"user_id": user["id"]}
+    if category:
+        query["category"] = category
+    docs = await db.visit_templates.find(query, {"_id": 0}).sort("name", 1).to_list(500)
+    return docs
+
+@api_router.post("/visit-templates", response_model=VisitTemplate)
+async def create_visit_template(payload: VisitTemplateBase, user: dict = Depends(get_current_user)):
+    tpl = VisitTemplate(**payload.model_dump(), user_id=user["id"], organization_id=user["organization_id"])
+    await db.visit_templates.insert_one(tpl.model_dump())
+    return tpl
+
+@api_router.put("/visit-templates/{tpl_id}", response_model=VisitTemplate)
+async def update_visit_template(tpl_id: str, payload: VisitTemplateUpdate, user: dict = Depends(get_current_user)):
+    existing = await db.visit_templates.find_one({"id": tpl_id, "user_id": user["id"]}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template non trovato")
+    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow().isoformat()
+    await db.visit_templates.update_one({"id": tpl_id}, {"$set": update_data})
+    return {**existing, **update_data}
+
+@api_router.delete("/visit-templates/{tpl_id}")
+async def delete_visit_template(tpl_id: str, user: dict = Depends(get_current_user)):
+    existing = await db.visit_templates.find_one({"id": tpl_id, "user_id": user["id"]}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template non trovato")
+    await db.visit_templates.delete_one({"id": tpl_id})
+    return {"success": True}
+
+
+# ==================== WORKUP VISITS ====================
+
+class WorkupVisitBase(BaseModel):
+    patient_id: str
+    visit_date: str                                   # ISO "YYYY-MM-DD"
+    # ── Structured visit sections (canonical 7-section form) ──────────────────
+    rheumatologic_history_summary: Optional[str] = None  # 0 · Raccordo anamnestico reumatologico
+    interval_history: Optional[str] = None            # 1 · Anamnesi intervallare
+    physical_exam: Optional[str] = None               # 2 · Esame obiettivo (free text)
+    physical_exam_joint_exam: Optional[dict] = None  # 2 · Esame articolare (homunculus map)
+    physical_exam_systems: Optional[dict] = None      # 2 · Apparati per sistema (organ fields)
+    physical_exam_mrss: Optional[dict] = None        # 2 · MRSS (sclerosi sistemica)
+    physical_exam_pasi: Optional[dict] = None        # 2 · PASI (psoriasi)
+    physical_exam_lei: Optional[dict] = None         # 2 · LEI (entesiti)
+    labs_imaging: Optional[str] = None                # 3 · Esami / imaging in visione
+    clinimetria_notes: Optional[str] = None           # 4 · Clinimetria (opzionale)
+    diagnostic_hypotheses: Optional[str] = None       # 5 · Assessment: ipotesi diagnostiche
+    conclusions: Optional[str] = None                 # 5 · Assessment: conclusioni
+    clinical_decision: str = "open"                   # "open" | "converting"
+    confirmed_diagnosis: Optional[str] = None         # 5 · Assessment: diagnosi confermata (when converting)
+    requested_tests: Optional[List[str]] = None       # 6 · Piano: esami richiesti
+    requested_tests_notes: Optional[str] = None       # 6 · Piano: note esami richiesti
+    followup_date: Optional[str] = None               # 6 · Piano: data prossima rivalutazione
+    therapy_modification: Optional[str] = None        # 6 · Piano: modifica / indicazioni terapeutiche
+    referred_to_gp: Optional[bool] = None             # 7 · Referral: restituzione al MMG
+    referral_note: Optional[str] = None               # 7 · Referral: note / lettera al MMG
+    notes: Optional[str] = None                       # Note aggiuntive libere
+
+
+class WorkupVisit(WorkupVisitBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    organization_id: str
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: Optional[str] = None
+
+
+@api_router.post("/patients/{patient_id}/workup-visits", response_model=WorkupVisit)
+async def create_workup_visit(patient_id: str, payload: WorkupVisitBase, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    v = WorkupVisit(
+        **{**payload.model_dump(), "patient_id": patient_id},
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+    )
+    await db.workup_visits.insert_one(v.model_dump())
+    return v
+
+
+@api_router.get("/patients/{patient_id}/workup-visits", response_model=List[WorkupVisit])
+async def list_workup_visits(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.workup_visits.find(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    ).sort("visit_date", -1).to_list(500)
+    return docs
+
+
+@api_router.put("/workup-visits/{visit_id}", response_model=WorkupVisit)
+async def update_workup_visit(visit_id: str, payload: WorkupVisitBase, user: dict = Depends(get_current_user)):
+    update_data = {**payload.model_dump(), "updated_at": datetime.utcnow().isoformat()}
+    result = await db.workup_visits.update_one(
+        {"id": visit_id, "organization_id": user["organization_id"]},
+        {"$set": update_data},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Visita workup non trovata")
+    return await db.workup_visits.find_one({"id": visit_id}, {"_id": 0})
+
+
+@api_router.delete("/workup-visits/{visit_id}")
+async def delete_workup_visit(visit_id: str, user: dict = Depends(get_current_user)):
+    result = await db.workup_visits.delete_one(
+        {"id": visit_id, "organization_id": user["organization_id"]}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Visita workup non trovata")
     return {"success": True}
 
 
@@ -1277,6 +1686,119 @@ async def public_submit_pro(token: str, payload: PROSubmit):
         },
     )
     return {"success": True}
+
+
+# ==================== CONSULT TOKEN ENDPOINTS ====================
+@api_router.post("/patients/{patient_id}/consult-token", response_model=ConsultToken)
+async def create_consult_token(patient_id: str, payload: ConsultTokenCreate, user: dict = Depends(get_current_user)):
+    """Doctor creates a read-only consult link for an external colleague."""
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    hours = max(1, min(24 * 365, int(payload.expires_in_hours or 168)))
+    expires = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    ct = ConsultToken(
+        patient_id=patient_id,
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name") or user.get("email"),
+        expires_at=expires,
+    )
+    await db.consult_tokens.insert_one(ct.model_dump())
+    return ct
+
+
+@api_router.get("/patients/{patient_id}/consult-tokens")
+async def list_consult_tokens(patient_id: str, user: dict = Depends(get_current_user)):
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    docs = await db.consult_tokens.find(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(50)
+    return docs
+
+
+@api_router.delete("/consult-tokens/{token_id}")
+async def delete_consult_token(token_id: str, user: dict = Depends(get_current_user)):
+    res = await db.consult_tokens.delete_one(
+        {"id": token_id, "organization_id": user["organization_id"]}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Token non trovato")
+    return {"success": True}
+
+
+@api_router.get("/public/consult/{token}")
+async def public_get_consult(token: str):
+    """External colleague opens the consult link — returns full read-only patient bundle."""
+    ct = await db.consult_tokens.find_one({"token": token}, {"_id": 0})
+    if not ct:
+        raise HTTPException(status_code=404, detail="Link non valido o scaduto")
+    if ct["expires_at"] < datetime.now(timezone.utc).isoformat():
+        raise HTTPException(status_code=410, detail="Link scaduto")
+
+    patient_id = ct["patient_id"]
+    org_id = ct["organization_id"]
+
+    # Increment view counter asynchronously (best-effort)
+    await db.consult_tokens.update_one({"token": token}, {"$inc": {"views": 1}})
+
+    # Fetch all clinical data — pseudonymized (no nome/cognome/CF)
+    p = await db.patients.find_one({"id": patient_id}, {"_id": 0}) or {}
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0}) or {}
+
+    patient_safe = {
+        "id": p.get("id"),
+        "codice_paziente": p.get("codice_paziente"),
+        "anno_nascita": p.get("anno_nascita"),
+        "sesso": p.get("sesso"),
+        "diagnosi": p.get("diagnosi"),
+        "diagnosi_secondarie": p.get("diagnosi_secondarie", []),
+        "onset_year": p.get("onset_year"),
+        "onset_month": p.get("onset_month"),
+        "patient_state": p.get("patient_state"),
+        "note": p.get("note"),
+    }
+
+    assessments = await db.assessments.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).sort("date", -1).to_list(500)
+
+    lab_exams = await db.lab_exams.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).sort("date", -1).to_list(500)
+
+    therapies = await db.therapies.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).sort("start_date", -1).to_list(200)
+
+    criteria_evals = await db.criteria_evaluations.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).sort("date", -1).to_list(100)
+
+    disease_profiles = await db.disease_profiles.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).to_list(20)
+
+    sclero_profiles = await db.sclero_profiles.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).to_list(5)
+
+    workup_visits = await db.workup_visits.find(
+        {"patient_id": patient_id}, {"_id": 0}
+    ).sort("visit_date", 1).to_list(50)
+
+    return {
+        "patient": patient_safe,
+        "assessments": assessments,
+        "lab_exams": lab_exams,
+        "therapies": therapies,
+        "criteria_evaluations": criteria_evals,
+        "disease_profiles": disease_profiles,
+        "sclero_profiles": sclero_profiles,
+        "workup_visits": workup_visits,
+        "organization_name": org.get("name") or "",
+        "expires_at": ct["expires_at"],
+        "created_at": ct["created_at"],
+    }
 
 
 # ==================== EXPORT DATABASE ====================
@@ -1797,6 +2319,113 @@ async def export_drugs(user: dict = Depends(get_current_user)):
     return {"drugs": clean}
 
 
+# ==================== GDPR DE-IDENTIFICATION ENGINE ====================
+# Pre-compiled PII patterns for Italian clinical documents.
+# Applied to visit text before sending to any AI model (Claude, Gemini, etc.).
+# The original text is NEVER stored; only the structured extracted output is persisted.
+
+_RE_CF = re.compile(r'\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b', re.IGNORECASE)
+_RE_EMAIL = re.compile(r'\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b')
+_RE_PHONE = re.compile(
+    r'(?<!\d)(\+39\s?|0039\s?)?\(?\d{2,4}\)?\s*[\-\.]?\s*\d{3,4}\s*[\-\.]?\s*\d{3,5}(?!\d)',
+    re.IGNORECASE,
+)
+_RE_BORN = re.compile(
+    r'\b(nato|nata|n\.|data\s+di\s+nascita|d\.?o\.?b\.?|nascita)'
+    r'[\s/:]+(?:il\s+)?\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b',
+    re.IGNORECASE,
+)
+_RE_HOSP_HEADER = re.compile(
+    r'^(Azienda|A\.?O\.?|Ospedale|IRCCS|ASL|AOU|Policlinico|Università|Universita|Clinica|Istituto|Fondazione|Presidio).+$',
+    re.MULTILINE | re.IGNORECASE,
+)
+_RE_PHYSICIAN_SIG = re.compile(
+    r'\b(Dott\.?|Dott\.?ssa|Dr\.?|Prof\.?|Prof\.?ssa)\s+[A-ZÀÈÉÌÒÙ][a-zàèéìòù]+(?:\s+[A-ZÀÈÉÌÒÙ][a-zàèéìòù]+){0,2}\b',
+)
+_RE_PATIENT_CONTEXT = re.compile(
+    r'\b(Paziente|Pz\.?|Sig\.?|Sig\.?ra|Signore?|Signora)[:\s]+[A-ZÀÈÉÌÒÙ][a-zàèéìòù]+(?:\s+[A-ZÀÈÉÌÒÙ][a-zàèéìòù]+){0,2}\b',
+)
+_RE_ADDRESS = re.compile(
+    r'\b(Via|Viale|V\.?le|Corso|C\.?so|Piazza|P\.?za|Vicolo|Contrada|Strada|Str\.)\s+\S+(?:\s+\S+){0,3}[,\s]+\d{5}\b',
+    re.IGNORECASE,
+)
+_RE_HOSP_ID = re.compile(
+    r'\b(N\.?\s*ric\.?|N\.?\s*prot\.?|nosologico|NRO|N[°.]\s*paz\.?|ID\s*paz\.?)[:\s]*\d{4,12}\b',
+    re.IGNORECASE,
+)
+
+
+def _deidentify_text(
+    text: str,
+    patient_name: Optional[str] = None,
+    patient_surname: Optional[str] = None,
+) -> tuple:
+    """
+    Remove common Italian PII patterns from clinical text before AI processing.
+    Returns (cleaned_text, list_of_masked_categories).
+    Operates on a copy; the caller's original string is unchanged.
+    """
+    masked: list = []
+
+    # 1. Patient-specific name/surname from the database record (highest precision)
+    for val, label in [(patient_surname, "cognome"), (patient_name, "nome")]:
+        if val and len(val) > 2:
+            cleaned = re.sub(re.escape(val), "[PAZIENTE]", text, flags=re.IGNORECASE)
+            if cleaned != text:
+                text = cleaned
+                masked.append(label)
+
+    # 2. Codice fiscale (Italian tax ID — 16 chars, deterministic pattern)
+    t = _RE_CF.sub("[CF]", text)
+    if t != text:
+        masked.append("codice_fiscale")
+    text = t
+
+    # 3. Email addresses
+    t = _RE_EMAIL.sub("[EMAIL]", text)
+    if t != text:
+        masked.append("email")
+    text = t
+
+    # 4. Date of birth in context (nato/nata/data di nascita + date)
+    t = _RE_BORN.sub("[DATA_NASCITA]", text)
+    if t != text:
+        masked.append("data_nascita")
+    text = t
+
+    # 5. Hospital/institution identifying headers (full line)
+    t = _RE_HOSP_HEADER.sub("[INTESTAZIONE]", text)
+    if t != text:
+        masked.append("intestazione_ospedaliera")
+    text = t
+
+    # 6. Physician signatures (Dott./Dr./Prof. + name)
+    t = _RE_PHYSICIAN_SIG.sub("[FIRMA_MEDICO]", text)
+    if t != text:
+        masked.append("firma_medico")
+    text = t
+
+    # 7. Patient name introduced by context keyword (Paziente:, Sig., Pz.)
+    t = _RE_PATIENT_CONTEXT.sub("[NOME_PAZIENTE]", text)
+    if t != text:
+        masked.append("nome_contestuale")
+    text = t
+
+    # 8. Italian addresses (Via/Corso/Piazza + street + postal code)
+    t = _RE_ADDRESS.sub("[INDIRIZZO]", text)
+    if t != text:
+        masked.append("indirizzo")
+    text = t
+
+    # 9. Hospital record IDs / nosologico numbers
+    t = _RE_HOSP_ID.sub("[ID_OSPEDALIERO]", text)
+    if t != text:
+        masked.append("id_ospedaliero")
+    text = t
+
+    return text, masked
+
+
 # ==================== AI VISIT PARSING ====================
 class ParseVisitRequest(BaseModel):
     text: str
@@ -1894,33 +2523,64 @@ REGOLE:
 
 
 async def _call_claude_extract(text: str) -> dict:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    """
+    Extract structured clinical data from de-identified visit text using Claude.
+    The 'text' argument MUST already be de-identified before calling this function.
+    Uses litellm (primary, works with ANTHROPIC_API_KEY).
+    Falls back to emergentintegrations if litellm is unavailable.
+    Raw text is NEVER logged — only structural metadata (char count, etc.) is allowed in logs.
+    """
+    import asyncio as _asyncio
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "L'analisi AI non è al momento disponibile a causa di un problema di configurazione. "
+                "Contattare l'amministratore del sistema."
+            ),
+        )
 
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=f"parse-{uuid.uuid4()}",
-        system_message=PARSING_SCHEMA_PROMPT,
-    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+    raw: str = ""
+    try:
+        import litellm as _litellm
+        _litellm.drop_params = True
+        _litellm.suppress_debug_info = True
+        response = await _asyncio.to_thread(
+            _litellm.completion,
+            model="anthropic/claude-sonnet-4-5-20250929",
+            api_key=api_key,
+            messages=[
+                {"role": "system", "content": PARSING_SCHEMA_PROMPT},
+                {"role": "user", "content": f"Testo della visita:\n\n{text}\n\nRestituisci JSON."},
+            ],
+            max_tokens=8192,
+        )
+        raw = (response.choices[0].message.content or "").strip()
+    except ImportError:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"parse-{uuid.uuid4()}",
+            system_message=PARSING_SCHEMA_PROMPT,
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        response = await chat.send_message(UserMessage(text=f"Testo della visita:\n\n{text}\n\nRestituisci JSON."))
+        raw = (response or "").strip()
 
-    user_message = UserMessage(text=f"Testo della visita:\n\n{text}\n\nRestituisci JSON.")
-    response = await chat.send_message(user_message)
-    raw = (response or "").strip()
-    # Strip markdown fences if present
     if raw.startswith("```"):
         raw = raw.strip("`")
-        # remove leading "json\n" if present
         if raw.lower().startswith("json"):
             raw = raw[4:].lstrip()
-    # Find first { and last }
     if "{" in raw and "}" in raw:
         raw = raw[raw.index("{"): raw.rindex("}") + 1]
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"Risposta AI non valida: {e}")
+        logger.error("Claude JSON parse error: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="La risposta del servizio AI non è nel formato atteso. Riprovare.",
+        )
 
 
 @api_router.post("/ai/parse-visit")
@@ -1931,16 +2591,51 @@ async def parse_visit_text(payload: ParseVisitRequest, user: dict = Depends(get_
     if len(text) > 25000:
         raise HTTPException(status_code=400, detail="Testo troppo lungo (max 25000 caratteri)")
 
+    # Resolve patient name for high-precision de-identification
+    patient_doc = None
+    if payload.patient_id:
+        patient_doc = await db.patients.find_one(
+            {"id": payload.patient_id, "organization_id": user["organization_id"]},
+            {"_id": 0, "nome": 1, "cognome": 1},
+        )
+
+    # De-identify text BEFORE sending to AI (GDPR Art. 25 — privacy by design).
+    # The original text is discarded after this call; only the de-identified copy
+    # is forwarded to Claude. Neither version is persisted in the database.
+    deidentified_text, masked_categories = _deidentify_text(
+        text,
+        patient_name=patient_doc.get("nome") if patient_doc else None,
+        patient_surname=patient_doc.get("cognome") if patient_doc else None,
+    )
+    if masked_categories:
+        logger.info("AI parse-visit: de-identified %d category/ies: %s", len(masked_categories), masked_categories)
+
     data = None
     try:
-        data = await _call_claude_extract(text)
+        data = await _call_claude_extract(deidentified_text)
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("AI parse error")
-        raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
+        logger.exception("AI parse-visit error: %s", type(e).__name__)
+        _s = str(e).lower()
+        if any(kw in _s for kw in ("api key", "api_key", "invalid", "401", "403", "unauthenticated", "permission")):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "L'analisi AI non è al momento disponibile a causa di un problema di configurazione. "
+                    "Contattare l'amministratore del sistema."
+                ),
+            )
+        raise HTTPException(
+            status_code=502,
+            detail="Errore temporaneo del servizio AI. Riprovare tra qualche minuto.",
+        )
 
-    return {"extracted": data}
+    return {
+        "extracted": data,
+        "deidentified": len(masked_categories) > 0,
+        "masked_count": len(masked_categories),
+    }
 
 
 # ==================== AI - LAB EXAMS PARSING (PDF/IMAGE) ====================
@@ -2016,7 +2711,161 @@ Linee guida operative:
 - Se il valore è "<5" o ">300" tieni il numero principale e mettilo in "value", aggiungi un commento in raw_notes.
 - Se il referto contiene SOLO immagini (foto del referto) leggi via OCR e applica le stesse regole.
 - NON inventare valori non presenti nel referto.
+- IGNORA e NON includere in "raw_notes" dati identificativi del paziente (nome, cognome, codice fiscale, data di nascita, indirizzo, telefono). Riporta solo informazioni cliniche (valori, unità, note metodologiche).
 - Output: SOLO JSON puro. Inizia con { e finisci con }. Niente altro."""
+
+
+def _extract_pdf_text_local(pdf_bytes: bytes) -> str:
+    """
+    Extract plain text from a PDF entirely on the server using pypdf — no network call,
+    no external service. Works for digitally-generated PDFs (the vast majority of
+    Italian lab reports). Returns empty string for scanned image-only PDFs.
+
+    GDPR note: extracted text is used only transiently for de-identification and AI
+    parsing. It is NEVER written to disk, logged, or persisted in any form.
+    """
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        pages: list = []
+        for page in reader.pages:
+            try:
+                t = page.extract_text() or ""
+                if t.strip():
+                    pages.append(t)
+            except Exception:
+                pass
+        return "\n".join(pages)
+    except Exception as exc:
+        logger.warning("PDF local text extraction failed (%s) — will treat as image.", type(exc).__name__)
+        return ""
+
+
+async def _gemini_extract_lab_text(deidentified_text: str) -> dict:
+    """
+    Extract structured lab values from already-de-identified text via Gemini Flash models.
+
+    Model fallback chain (cheapest / free-tier first — no Pro required):
+        1. gemini-2.0-flash          — primary; generous free tier (1 500 RPD)
+        2. gemini-1.5-flash          — first fallback
+        3. gemini-1.5-flash-latest   — second fallback (alias kept up-to-date by Google)
+
+    Uses litellm REST path (not gRPC) for better compatibility with API-Studio keys.
+
+    GDPR note: 'deidentified_text' must already have been processed by _deidentify_text().
+    This function NEVER logs text content — only structural metadata (char count, model used).
+    """
+    import asyncio as _asyncio
+    import litellm as _litellm
+
+    api_key = (
+        os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("EMERGENT_LLM_KEY")
+    )
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "L'estrazione AI non è al momento disponibile a causa di un problema di configurazione. "
+                "Contattare l'amministratore del sistema."
+            ),
+        )
+
+    _litellm.drop_params = True
+    _litellm.suppress_debug_info = True
+
+    # Ordered from cheapest/most-available to slightly more capable.
+    # None of these require billing beyond the free tier.
+    FLASH_MODELS = [
+        "gemini/gemini-2.0-flash",
+        "gemini/gemini-1.5-flash",
+        "gemini/gemini-1.5-flash-latest",
+    ]
+
+    messages = [
+        {"role": "system", "content": LAB_PARSING_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "Estrai i valori di laboratorio dal seguente testo di referto "
+                "(già de-identificato lato server — nessun dato paziente presente). "
+                "Segui lo schema nel system prompt. Restituisci SOLO JSON valido.\n\n"
+                + deidentified_text
+            ),
+        },
+    ]
+
+    last_exc: Exception | None = None
+    for model_name in FLASH_MODELS:
+        try:
+            response = await _asyncio.to_thread(
+                _litellm.completion,
+                model=model_name,
+                api_key=api_key,
+                messages=messages,
+                max_tokens=4096,
+            )
+            raw = (response.choices[0].message.content or "").strip()
+            logger.info("Lab AI text-parse succeeded with model %s (%d chars out)", model_name, len(raw))
+            break  # success — exit the fallback loop
+        except Exception as exc:
+            _s = str(exc).lower()
+            logger.warning("Lab AI: model %s failed (%s)", model_name, type(exc).__name__)
+
+            # Auth / key errors — no point trying other models
+            if any(kw in _s for kw in ("api key", "api_key", "invalid", "401", "403",
+                                        "unauthenticated", "permission", "key not valid")):
+                logger.error("Lab AI: auth error on model %s", model_name)
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "L'estrazione AI non è al momento disponibile a causa di un problema di configurazione. "
+                        "Contattare l'amministratore del sistema."
+                    ),
+                )
+
+            # Quota / rate errors — try next model in chain
+            if any(kw in _s for kw in ("quota", "429", "resource_exhausted",
+                                        "resourceexhausted", "rate", "limit")):
+                last_exc = exc
+                continue  # try next model
+
+            # Unexpected error — still try next model but log as error
+            logger.error("Lab AI: unexpected error on model %s: %s", model_name, type(exc).__name__)
+            last_exc = exc
+            continue
+    else:
+        # All models exhausted
+        _s = str(last_exc).lower() if last_exc else ""
+        if any(kw in _s for kw in ("quota", "429", "resource_exhausted", "limit")):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Quota AI esaurita su tutti i modelli disponibili. "
+                    "Riprovare più tardi o abilitare la fatturazione nel progetto Google Cloud."
+                ),
+            )
+        raise HTTPException(
+            status_code=502,
+            detail="Errore del servizio AI. Riprovare tra qualche minuto.",
+        )
+
+    # Parse the JSON response
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
+    if "{" in raw and "}" in raw:
+        raw = raw[raw.index("{"):raw.rindex("}") + 1]
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error("Lab AI JSON parse error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="La risposta del servizio AI non è nel formato atteso. Riprovare.",
+        )
 
 
 def _resolve_lab_file_mime(content_type: str, fname: str) -> tuple:
@@ -2043,7 +2892,13 @@ async def _gemini_extract_lab(tmp_path: str, mime: str) -> dict:
 
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY non configurato")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "L'estrazione AI non è al momento disponibile a causa di un problema di configurazione. "
+                "Contattare l'amministratore del sistema."
+            ),
+        )
 
     chat = LlmChat(
         api_key=api_key,
@@ -2063,8 +2918,20 @@ async def _gemini_extract_lab(tmp_path: str, mime: str) -> dict:
     try:
         response = await chat.send_message(user_message)
     except Exception as e:
-        logger.exception("Lab AI parse error")
-        raise HTTPException(status_code=502, detail=f"Errore AI: {e}")
+        logger.exception("Lab AI multimodal parse error: %s", type(e).__name__)
+        _s = str(e).lower()
+        if any(kw in _s for kw in ("api key", "api_key", "invalid", "401", "403", "unauthenticated", "permission")):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "L'estrazione AI non è al momento disponibile a causa di un problema di configurazione. "
+                    "Contattare l'amministratore del sistema."
+                ),
+            )
+        raise HTTPException(
+            status_code=502,
+            detail="Errore temporaneo del servizio AI. Riprovare tra qualche minuto.",
+        )
 
     raw = (response or "").strip()
     if raw.startswith("```"):
@@ -2107,10 +2974,28 @@ async def parse_lab_file(
     user: dict = Depends(get_current_user),
 ):
     """
-    Accept a PDF or image (jpeg/png/webp) of a laboratory report and use Gemini
-    2.5 Pro (multimodal) to extract structured lab values mapped to the
-    application's lab panels schema.
+    Local-first, GDPR-compliant lab report parsing pipeline (GDPR Art. 25).
+
+    Priority order:
+        1. Local text extraction (pdftotext → pypdf for PDFs; Tesseract OCR for images)
+           + deterministic rule-based regex parser.  Free, no API key, no network.
+        2. AI fallback (Gemini Flash) — ONLY when BOTH:
+               a) An API key is set, AND
+               b) Local parse returned < 2 values or all items are low-confidence.
+           AI receives ONLY de-identified text — never raw document bytes.
+
+    GDPR guarantees:
+        - File bytes processed in-memory only; never written to permanent storage.
+        - De-identification applied before any external call.
+        - Text discarded immediately after parsing.
+        - Nothing PII-related is ever logged.
     """
+    import asyncio as _asyncio
+    from lab_parser import (
+        extract_text_from_pdf, extract_text_from_image,
+        parse_lab_text, items_to_panels, needs_ai_fallback,
+    )
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="File non valido")
 
@@ -2122,27 +3007,121 @@ async def parse_lab_file(
     if len(contents) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File troppo grande (max 15 MB)")
 
-    # Persist to a temp file (emergentintegrations expects a file path)
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-        tmp.write(contents)
-        tmp_path = tmp.name
+    # ── Step 1: Extract raw text locally ─────────────────────────────────────
+    raw_text: str = ""
+    text_method: str = "none"
 
-    try:
-        data = await _gemini_extract_lab(tmp_path, mime)
-        reorganized, unmatched = _reorganize_lab_values(data.get("values") or {})
-        return {
-            "date": data.get("date"),
-            "panels": reorganized,
-            "raw_notes": data.get("raw_notes"),
-            "unmatched_keys": unmatched,
-            "filename": file.filename,
-        }
-    finally:
+    if mime == "application/pdf":
+        raw_text, text_method = await _asyncio.to_thread(extract_text_from_pdf, contents)
+    else:
+        raw_text, text_method = await _asyncio.to_thread(extract_text_from_image, contents, mime)
+        # Images: strict-privacy check if OCR found nothing
+        if not raw_text.strip():
+            org = await db.organizations.find_one(
+                {"id": user["organization_id"]}, {"_id": 0, "ai_strict_privacy": 1}
+            )
+            if org and org.get("ai_strict_privacy"):
+                del contents
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Modalità AI Strict Privacy attiva: il testo non è stato estratto localmente "
+                        "dall'immagine (Tesseract non disponibile) e l'invio all'AI è bloccato. "
+                        "Carica un referto PDF digitale per la piena conformità GDPR."
+                    ),
+                )
+
+    del contents  # release raw bytes immediately — never referenced again
+
+    logger.info(
+        "Lab parse step-1: mime=%s text_method=%s text_chars=%d",
+        mime, text_method, len(raw_text),
+    )
+
+    # ── Step 2: Rule-based local parse ────────────────────────────────────────
+    local_parse = await _asyncio.to_thread(parse_lab_text, raw_text) if raw_text.strip() else {"date": None, "items": [], "raw_notes": ""}
+    local_panels, local_conf_map, _ = items_to_panels(local_parse["items"])
+
+    local_result = {
+        "panels":           local_panels,
+        "confidence_map":   local_conf_map,
+        "date":             local_parse["date"],
+        "raw_notes":        local_parse["raw_notes"],
+        "items":            local_parse["items"],
+    }
+
+    logger.info(
+        "Lab parse step-2 (rules): items=%d panels=%s",
+        len(local_parse["items"]), list(local_panels.keys()),
+    )
+
+    # ── Step 3: Optional AI fallback ─────────────────────────────────────────
+    has_api_key = bool(
+        os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("EMERGENT_LLM_KEY")
+    )
+
+    final_panels      = local_panels
+    final_conf_map    = local_conf_map
+    final_date        = local_parse["date"]
+    final_notes       = local_parse["raw_notes"]
+    extraction_method = f"local/{text_method}"
+
+    if has_api_key and needs_ai_fallback(local_result) and raw_text.strip():
+        logger.info(
+            "Lab parse step-3 (AI fallback): local items=%d — calling Gemini Flash",
+            len(local_parse["items"]),
+        )
         try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
+            # De-identify before sending to AI — no PII transmitted
+            deidentified_text, masked = _deidentify_text(raw_text)
+            logger.info(
+                "Lab parse AI: %d de-id categories applied, %d chars → AI",
+                len(masked), len(deidentified_text),
+            )
+            ai_raw = await _gemini_extract_lab_text(deidentified_text)
+            del deidentified_text  # discard immediately
+
+            ai_reorganized, _ = _reorganize_lab_values(ai_raw.get("values") or {})
+
+            # Merge: AI fills in panels the local parser missed
+            for panel_key, ai_vals in ai_reorganized.items():
+                if panel_key not in final_panels:
+                    final_panels[panel_key] = ai_vals
+                    for test_key in ai_vals:
+                        final_conf_map[f"{panel_key}__{test_key}"] = "medium"
+                else:
+                    # Overlay individual tests the local parser didn't catch
+                    for test_key, ai_val in ai_vals.items():
+                        if test_key not in final_panels[panel_key]:
+                            final_panels[panel_key][test_key] = ai_val
+                            final_conf_map[f"{panel_key}__{test_key}"] = "medium"
+
+            if not final_date:
+                final_date = ai_raw.get("date")
+            if not final_notes:
+                final_notes = ai_raw.get("raw_notes", "")
+            extraction_method = f"local+ai/{text_method}"
+            logger.info("Lab parse step-3 (AI): merged %d panels", len(ai_reorganized))
+
+        except HTTPException:
+            logger.warning("Lab parse AI fallback: API error — using local result only")
+        except Exception as exc:
+            logger.warning("Lab parse AI fallback: %s — using local result only", type(exc).__name__)
+
+    del raw_text  # discard extracted text
+
+    return {
+        "date":              final_date,
+        "panels":            final_panels,
+        "confidence_map":    final_conf_map,
+        "raw_notes":         final_notes,
+        "unmatched_keys":    [],
+        "filename":          file.filename,
+        "extraction_method": extraction_method,
+        "local_item_count":  len(local_parse["items"]),
+    }
 
 
 # ==================== STATS ====================
@@ -2203,7 +3182,7 @@ async def upsert_sclero_profile(
 
 
 # ==================== GENERIC DISEASE PROFILE (RA / SpA / ...) ====================
-ALLOWED_DISEASE_TYPES = {"ra", "spa", "sle", "aav", "sjogren", "myositis"}
+ALLOWED_DISEASE_TYPES = {"ra", "spa", "sle", "aav", "sjogren", "myositis", "pmr_lvv", "comorbidities", "prima_visita", "clinical_cockpit"}
 
 
 class DiseaseProfileBase(BaseModel):
@@ -2243,6 +3222,22 @@ async def get_disease_profile(
         {"_id": 0},
     )
     return doc  # null if not exists
+
+
+@api_router.delete("/patients/{patient_id}/disease-profile/{disease_type}", status_code=204)
+async def delete_disease_profile(
+    patient_id: str,
+    disease_type: str,
+    user: dict = Depends(get_current_user),
+):
+    _check_disease_type(disease_type)
+    await _verify_patient_in_org(patient_id, user["organization_id"])
+    await db.disease_profiles.delete_one({
+        "patient_id": patient_id,
+        "organization_id": user["organization_id"],
+        "disease_type": disease_type,
+    })
+    return None
 
 
 @api_router.put("/patients/{patient_id}/disease-profile/{disease_type}", response_model=DiseaseProfile)
@@ -2311,6 +3306,7 @@ async def startup_event():
         await db.disease_profiles.create_index(
             [("patient_id", 1), ("disease_type", 1)], unique=True
         )
+        await db.workup_visits.create_index([("patient_id", 1), ("visit_date", -1)])
     except Exception as e:
         logger.warning(f"Index creation: {e}")
 
@@ -2377,6 +3373,81 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# ==================== SPA FALLBACK ====================
+# Production:  serve the compiled React build from frontend/build/
+# Development: transparently proxy to the React dev server on port 5000
+#              (port 8000/FastAPI is mapped to external port 80 in Replit dev)
+
+_FRONTEND_BUILD = ROOT_DIR.parent / "frontend" / "build"
+_SPA_DEV_SERVER = "http://localhost:5000"
+_HOP_BY_HOP = {"connection", "transfer-encoding", "te", "upgrade",
+                "proxy-authorization", "proxy-authenticate", "trailers"}
+
+
+@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+async def spa_fallback(path: str, request: Request):
+    # ── PRODUCTION: serve compiled static files ──────────────────────────────
+    if (_FRONTEND_BUILD / "index.html").exists():
+        # Try to serve an exact file from the build directory (JS, CSS, images…)
+        if path:
+            candidate = (_FRONTEND_BUILD / path).resolve()
+            build_root = _FRONTEND_BUILD.resolve()
+            try:
+                candidate.relative_to(build_root)   # guard path traversal
+                if candidate.is_file():
+                    return FileResponse(str(candidate))
+            except ValueError:
+                pass
+        # Everything else (React routes) → index.html (no-cache so browsers always re-fetch)
+        return FileResponse(
+            str(_FRONTEND_BUILD / "index.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"},
+        )
+
+    # ── DEVELOPMENT: proxy to React dev server ───────────────────────────────
+    target = f"{_SPA_DEV_SERVER}/{path}"
+    query = request.url.query
+    if query:
+        target += f"?{query}"
+    # Force Accept-Encoding: identity so the dev server never compresses.
+    # This prevents the httpx auto-decompress/Content-Encoding mismatch that
+    # would otherwise produce garbled binary output in the browser.
+    _strip_req = _HOP_BY_HOP | {"host", "accept-encoding"}
+    forward_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _strip_req
+    }
+    forward_headers["accept-encoding"] = "identity"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as hc:
+            resp = await hc.request(
+                request.method, target,
+                headers=forward_headers, follow_redirects=True,
+            )
+        _strip_resp = _HOP_BY_HOP | {"content-encoding", "content-length"}
+        resp_headers = {
+            k: v for k, v in resp.headers.items()
+            if k.lower() not in _strip_resp
+        }
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+            media_type=resp.headers.get("content-type"),
+        )
+    except Exception as exc:
+        logger.error("[spa_fallback] %s → %s: %s", request.url.path, target, exc)
+        return Response(
+            content=(
+                "<html><body><b>Dev server unavailable.</b><br>"
+                "Make sure the React dev server is running on port 5000.<br>"
+                f"<code>{exc}</code></body></html>"
+            ),
+            status_code=502,
+            media_type="text/html",
+        )
 
 
 # ==================== CORS ====================
