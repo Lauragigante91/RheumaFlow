@@ -1299,6 +1299,45 @@ runTest("PRN-AB-6 · farmaco cronico senza abbreviazione resta NON PRN", () => {
   assert(!_isPrn(t), `Diclofenac (1 cp al giorno) NON deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// RACC-CONT (patch raccordo) — "in corso / prosegue / in terapia con <farmaco>"
+// → therapy_continue (date null, confidence medium). Negazioni e sospensioni
+// NON devono generare terapia attiva/continue.
+// ════════════════════════════════════════════════════════════════════
+
+const _contRes = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\nIn corso Infliximab ogni 8 settimane.");
+const _contEvents = _contRes?.events ?? _contRes ?? [];
+const _contActive = (list) =>
+  (list ?? []).find((e) => /infliximab/i.test(e.drug_canonical ?? "") &&
+    (e.event_type === "therapy_continue" || e.event_type === "therapy_start"));
+
+runTest("RACC-CONT-1 · 'In corso Infliximab' → therapy_continue Infliximab", () => {
+  const ev = _contActive(_contEvents);
+  assert(ev != null, "deve esistere un evento di continuazione per Infliximab", _contEvents.map((e) => ({ t: e.event_type, d: e.drug_canonical })));
+  assert(ev?.event_type === "therapy_continue", `event_type preferito therapy_continue (got '${ev?.event_type}')`, ev);
+  assert(ev?.date_value == null, `date_value deve essere null (got '${ev?.date_value}')`, ev);
+  assert(ev?.confidence === "medium", `confidence deve essere medium (got '${ev?.confidence}')`, ev);
+  assert(typeof ev?.source_text === "string" && ev.source_text.length > 0, "source_text preservato", ev?.source_text);
+});
+
+runTest("RACC-CONT-2 · negativo 'non in corso Infliximab' → nessuna continuazione/attiva", () => {
+  const r = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\nNon in corso Infliximab.");
+  const list = r?.events ?? r ?? [];
+  assert(_contActive(list) == null, "non deve esistere therapy_continue/therapy_start per Infliximab", list.map((e) => ({ t: e.event_type, d: e.drug_canonical })));
+});
+
+runTest("RACC-CONT-3 · negativo 'non ha mai assunto Infliximab' → nessuna continuazione/attiva", () => {
+  const r = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\nNon ha mai assunto Infliximab.");
+  const list = r?.events ?? r ?? [];
+  assert(_contActive(list) == null, "non deve esistere therapy_continue/therapy_start per Infliximab", list.map((e) => ({ t: e.event_type, d: e.drug_canonical })));
+});
+
+runTest("RACC-CONT-4 · negativo 'Infliximab sospeso' → nessuna continuazione/attiva (stop ammesso)", () => {
+  const r = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\nInfliximab sospeso.");
+  const list = r?.events ?? r ?? [];
+  assert(_contActive(list) == null, "non deve esistere therapy_continue/therapy_start per Infliximab", list.map((e) => ({ t: e.event_type, d: e.drug_canonical })));
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

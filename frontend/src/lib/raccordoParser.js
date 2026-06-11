@@ -140,6 +140,8 @@ const START_VERB_RE = /\b(?:avviat[oa]|aggiunt[oa]|iniziat[oa]|introdott[oa]|int
 // inferred_by → "restart_verb" per distinguerli dagli avvii de-novo.
 const RESTART_VERB_RE = /\b(?:ricominciat[oa]|ripres[ao]\s+(?:della\s+)?terapia(?:\s+(?:\w+\s+)?con)?|ha\s+ripreso\b|ripreso\s+(?:terapia\s+)?con\b|reintrodott[oa]\b|reintroduzione\s+di\b)\b/i;
 
+const CONTINUE_VERB_RE = /\b(?:in\s+corso|prosegu\w+|in\s+terapia\s+con)\b/i;
+
 const DAL_YEAR_EXT_SRC = String.raw`\bdal?\s+(?:(0?\d|1[012])\/|(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+|(met[àa]|inizi[oa]|fine)\s+)?((19|20)\d{2})\b`;
 
 const REMISSION_RE = /\bremission[ei](?:\s+clinica)?\b/i;
@@ -291,6 +293,7 @@ export function parseRaccordoTimeline(text) {
 
   for (const sentence of sentences) {
     prevLastDrug = lastDrug;     // salva prima che la frase corrente lo aggiorni
+    const _sentenceStartLen = events.length;
     const drugs = findDrugsInText(sentence);
     const rangeHandledStarts = new Set();
     const rangeHandledStops = new Set();
@@ -730,6 +733,47 @@ export function parseRaccordoTimeline(text) {
           inferred_by: isAnaphora ? "anaphora" : null,
           source_text: src(sentence),
         }));
+      }
+    }
+
+    // ── 3b. Therapy continuation ("in corso" / "prosegue" / "in terapia con") ──
+    // Frase con terapia ATTUALMENTE in corso senza data di avvio esplicita.
+    // Emette therapy_continue (date null) solo se nessun'altra regola ha gia'
+    // gestito quel farmaco nella stessa frase (evita doppioni con Rule 0C/2/3).
+    {
+      const cvRe = new RegExp(CONTINUE_VERB_RE.source, "gi");
+      const handledThisSentence = new Set(
+        events.slice(_sentenceStartLen).map(e => e.drug_canonical).filter(Boolean)
+      );
+      const continuedEmitted = new Set();
+      let cvm;
+      while ((cvm = cvRe.exec(sentence)) !== null) {
+        const verbPos = cvm.index;
+        const prePad = sentence.slice(Math.max(0, verbPos - 20), verbPos);
+        if (/\b(?:non|mai|nessun\w*)(?:\s+\w+)?\s*$/i.test(prePad)) continue;
+        const postPad = sentence.slice(verbPos + cvm[0].length, verbPos + cvm[0].length + 4);
+        if (/^\s+di\b/i.test(postPad)) continue;
+
+        const wStart = Math.max(0, verbPos - 25);
+        const wEnd   = Math.min(sentence.length, verbPos + cvm[0].length + 100);
+        const wDrugs = findDrugsInText(sentence.slice(wStart, wEnd));
+
+        for (const drug of wDrugs) {
+          if (ANCILLARY_CANONICALS.has(drug.canonical)) continue;
+          if (drug.category === "NSAID" || drug.category === "analgesic") continue;
+          if (handledThisSentence.has(drug.canonical)) continue;
+          if (continuedEmitted.has(drug.canonical)) continue;
+          continuedEmitted.add(drug.canonical);
+          events.push(makeEvent({
+            event_type: "therapy_continue",
+            drug_name: drug.name,
+            drug_canonical: drug.canonical,
+            drug_category: drug.category,
+            confidence: "medium",
+            inferred_by: "continue_verb",
+            source_text: src(sentence),
+          }));
+        }
       }
     }
 
