@@ -1201,6 +1201,49 @@ runTest("DOSEBLEED-3 · Methotrexate non eredita '10000 UI' dal Colecalciferolo 
   assert(!/10[.\s]?000|10000/i.test(mtx?.dose ?? ""), `Methotrexate dose NON deve contenere '10000 UI' (got '${mtx?.dose}')`, mtx);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// HEADER-SPLIT (P1) — segmentazione header inline / referto su riga singola
+// non deve perdere il RACCORDO né far sanguinare CONCLUSIONI nel raccordo.
+// ════════════════════════════════════════════════════════════════════
+
+const _HS_MULTI = `RACCORDO ANAMNESTICO:
+Malattia esordita nel 2013 con artrite. Iniziata terapia con Sulfasalazina a settembre 2023.
+CONCLUSIONI:
+Stabile.`;
+
+const _HS_SINGLE =
+  "RACCORDO ANAMNESTICO: Malattia esordita nel 2013 con artrite. Iniziata terapia con Sulfasalazina a settembre 2023. CONCLUSIONI: Stabile.";
+
+const _HS_PREAMBLE =
+  "Paziente di 50 anni. RACCORDO ANAMNESTICO: Malattia esordita nel 2013 con artrite. Iniziata terapia con Sulfasalazina a settembre 2023. CONCLUSIONI: Stabile.";
+
+function _hsCheck(label, txt) {
+  const { extracted } = parseVisitText(txt);
+  const ev = extracted.raccordo_events ?? [];
+  const racc = extracted.visit_sections?.raccordo ?? "";
+
+  runTest(`HEADER-SPLIT · ${label} · almeno 2 raccordo_events`, () => {
+    assert(ev.length >= 2, `attesi >= 2 eventi (got ${ev.length})`, ev.map((e) => e.event_type));
+  });
+  runTest(`HEADER-SPLIT · ${label} · disease_onset 2013`, () => {
+    const onset = ev.find((e) => e.event_type === "disease_onset");
+    assert(onset != null, "manca disease_onset", ev.map((e) => e.event_type));
+    assert(/^2013/.test(onset?.date_value ?? ""), `disease_onset date_value 2013 (got '${onset?.date_value}')`, onset);
+  });
+  runTest(`HEADER-SPLIT · ${label} · therapy_start Sulfasalazina settembre 2023`, () => {
+    const start = ev.find((e) => e.event_type === "therapy_start" && /sulfasalazina/i.test(e.drug_name ?? ""));
+    assert(start != null, "manca therapy_start Sulfasalazina", ev.map((e) => `${e.event_type}:${e.drug_name}`));
+    assert(start?.date_value === "2023-09-01", `therapy_start date_value 2023-09-01 (got '${start?.date_value}')`, start);
+  });
+  runTest(`HEADER-SPLIT · ${label} · CONCLUSIONI non nel source del raccordo`, () => {
+    assert(!/conclusioni|stabile/i.test(racc), `raccordo non deve contenere CONCLUSIONI/Stabile (got '${racc}')`, racc);
+  });
+}
+
+_hsCheck("multilinea", _HS_MULTI);
+_hsCheck("riga-singola", _HS_SINGLE);
+_hsCheck("header-inline-dopo-preambolo", _HS_PREAMBLE);
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

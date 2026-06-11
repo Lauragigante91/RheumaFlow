@@ -155,6 +155,8 @@ function clipEsameObiettivo(text) {
   return lines.slice(0, stopIdx).join("\n").trim();
 }
 
+const INLINE_HEADER_SPLIT_RE = /[ \t]+(RACCORDO[ \t]+ANAMNESTICO|ANAMNESI[ \t]+REUMATOLOGICA|STORIA[ \t]+CLINICA|VISITA[ \t]+ODIERNA|CONCLUSIONI|INDICAZIONI|TERAPIA[ \t]+IN[ \t]+ATTO|TERAPIA[ \t]+DOMICILIARE)[ \t]*:/g;
+
 /**
  * segmentLetterSections(text)
  *
@@ -169,6 +171,8 @@ function clipEsameObiettivo(text) {
  */
 export function segmentLetterSections(text) {
   if (!text?.trim()) return { PREAMBLE: "" };
+
+  text = text.replace(INLINE_HEADER_SPLIT_RE, "\n$1:");
 
   const lines = text.split(/\n/);
   const hits  = []; // { key, lineIndex, inlineContent }
