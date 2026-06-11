@@ -1244,6 +1244,61 @@ _hsCheck("multilinea", _HS_MULTI);
 _hsCheck("riga-singola", _HS_SINGLE);
 _hsCheck("header-inline-dopo-preambolo", _HS_PREAMBLE);
 
+// ════════════════════════════════════════════════════════════════════
+// PRN-AB (patch #1) — abbreviazioni "al bisogno": prn / a.b. / al bis. / ab
+// con anti-collisione contro "Ab" (anticorpo, sierologia).
+// ════════════════════════════════════════════════════════════════════
+
+const LETTER_PRN_AB = `TERAPIA DOMICILIARE:
+- Arcoxia 90 mg a.b.
+- Brufen 600 mg al bis.
+- Oki 80 mg ab
+- Nimesulide 100 mg prn
+- Adalimumab 40 mg ogni 2 settimane con controllo Ab anti-CCP negativo
+- Diclofenac 50 mg 1 cp al giorno`;
+
+const { extracted: _exPrnAb } = parseVisitText(LETTER_PRN_AB);
+const _thPrnAb = _exPrnAb.therapies ?? [];
+const _findPrnAb = (re) => _thPrnAb.find((t) => re.test(t.drug_name ?? ""));
+const _isPrn = (t) => t?._prn === true || t?.frequency === "al bisogno";
+
+runTest("PRN-AB-1 · 'a.b.' → Etoricoxib PRN", () => {
+  const t = _findPrnAb(/etoricoxib|arcoxia/i);
+  assert(t != null, "Etoricoxib deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(_isPrn(t), `Etoricoxib (a.b.) deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+});
+
+runTest("PRN-AB-2 · 'al bis.' → Ibuprofene PRN", () => {
+  const t = _findPrnAb(/ibuprofene/i);
+  assert(t != null, "Ibuprofene deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(_isPrn(t), `Ibuprofene (al bis.) deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+});
+
+runTest("PRN-AB-3 · 'ab' minuscolo isolato → Ketoprofene PRN", () => {
+  const t = _findPrnAb(/ketoprofene/i);
+  assert(t != null, "Ketoprofene deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(_isPrn(t), `Ketoprofene (ab) deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+});
+
+runTest("PRN-AB-4 · 'prn' → Nimesulide PRN", () => {
+  const t = _findPrnAb(/nimesulide/i);
+  assert(t != null, "Nimesulide deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(_isPrn(t), `Nimesulide (prn) deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+});
+
+runTest("PRN-AB-5 · anti-collisione: 'Ab' anticorpo NON rende PRN un farmaco cronico", () => {
+  const t = _findPrnAb(/adalimumab/i);
+  assert(t != null, "Adalimumab deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(!_isPrn(t), `Adalimumab NON deve essere PRN nonostante 'Ab anti-CCP' (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+  assert(t?.status === "active", `Adalimumab deve restare 'active' (got '${t?.status}')`, t);
+});
+
+runTest("PRN-AB-6 · farmaco cronico senza abbreviazione resta NON PRN", () => {
+  const t = _findPrnAb(/diclofenac/i);
+  assert(t != null, "Diclofenac deve essere presente", _thPrnAb.map((x) => x.drug_name));
+  assert(!_isPrn(t), `Diclofenac (1 cp al giorno) NON deve essere PRN (freq='${t?.frequency}' _prn=${t?._prn})`, t);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
