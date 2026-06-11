@@ -1018,6 +1018,7 @@ function extractQualitativeResults(text) {
   // 1. PARAM nn — parametri noti con qualificatore testuale invece del numero
   for (const param of PARAMS) {
     if (deferredKeys.has(param.key)) continue;
+    if (param.key === "hb") continue;
     const aliasPattern = param.aliases.join("|");
     // Cerca: ALIAS [qualificatore-temporale-opzionale]? [=:]? (nn|nella norma|negativa|assente|…)
     //

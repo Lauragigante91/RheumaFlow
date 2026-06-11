@@ -1008,6 +1008,37 @@ runTest("LAB-URINE-REAL-1 · formato compatto 'EU: emazie 22*' in contesto urine
   assert(wbc?.value === 8, `urine_wbc.value deve essere 8 da 'leucociti 8/campo' (got ${wbc?.value})`, wbc);
 });
 
+runTest("LAB-HB-1 · solo emocromo 'Hb 14.2' → hb numerico 14.2", () => {
+  const items = extractLabValues("Emocromo: GB 6.5, Hb 14.2 g/dL, PLT 250, MCV 88");
+  const hb = items.find(i => i.key === "hb");
+  assert(hb != null, "hb deve essere estratto", items.map(i => i.key));
+  assert(hb?.value === 14.2, `hb.value deve essere 14.2 (got ${hb?.value})`, hb);
+});
+
+runTest("LAB-HB-2 · 'Hb 14.2' + urine 'emoglobina assente' → hb numerico 14.2, chiave hb non consumata", () => {
+  const items = extractLabValues("Emocromo: Hb 14.2 g/dL, PLT 250, MCV 88. Esame urine: emoglobina assente, proteine assenti");
+  const hbAll = items.filter(i => i.key === "hb");
+  const hbNum = hbAll.find(i => i.value === 14.2);
+  assert(hbNum != null, `hb numerico 14.2 non deve essere oscurato dall'emoglobina urinaria (got ${JSON.stringify(hbAll)})`, items.map(i => i.key));
+  const hbQual = hbAll.filter(i => i.value == null);
+  assert(hbQual.length === 0, "l'emoglobina urinaria non deve consumare la chiave hb (nessun hb qualitativo)", hbQual);
+});
+
+runTest("LAB-HB-3 · 'Emoglobina 14.2' + urine 'emoglobina negativa' → hb numerico 14.2", () => {
+  const items = extractLabValues("Emocromo: Emoglobina 14.2 g/dL, PLT 250, MCV 88. Esame urine: emoglobina negativa, proteine assenti");
+  const hbAll = items.filter(i => i.key === "hb");
+  const hbNum = hbAll.find(i => i.value === 14.2);
+  assert(hbNum != null, `hb numerico 14.2 (got ${JSON.stringify(hbAll)})`, items.map(i => i.key));
+  const hbQual = hbAll.filter(i => i.value == null);
+  assert(hbQual.length === 0, "nessun hb qualitativo da emoglobina urinaria", hbQual);
+});
+
+runTest("LAB-HB-4 · 'Hb 13.1' + urine 'emoglobina -' → hb numerico 13.1", () => {
+  const items = extractLabValues("Emocromo: Hb 13.1 g/dL, PLT 230, MCV 90. EU: emoglobina -, leucociti assenti");
+  const hb = items.find(i => i.key === "hb");
+  assert(hb != null && hb.value === 13.1, `hb numerico 13.1 (got ${JSON.stringify(hb)})`, items.map(i => i.key));
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
