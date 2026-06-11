@@ -218,20 +218,24 @@ function extractJointCounts(text) {
 // DRUG_PATTERNS derived from the single-source DRUG_ALIAS_MAP in drugs.js.
 // To add a new drug or alias: edit drugs.js DRUG_ALIAS_MAP only.
 const DRUG_PATTERNS = (() => {
-  const byCanonical = {};
-  for (const [alias, { canonical, category }] of Object.entries(DRUG_ALIAS_MAP)) {
-    if (!byCanonical[canonical]) byCanonical[canonical] = { canonical, category, aliases: [] };
-    byCanonical[canonical].aliases.push(alias);
+  const byKey = {};
+  for (const [alias, info] of Object.entries(DRUG_ALIAS_MAP)) {
+    const { canonical, category } = info;
+    const cs = info.caseSensitive === true;
+    const key = canonical + (cs ? "\u0000cs" : "");
+    if (!byKey[key]) byKey[key] = { canonical, category, caseSensitive: cs, aliases: [] };
+    byKey[key].aliases.push(alias);
   }
-  return Object.values(byCanonical).map(({ canonical, category, aliases }) => [
+  return Object.values(byKey).map(({ canonical, category, caseSensitive, aliases }) => [
     new RegExp(
       // \b word boundaries on every alias prevent substring matches:
       // e.g. "aza" must not match inside "stessa", "bassa", "massa" etc.
       aliases.map(a => `\\b${a.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&")}\\b`).join("|"),
-      "i"
+      caseSensitive ? "" : "i"
     ),
     canonical,
     category,
+    caseSensitive,
   ]);
 })();
 
@@ -283,11 +287,14 @@ const PAST_AFTER_RE = /\(\s*(?:inefficace|non\s+tollerat[oa]|sospeso|sospesa|int
 // Usato per override anche quando il farmaco appare nella sezione terapia attiva.
 const SOSP_NARROW_AFTER_RE = /^[\s,;:(]+(?:sosp(?:eso|esa|esi|ese)|interrott[oa]|smessa?|cessata?|non\s+tollerat[oa])\b/i;
 
+const PRN_AFTER_RE = /\bal\s+bisogno\b|\ball['’]?\s*occorrenza\b|\bse\s+(?:dolore|necessario|serve|sintomatic|dolorabilit)|\bin\s+caso\s+di\s+(?:dolore|necessit|riacutizz|attacc)|\bcicl[oi]\s+brev[ei]\b|\bripetibile\b|\bsolo\s+se\s+necessario\b|\bquando\s+necessario\b|\bper\s+\d+(?:\s*-\s*\d+)?\s+(?:giorni|gg)\b[^.;\n]{0,40}\b(?:poi\s+(?:stop|sospen)|sospen|stop)\b|\bmax\b[^.;\n]{0,20}\bvolt[ae]\b/i;
+const PRN_LABEL_RE = /(?:\bse\s+dolore|\bse\s+necessario|\bal\s+bisogno|\bin\s+caso\s+di|\ball['’]?\s*occorrenza)\s*:?\s*$/i;
+
 function getActiveSectionText(text) {
   const m = text.match(
     /(?:TERAPIA\s+IN\s+ATTO|TERAPIA\s+ATTUALE|TERAPIA\s+IN\s+CORSO)\s*([\s\S]*?)(?=\n{2,}|\n[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s']{3,}[:\n]|$)/i
   );
-  return m ? m[1].toLowerCase() : "";
+  return m ? m[1] : "";
 }
 
 function extractTherapies(text, today) {
@@ -296,8 +303,8 @@ function extractTherapies(text, today) {
 
   const activeSectionText = getActiveSectionText(text);
 
-  for (const [pattern, drugName, category] of DRUG_PATTERNS) {
-    const globalRe = new RegExp(pattern.source, "gi");
+  for (const [pattern, drugName, category, caseSensitive] of DRUG_PATTERNS) {
+    const globalRe = new RegExp(pattern.source, caseSensitive ? "g" : "gi");
     let match;
     let first = true;
     while ((match = globalRe.exec(text)) !== null && first) {
@@ -373,10 +380,16 @@ function extractTherapies(text, today) {
       const routeM = context.match(ROUTE_RE);
       const route  = routeM ? normalizeRoute(routeM[0]) : null;
 
+      const _prnBreak = context.search(/[.;\n]/);
+      const _prnScope = _prnBreak >= 0 ? context.slice(0, _prnBreak) : context;
+      const isPrn = PRN_AFTER_RE.test(_prnScope) ||
+        PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 24), match.index));
+      if (isPrn) frequency = "al bisogno";
+
       // ── Determina status: "active" vs "discontinued" ────────────────────────
       let status = "active";
       const inActiveSection = activeSectionText &&
-        new RegExp(pattern.source, "i").test(activeSectionText);
+        new RegExp(pattern.source, caseSensitive ? "" : "i").test(activeSectionText);
 
       const hasPastBefore = PAST_BEFORE_RE.test(ctxBefore);
       const hasPastAfter  = PAST_AFTER_RE.test(ctxAfter);
@@ -424,7 +437,7 @@ function extractTherapies(text, today) {
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 90);
-      found.push({ drug_name: drugName, category, dose, frequency, route, start_date: null, status, notes, discontinuation_reason, source_fragment: sourceFragment });
+      found.push({ drug_name: drugName, category, dose, frequency, route, start_date: null, status, notes, discontinuation_reason, source_fragment: sourceFragment, _prn: isPrn });
     }
   }
 
@@ -453,7 +466,10 @@ function _extractDiscReason(ctxAfter) {
     if (/\bper\s*$/i.test(reasonM[0])) {
       const afterPer = ctxAfter.slice(reasonM.index + reasonM[0].length).trim();
       const m = afterPer.match(/^([^.;\n]{3,60})/);
-      if (m) return m[1].trim().replace(/[,.]$/, "");
+      if (m) {
+        const clause = m[1].split(/\s+e\s+(?:successivamente|poi|quindi|dal?\b)/i)[0];
+        return clause.trim().replace(/[,.]$/, "");
+      }
     }
     return reasonM[0].replace(/[()]/g, "").trim();
   }
@@ -465,13 +481,13 @@ function _extractDiscReason(ctxAfter) {
   return genericM ? genericM[1].trim().replace(/[,.]$/, "") : null;
 }
 
-function applyNarrativeDiscontinuations(therapies, narrativeText, rheuCategories) {
+function applyNarrativeDiscontinuations(therapies, narrativeText, rheuCategories, allowStatusOverride = true) {
   if (!narrativeText) return therapies;
   const existingNames = new Set(therapies.map((t) => t.drug_name));
   const newEntries = [];
 
-  for (const [pattern, drugName, category] of DRUG_PATTERNS) {
-    const re = new RegExp(pattern.source, "gi");
+  for (const [pattern, drugName, category, caseSensitive] of DRUG_PATTERNS) {
+    const re = new RegExp(pattern.source, caseSensitive ? "g" : "gi");
     let match;
     while ((match = re.exec(narrativeText)) !== null) {
       const ctxBefore  = narrativeText.slice(Math.max(0, match.index - 250), match.index);
@@ -509,6 +525,7 @@ function applyNarrativeDiscontinuations(therapies, narrativeText, rheuCategories
       const discontinuation_reason = _extractDiscReason(ctxAfter);
 
       if (existingNames.has(drugName)) {
+        if (!allowStatusOverride) continue;
         // Caso A: correggi status del farmaco già in lista
         // Continua nel loop per trovare eventuale occorrenza con ragione migliore
         const alreadyDisc = therapies.some((t) => t.drug_name === drugName && t.status === "discontinued");
@@ -600,16 +617,32 @@ function extractPatientInfo(text) {
     if (sm) info.sesso = sm[2].toUpperCase();
   }
 
-  // Età
-  const etaM = text.match(/\b(\d{1,2})\s+anni\b/);
-  if (etaM) {
-    const age = parseInt(etaM[1]);
-    if (age >= 1 && age <= 110) info.eta = age;
+  // Età — solo età demografica esplicita. Rifiuta range ("20-25 anni"),
+  // durata/contesto temporale ("da circa 10 anni", "fino ai N anni") ed esordio
+  // narrativo ("benessere fino ai N anni"). Se nessun match valido → eta resta null.
+  const etaRe = /\b(\d{1,2})\s+anni\b/gi;
+  let em;
+  while ((em = etaRe.exec(text)) !== null) {
+    const age = parseInt(em[1]);
+    if (age < 1 || age > 110) continue;
+    const numStart = em.index;
+    const pre = text.slice(Math.max(0, numStart - 16), numStart);
+    const post = text.slice(numStart + em[1].length, numStart + em[1].length + 3);
+    if (/[-–]\s*$/.test(pre)) continue;            // lato destro di un range "20-25"
+    if (/^\s*[-–]\s*\d/.test(post)) continue;       // lato sinistro di un range "20-25"
+    if (/\b(?:da|fino|ai|dopo|per|ogni|circa|verso|entro|tra|fra)\s*$/i.test(pre)) continue;
+    if (/esordi|insorgenz|comparsa|benessere/i.test(pre)) continue;
+    info.eta = age;
+    break;
   }
 
-  // Peso
-  const pesoM = text.match(/\bpeso\s+(\d{2,3}(?:[.,]\d)?)\s*[Kk]g/i);
-  if (pesoM) info.peso_kg = parseFloat(pesoM[1].replace(",", "."));
+  // Peso — "peso[: ] 72 kg", "peso corporeo 80 kg", o "72 kg"; sanity 40-250 kg.
+  let pm = text.match(/\bpeso\b[^\d\n]{0,15}(\d{2,3}(?:[.,]\d)?)\s*(?:[Kk]g)?/);
+  if (!pm) pm = text.match(/\b(\d{2,3}(?:[.,]\d)?)\s*[Kk]g\b/);
+  if (pm) {
+    const w = parseFloat(pm[1].replace(",", "."));
+    if (w >= 40 && w <= 250) info.peso_kg = w;
+  }
 
   return Object.keys(info).length > 0 ? info : null;
 }
@@ -1420,11 +1453,13 @@ export function parseVisitText(text) {
   const _narrativeDiscScope = [
     S.ANAMNESI_INTERVALLARE,
     S.MOTIVO_VISITA,
-    S.RACCORDO,
     S.VISITA_ODIERNA,
   ].filter(Boolean).join("\n\n");
   if (_narrativeDiscScope) {
-    therapies = applyNarrativeDiscontinuations(therapies, _narrativeDiscScope, RHEUM_CATEGORIES);
+    therapies = applyNarrativeDiscontinuations(therapies, _narrativeDiscScope, RHEUM_CATEGORIES, true);
+  }
+  if (S.RACCORDO) {
+    therapies = applyNarrativeDiscontinuations(therapies, S.RACCORDO, RHEUM_CATEGORIES, false);
   }
 
   // ── Inline "Porta/In in visione" — strip from narrative sections ─────────

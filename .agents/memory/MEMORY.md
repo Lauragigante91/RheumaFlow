@@ -69,3 +69,4 @@
 - [Militello permanent regression test](militello-regression-test.md) — intentional red TDD test for the Militello letter; don't "fix" it to match current parser output.
 - [Atlas bad-auth (code 8000) diagnosis](atlas-bad-auth-diagnosis.md) — 8000=creds rejected but cluster reached; safe URI-structure probe (no secret print); dotenv override=False = Secrets win over .env.
 - [Hb svuotata da emoglobina urinaria](lab-hb-emoglobina-urine-collision.md) — emoglobina urinaria qualitativa pre-empta la key hb numerica; stessa collisione su wbc (leucociti negativi).
+- [Biologic abbrev case-sensitive](biologic-abbrev-case-sensitive.md) — codici biologici UPPERCASE (ETN/ADA/SEC…) richiedono caseSensitive+\b o collidono con parole IT minuscole (sec/ada/ris).

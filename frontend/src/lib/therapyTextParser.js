@@ -166,7 +166,9 @@ export function parseTherapyText(rawText) {
   let matchedKey = null;
   let entry      = null;
   for (const key of Object.keys(DRUG_MAP)) {
-    if (!new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(lower)) continue;
+    const cs = DRUG_MAP[key].caseSensitive === true;
+    const re = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, cs ? "" : "i");
+    if (!re.test(cs ? text : lower)) continue;
     if (!matchedKey || key.length > matchedKey.length) {
       matchedKey = key;
       entry      = DRUG_MAP[key];

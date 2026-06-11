@@ -20,3 +20,10 @@ description: Rule 3 rewrite for multiple stops in one sentence; RESTART_VERB_RE 
 - SpA enteropatica: +2 restart_verb (Infliximab 2019-05, 2020-08) + stop Infliximab + stop Adalimumab ora separati
 
 FP=0 mantenuto. I nuovi eventi non interferiscono con i TC esistenti.
+
+## Date approssimate, range inline, e tentata-sospensione
+
+- **Date approssimate:** `metà/inizio/fine YYYY` → mese 06/01/12 con `date_precision:"month_year"` e `date_approximate:true` (non perdere il flag: distingue una data vera da una stimata).
+- **Range inline `(YYYY-YYYY)`:** genera due eventi (start anno1 + stop anno2) e marca quegli start/stop come gia' gestiti (`rangeHandledStarts/Stops`) cosi' le altre regole non li riprocessano.
+- **Tentata sospensione:** "tentata sospensione ... con riacutizzazione e ripresa" NON deve creare un `therapy_stop` (la guard `tentata` salta l'occorrenza). **Why:** una sospensione solo tentata e poi rientrata non interrompe davvero la terapia; crearne uno stop falsa la timeline.
+

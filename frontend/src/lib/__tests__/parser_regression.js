@@ -1039,6 +1039,133 @@ runTest("LAB-HB-4 · 'Hb 13.1' + urine 'emoglobina -' → hb numerico 13.1", () 
   assert(hb != null && hb.value === 13.1, `hb numerico 13.1 (got ${JSON.stringify(hb)})`, items.map(i => i.key));
 });
 
+// ════════════════════════════════════════════════════════════════════
+// PSORIASI-ABBREV — caso clinico reale (artrite psoriasica, ETN→ADA-b)
+// Bug import: (1) Adalimumab marcato discontinued + Arcoxia come cronico;
+// (2) timeline raccordo senza date per ETN/ADA-b; (3) età letta da "20-25 anni".
+// Le abbreviazioni biologiche (ETN/ADA-b) richiedono match case-sensitive con \b.
+// ════════════════════════════════════════════════════════════════════
+
+const RACCORDO_PSO = `In età infantile verosimile reumatismo articolare acuto trattato con penicillina i.m. Successivo benessere clinico fino ai 20-25 anni, quindi ricomparsa di artralgie etichettate come reumatismo palindromico.
+Nel 1990 diagnosi di S. di Sjogren per cui utilizza sostituti lacrimali, trattato per anni con antimalarici sospeso per nms.
+Successivamente alla comparsa di manifestazioni cutanee diagnosi di artrite psoriasica, trattata con DMARDs tutti sospesi per intolleranza, quindi adalimumab (2014-2016) sospeso per rialzo glicemico, e successivamente etanercept da metà 2016 con beneficio, tentata sospensione a maggio 2019 con riacutizzazione e ripresa della terapia.
+A luglio 2025 sospeso ETN per colelitiasi complicata da sepsi, successive infezioni e colecistectomia parziale per Sd. di Mirizzi tipo II. In tale occasione switch ad ADA-b per precedente perdita di efficacia di ETN.
+A marzo 2025 ha ricominciato ADA-b con netto beneficio.`;
+
+const LETTER_PSO = `MOTIVO DELLA VISITA: controllo artrite psoriasica.
+
+TERAPIA DOMICILIARE: Adalimumab, Lyrica 75 mg x2, atenololo, Jardiance, Palexia, Cardirene, Zyloric 150 mg/die, statina/ezetimibe, insulina, Laroxyl 5 gocce.
+
+RACCORDO ANAMNESTICO
+${RACCORDO_PSO}
+
+VISITA ODIERNA:
+Quadro articolare stabile.
+
+CONCLUSIONI:
+Artrite psoriasica in buon controllo con ADA-b.
+
+INDICAZIONI:
+- Adalimumab biosimilare/Hyrimoz 40 mg, 1 fiala ogni 15 giorni.
+- Se dolore: Arcoxia 90 mg 1 cp al giorno dopo cena per 5-6 giorni, poi stop; ciclo ripetibile max 1 volta/mese; monitoraggio pressorio.
+- Invariata la restante terapia.`;
+
+const { extracted: _exPso } = parseVisitText(LETTER_PSO);
+const _thPso = _exPso.therapies ?? [];
+const _findPso = (re) => _thPso.find(t => re.test(t.drug_name ?? ""));
+const _raccPso = parseRaccordoTimeline(RACCORDO_PSO);
+const _evPso = _raccPso?.events ?? _raccPso ?? [];
+const _evFind = (type, drugRe) =>
+  _evPso.filter(e => e.event_type === type && drugRe.test(e.drug_canonical ?? e.drug_name ?? ""));
+
+runTest("PSO-T001-1 · Adalimumab resta ATTIVO (non discontinued)", () => {
+  const ada = _findPso(/adalimumab/i);
+  assert(ada != null, "Adalimumab deve essere presente nelle therapies", _thPso.map(t => t.drug_name));
+  assert(ada?.status === "active", `Adalimumab status deve essere 'active' (got '${ada?.status}')`, ada);
+});
+
+runTest("PSO-T001-2 · Arcoxia (Etoricoxib) classificato come PRN/al bisogno", () => {
+  const arc = _findPso(/etoricoxib|arcoxia/i);
+  assert(arc != null, "Etoricoxib (Arcoxia) deve essere presente", _thPso.map(t => t.drug_name));
+  assert(
+    arc?._prn === true || arc?.frequency === "al bisogno",
+    `Etoricoxib deve essere PRN (freq 'al bisogno' / _prn true), got freq='${arc?.frequency}' _prn=${arc?._prn}`,
+    arc,
+  );
+});
+
+runTest("PSO-T001-3 · Zyloric (Allopurinolo) resta attivo", () => {
+  const allo = _findPso(/allopurinolo|zyloric/i);
+  assert(allo != null, "Allopurinolo (Zyloric) deve essere presente", _thPso.map(t => t.drug_name));
+  assert(allo?.status === "active", `Allopurinolo deve restare 'active' (got '${allo?.status}')`, allo);
+});
+
+runTest("PSO-T002-1 · abbreviazioni biologiche: ETN→Etanercept, ADA-b→Adalimumab riconosciute", () => {
+  const etn = _evPso.find(e => /etanercept/i.test(e.drug_canonical ?? ""));
+  const ada = _evPso.find(e => /adalimumab/i.test(e.drug_canonical ?? ""));
+  assert(etn != null, "ETN deve risolvere a Etanercept negli eventi timeline", _evPso.map(e => e.drug_canonical));
+  assert(ada != null, "ADA-b deve risolvere a Adalimumab negli eventi timeline", _evPso.map(e => e.drug_canonical));
+});
+
+runTest("PSO-T002-2 · ETN start 'metà 2016' in timeline CON data (2016-06, approx)", () => {
+  const starts = _evFind("therapy_start", /etanercept/i);
+  const s = starts.find(e => e.date_value === "2016-06-01");
+  assert(s != null, "deve esistere un therapy_start Etanercept datato 2016-06-01", starts.map(e => e.date_value));
+  assert(s?.date_precision === "month_year", `precisione data deve essere month_year (got '${s?.date_precision}')`, s);
+  assert(s?.date_approximate === true, "la data 'metà 2016' deve essere marcata approssimativa", s);
+});
+
+runTest("PSO-T002-3 · ETN stop 'luglio 2025' in timeline CON data (2025-07)", () => {
+  const stops = _evFind("therapy_stop", /etanercept/i);
+  const s = stops.find(e => e.date_value === "2025-07-01");
+  assert(s != null, "deve esistere un therapy_stop Etanercept datato 2025-07-01", stops.map(e => e.date_value));
+  assert(/colelitiasi/i.test(s?.reason ?? ""), `reason deve contenere 'colelitiasi' (got '${s?.reason}')`, s);
+});
+
+runTest("PSO-T002-4 · switch ETN→ADA-b: start Adalimumab 2025-07 (switch_verb)", () => {
+  const sw = _evFind("therapy_start", /adalimumab/i).find(e => e.inferred_by === "switch_verb");
+  assert(sw != null, "deve esistere un therapy_start Adalimumab da switch_verb", _evFind("therapy_start", /adalimumab/i));
+  assert(sw?.date_value === "2025-07-01", `switch datato 2025-07-01 (got '${sw?.date_value}')`, sw);
+});
+
+runTest("PSO-T002-5 · restart ADA-b marzo 2025 (restart_verb)", () => {
+  const rs = _evFind("therapy_start", /adalimumab/i).find(e => e.inferred_by === "restart_verb");
+  assert(rs != null, "deve esistere un therapy_start Adalimumab da restart_verb", _evFind("therapy_start", /adalimumab/i));
+  assert(rs?.date_value === "2025-03-01", `restart datato 2025-03-01 (got '${rs?.date_value}')`, rs);
+});
+
+runTest("PSO-T002-6 · range inline (2014-2016): Adalimumab start 2014 + stop 2016 'rialzo glicemico'", () => {
+  const st = _evFind("therapy_start", /adalimumab/i).find(e => e.date_value === "2014-01-01");
+  const sp = _evFind("therapy_stop", /adalimumab/i).find(e => e.date_value === "2016-01-01");
+  assert(st != null, "start Adalimumab 2014 dal range (2014-2016)", _evFind("therapy_start", /adalimumab/i).map(e => e.date_value));
+  assert(sp != null, "stop Adalimumab 2016 dal range (2014-2016)", _evFind("therapy_stop", /adalimumab/i).map(e => e.date_value));
+  assert(/rialzo glicemico/i.test(sp?.reason ?? ""), `reason stop = 'rialzo glicemico' (got '${sp?.reason}')`, sp);
+});
+
+runTest("PSO-T002-7 · 'tentata sospensione maggio 2019' NON genera therapy_stop", () => {
+  const stop2019 = _evPso.find(e => e.event_type === "therapy_stop" && /2019/.test(e.date_value ?? ""));
+  assert(stop2019 == null, "la sospensione solo tentata (poi rientrata) non deve creare un therapy_stop", stop2019);
+});
+
+runTest("PSO-T002-8 · anti-collisione case-sensitive: 'sec' minuscolo non è Secukinumab", () => {
+  const ev = parseRaccordoTimeline("Misurazione attesa circa 30 sec, poi ripetuta dal 2020.");
+  const list = ev?.events ?? ev ?? [];
+  const sec = list.find(e => /secukinumab/i.test(e.drug_canonical ?? ""));
+  assert(sec == null, "'sec' minuscolo non deve risolvere a Secukinumab (match case-sensitive con \\b)", list.map(e => e.drug_canonical));
+});
+
+runTest("PSO-T002-9 · controprova abbreviazione: 'SEC' maiuscolo risolve a Secukinumab", () => {
+  const ev = parseRaccordoTimeline("Iniziato SEC dal 2020 con beneficio clinico.");
+  const list = ev?.events ?? ev ?? [];
+  const sec = list.find(e => /secukinumab/i.test(e.drug_canonical ?? ""));
+  assert(sec != null, "'SEC' maiuscolo deve risolvere a Secukinumab", list.map(e => e.drug_canonical));
+});
+
+runTest("PSO-T003-1 · età NON letta da '20-25 anni' (nessuna età demografica nel testo)", () => {
+  const eta = _exPso.patient?.eta;
+  assert(eta == null, `eta deve essere null/assente (mai 25 da '20-25 anni'), got ${eta}`, _exPso.patient);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

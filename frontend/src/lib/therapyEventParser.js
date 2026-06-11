@@ -29,8 +29,8 @@ function findDrug(segment) {
   const re = new RegExp(_DRUG_RE.source, "gi");
   let m;
   while ((m = re.exec(segment)) !== null) {
-    const alias = m[1].toLowerCase().trim();
-    const info = DRUG_ALIAS_MAP[alias];
+    const raw = m[1].trim();
+    const info = DRUG_ALIAS_MAP[raw] || DRUG_ALIAS_MAP[raw.toLowerCase()];
     if (info && !matches.find(x => x.name === info.canonical)) {
       matches.push({ name: info.canonical, category: info.category, pos: m.index });
     }
