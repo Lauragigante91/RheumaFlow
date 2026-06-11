@@ -454,7 +454,7 @@ const PARAMS = [
     key: "urine_sg",
     label: "Peso specifico urine",
     panel: "urine",
-    aliases: ["peso\\s+specifico(?:\\s+urine)?", "densit[àa]\\s+urinaria", "specific\\s+gravity"],
+    aliases: ["peso\\s+specifico(?:\\s+urine)?", "densit[àa]\\s+(?:urinaria|relativa)", "specific\\s+gravity"],
     knownUnits: [],
     defaultUnit: "",
   },
@@ -650,7 +650,7 @@ const PARAMS = [
 // Il formato italiano per il sedimento urinario è: VALORE TIPO/campo
 
 // Unità per-campo (sedimento urinario): unico segnale affidabile di contesto urine.
-const URINE_FIELD_UNIT = "(?:\\/\\s*campo|\\s+al\\s+campo|p\\/campo|\\/HPF|x\\s*campo)";
+const URINE_FIELD_UNIT = "(?:\\/\\s*campo|\\s+al\\s+campo|p\\/campo|\\/HPF|x\\s*campo|num\\/microL|cellule\\/[μµu]L|\\/[μµu]L)";
 // Token di contesto urine per ammettere il formato compatto senza unità ("EU: emazie 22*").
 const URINE_CONTEXT_RE = /\bEU\b|esame\s+urine|sedimento|urinar|urine/i;
 
@@ -661,11 +661,11 @@ const URINE_COUNT_PATTERNS = [
     panel: "urine",
     // Strict: alias + valore con unità per-campo obbligatoria (blocca RBC ematici).
     strictRe: new RegExp(
-      "\\b(?:(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)|(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*" + URINE_FIELD_UNIT,
+      "\\b(?:(?<![-–—])(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)|(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*(" + URINE_FIELD_UNIT + ")",
       "gi",
     ),
     // Soft: solo "emazie" senza unità, valido unicamente in contesto urine.
-    softRe: /\b(?:(\d+(?:[.,]\d+)?)\s*\*?\s*emazie|emazie\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
+    softRe: /\b(?:(?<![-–—])(\d+(?:[.,]\d+)?)\s*\*?\s*emazie|emazie\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
     unit:  "/campo",
   },
   {
@@ -673,14 +673,25 @@ const URINE_COUNT_PATTERNS = [
     label: "Leucociti urine",
     panel: "urine",
     strictRe: new RegExp(
-      "\\b(?:(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:leucociti|piociti)|(?:leucociti|piociti)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*" + URINE_FIELD_UNIT,
+      "\\b(?:(?<![-–—])(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:leucociti|piociti)|(?:leucociti|piociti)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*(" + URINE_FIELD_UNIT + ")",
       "gi",
     ),
     // Soft: solo "piociti" (specifico urine) senza unità, in contesto urine.
-    softRe: /\b(?:(\d+(?:[.,]\d+)?)\s*\*?\s*piociti|piociti\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
+    softRe: /\b(?:(?<![-–—])(\d+(?:[.,]\d+)?)\s*\*?\s*piociti|piociti\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
     unit:  "/campo",
   },
 ];
+
+function normalizeUrineCountUnit(unit, fallback) {
+  if (!unit) return fallback;
+  const u = unit.trim().replace(/\s+/g, " ");
+  if (/^\/\s*campo$/i.test(u) || /al\s+campo/i.test(u)) return "/campo";
+  if (/^\/hpf$/i.test(u)) return "/HPF";
+  if (/^num\/microL$/i.test(u)) return "num/microL";
+  if (/^cellule\/[μµu]L$/i.test(u)) return "cellule/µL";
+  if (/^\/[μµu]L$/i.test(u)) return "/µL";
+  return u;
+}
 
 function extractUrineCountValues(text) {
   const results = [];
@@ -692,7 +703,7 @@ function extractUrineCountValues(text) {
     while ((m = strict.exec(text)) !== null) {
       const rawStr = m[1] || m[2];
       if (!rawStr) continue;
-      chosen = { raw: rawStr, src: m[0].trim() };
+      chosen = { raw: rawStr, src: m[0].trim(), unit: m[3] || null };
       break;
     }
 
@@ -718,7 +729,7 @@ function extractUrineCountValues(text) {
       panel:          p.panel,
       value:          val,
       qualitative:    null,
-      unit:           p.unit,
+      unit:           normalizeUrineCountUnit(chosen.unit, p.unit),
       normalizedValue: null,
       normalizedUnit:  null,
       status:         null,
@@ -811,15 +822,35 @@ const PANEL_QUAL_LABELS = [
     key: "hemoglobinuria",
     label: "Emoglobinuria",
     panel: "urine",
-    aliases: ["emoglobinuria", "Hb\\s+urine", "hemoglobinuria", "emoglobina\\s+(?:nelle?\\s+)?urin[ae]?", "Hb\\s+stick"],
+    aliases: ["emoglobinuria", "Hb\\s+urine", "hemoglobinuria", "emoglobina\\s+(?:nelle?\\s+)?urin[ae]?", "emoglobina", "Hb\\s+stick"],
     // "emoglobinuria" senza qualitativo = presente/positiva (se non seguita da "neg" o "assente")
     positiveIfNoQual: true,
+    absentLabel: "assente",
+    presentLabel: "presente",
   },
   {
     key: "proteinuria_stick",
     label: "Proteinuria stick",
     panel: "urine",
-    aliases: ["proteinuria\\s+stick", "proteine\\s+stick", "protein(?:e)?\\s+(?:urine\\s+)?(?:strip|dipstick)"],
+    aliases: ["proteinuria\\s+stick", "proteine\\s+stick", "protein(?:e)?\\s+(?:urine\\s+)?(?:strip|dipstick)", "proteine"],
+    absentLabel: "assenti",
+    presentLabel: "presenti",
+  },
+  {
+    key: "nitriti",
+    label: "Nitriti urine",
+    panel: "urine",
+    aliases: ["nitriti"],
+    absentLabel: "assenti",
+    presentLabel: "presenti",
+  },
+  {
+    key: "esterasi_leucocitaria",
+    label: "Esterasi leucocitaria",
+    panel: "urine",
+    aliases: ["esterasi\\s+leucocitaria"],
+    absentLabel: "assente",
+    presentLabel: "presente",
   },
   {
     key: "urinary_casts",
@@ -874,7 +905,7 @@ const PANEL_QUAL_LABELS = [
     label: "Hb / Emoglobina (qualitativa)",
     panel: "emocromo",
     // Gestisce "emoglobina +" o "Hb +" usati come flag di anomalia nel sedimento urinario
-    aliases: ["emoglobina", "\\bHb(?!\\s+urine|\\s+stick)\\b"],
+    aliases: ["\\bHb(?!\\s+urine|\\s+stick)\\b"],
   },
   {
     // "all'EP lieve elevazione beta 2" — l'alias include il qualificatore inline
@@ -1062,17 +1093,21 @@ function extractQualitativeResults(text) {
     }
 
     const re = new RegExp(
-      `(?:${aliasPattern})\\s*[=:,]?\\s*(\\+|pos(?:itiv[oaie]?)?|${QUAL_NORM_RE}|-)(?![\\d])`,
+      `(?:${aliasPattern})\\s*[=:,]?\\s*(\\+{1,3}|tracce|present[ei]|assent[ei]|pos(?:itiv[oaie]?)?|${QUAL_NORM_RE}|-)(?!\\s*\\d)`,
       "gi"
     );
     let m;
     while ((m = re.exec(text)) !== null) {
       const rawQ = (m[1] || "").trim();
       let qualitative, status;
-      if (rawQ === "+" || /^pos(?:itiv[oaie]?)?$/i.test(rawQ)) {
-        qualitative = "positivo"; status = "positive";
+      if (/^\+{1,3}$/.test(rawQ) || /^tracce$/i.test(rawQ)) {
+        qualitative = rawQ; status = "positive";
+      } else if (/^present[ei]$/i.test(rawQ) || /^pos(?:itiv[oaie]?)?$/i.test(rawQ)) {
+        qualitative = pql.presentLabel || "positivo"; status = "positive";
       } else if (/ipoalbuminemia|iperalbuminemia/i.test(rawQ)) {
         qualitative = rawQ.toLowerCase(); status = rawQ.toLowerCase().startsWith("ipo") ? "low" : "high";
+      } else if (/assent[ei]|neg(?:ativ[oaie]?)?|-|nn|nella\s+norma|nei\s+limiti|in\s+norma|norm/i.test(rawQ)) {
+        qualitative = pql.absentLabel || "nella norma"; status = "normal";
       } else {
         qualitative = "nella norma"; status = "normal";
       }

@@ -183,6 +183,46 @@ describe("Funzione renale", () => {
     expect(r?.normalizedValue).toBeCloseTo(0.8, 2);
     expect(r?.normalizedUnit).toBe("g/24h");
   });
+
+  test("Esame urine completo standard: stick e sedimento non diventano proteinuria 24h", () => {
+    const items = extractLabValues(`
+Esame completo urine
+pH 6.5 range 5.0-7.0
+Densità Relativa 1.004 range 1.010-1.030
+Proteine Assenti mg/dL range <15
+Glucosio Assente mg/dL
+Corpi Chetonici Assenti mg/dL
+Emoglobina Assente mg/dL
+Nitriti Assenti
+Esterasi leucocitaria Assente
+Emazie 6 num/microL range 0-15
+Leucociti 1 num/microL range 0-20
+    `);
+
+    expect(findLab(items, "proteinuria")).toBeNull();
+    expect(findLab(items, "proteinuria_stick")?.qualitative).toBe("assenti");
+    expect(findLab(items, "nitriti")?.qualitative).toBe("assenti");
+    expect(findLab(items, "esterasi_leucocitaria")?.qualitative).toBe("assente");
+    expect(findLab(items, "hemoglobinuria")?.qualitative).toBe("assente");
+    expect(findLab(items, "urine_rbc")?.value).toBe(6);
+    expect(findLab(items, "urine_rbc")?.unit).toBe("num/microL");
+    expect(findLab(items, "urine_wbc")?.value).toBe(1);
+    expect(findLab(items, "urine_wbc")?.unit).toBe("num/microL");
+  });
+
+  test("Proteinuria quantitativa 24h resta distinta dallo stick urine", () => {
+    const mg = findLab(extractLabValues("Proteinuria 350 mg/24h"), "proteinuria");
+    expect(mg?.normalizedValue).toBeCloseTo(0.35, 2);
+    expect(mg?.normalizedUnit).toBe("g/24h");
+
+    const g = findLab(extractLabValues("Proteinuria 0,35 g/24h"), "proteinuria");
+    expect(g?.value).toBe(0.35);
+    expect(g?.unit).toBe("g/24h");
+
+    const stick = extractLabValues("Proteine Assenti mg/dL");
+    expect(findLab(stick, "proteinuria")).toBeNull();
+    expect(findLab(stick, "proteinuria_stick")?.qualitative).toBe("assenti");
+  });
 });
 
 // ─── Metabolismo / altro ─────────────────────────────────────────────────────

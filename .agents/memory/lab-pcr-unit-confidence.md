@@ -41,3 +41,10 @@ Wired in:
 - `ExtractedReview` → `lab_review_items` section in sidebar
 
 **How to apply**: any future HIGH_RISK param with absent unit will be flagged automatically. To add a new high-risk param, add its key to `HIGH_RISK_KEYS`.
+
+## Stale jest tests (do NOT "fix" to green)
+
+`frontend/src/__tests__/labValueExtractor.test.js` carries 3 intentionally-red CRP tests that still expect the OLD mg/dL→mg/L conversion ("CRP in mg/dL normalizzato a mg/L", "PCR 0.4 mg/dL (v.n. 0-0.5)", "PCR 0.6 mg/dL (v.n. 0-0.5)"). They contradict the no-implicit-conversion rule above (now normalizedValue stays null for mg/dL CRP).
+
+**Why:** like the Militello regression, these are stale expectations from a removed behavior — a future agent must NOT re-introduce mg/dL→mg/L conversion to make them pass.
+**How to apply:** when the jest suite shows 3 red CRP-conversion tests, leave them or update/remove them (with user approval) to match the no-conversion decision; never restore `normalize()`.

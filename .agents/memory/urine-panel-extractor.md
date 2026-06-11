@@ -24,6 +24,17 @@ URINE_COUNT_PATTERNS split into strictRe (per-field unit REQUIRED: `/campo|al ca
 **Why:** "Globuli rossi 4.52 10^6/uL" and "Leucociti 12.4 K/μL" are emocromo (blood), not sediment — they were wrongly populating urine_rbc/urine_wbc. Requiring a per-field unit (or urine context for the bare emazie/piociti shorthand) prevents inventing urine sediment when absent.
 **How to apply:** never let `/μL`-style blood units feed urine counts; eritrociti/globuli rossi/GR/leucociti need an explicit per-field unit; only the urine shorthand `emazie`/`piociti` may be unit-less, and only in urine context.
 
+## Sediment count units extended (num/microL) + unit capture
+
+`URINE_FIELD_UNIT` now also accepts `num/microL`, `cellule/[μµu]L`, `/[μµu]L` (formati AUSL/macchina). The strictRe wraps the unit suffix in a capture group (m[1]/m[2]=value, m[3]=unit); `normalizeUrineCountUnit(unit, fallback)` canonicalises it (soft path → fallback `/campo`). A `(?<![-–—])` lookbehind on the number-first branch blocks reference-range tails like "range 0-15" from being read as the count.
+
+**Why:** a patch authored against an OLD single-regex `re`/`extractValue` design conflicted with the strict/soft architecture; adapting the intent (new units + unit capture + range-guard) into strict/soft kept the LAB-URINE-NOFP emocromo guards intact.
+**How to apply:** NEVER revert urine count parsing to the patch's single-regex form — it drops URINE_CONTEXT_RE soft-gating and reopens blood-count false positives. Add new sediment units to `URINE_FIELD_UNIT` + `normalizeUrineCountUnit`.
+
+## Qualitative urine fields: nitriti + esterasi_leucocitaria
+
+PANEL_QUAL_LABELS also carries `nitriti` and `esterasi_leucocitaria`, plus per-label `absentLabel`/`presentLabel` (e.g. proteine→assenti/presenti, esterasi→assente/presente). `extractQualitativeResults` maps `assent[ei]`/`+{1,3}`/`tracce`/`present[ei]` to those labels. `emoglobina` (bare) moved from the emocromo Hb qual alias to `hemoglobinuria` — resolves the hb-vs-emoglobina-urinaria collision at the source.
+
 ## PANEL_QUAL_LABELS (qualitative urine findings)
 
 Added: `hemoglobinuria`, `proteinuria_stick`, `urinary_casts`, `leucocituria`, `hematuria`. These match qualitative terms (neg/nn/nella norma) in the visit text.

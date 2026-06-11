@@ -158,6 +158,8 @@ export const LAB_PANELS = {
       { key: "leucocituria",     label: "Leucocituria",                 unit: "",       type: "qual" },
       { key: "hemoglobinuria",   label: "Emoglobinuria",                unit: "",       type: "qual" },
       { key: "proteinuria_stick",label: "Proteinuria stick",            unit: "",       type: "qual" },
+      { key: "nitriti",          label: "Nitriti",                      unit: "",       type: "qual" },
+      { key: "esterasi_leucocitaria", label: "Esterasi leucocitaria",    unit: "",       type: "qual" },
       { key: "urinary_casts",    label: "Cilindri urinari",             unit: "",       type: "qual" },
       { key: "urine_sg",         label: "Peso specifico",               unit: "",       type: "number" },
       { key: "urine_ph",         label: "pH urine",                     unit: "",       type: "number" },

@@ -295,10 +295,13 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
       const ev  = editValues[r.id];
       const raw = String(ev?.value ?? "").replace(",", ".");
       const num = parseFloat(raw);
-      if (isNaN(num)) continue;
+      const qualitative = ev?.qualitative || r.qualitative || null;
+      if (isNaN(num) && !qualitative) continue;
       const panelKey = r.panel;
       if (!byPanel[panelKey]) byPanel[panelKey] = {};
-      byPanel[panelKey][mapKey(r.key)] = { value: num, unit: ev?.unit || r.unit || "" };
+      byPanel[panelKey][mapKey(r.key)] = isNaN(num)
+        ? { qualitative }
+        : { value: num, unit: ev?.unit || r.unit || "", ...(qualitative ? { qualitative } : {}) };
     }
 
     setSaving(true);
