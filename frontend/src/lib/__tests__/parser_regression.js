@@ -1166,6 +1166,41 @@ runTest("PSO-T003-1 · età NON letta da '20-25 anni' (nessuna età demografica 
   assert(eta == null, `eta deve essere null/assente (mai 25 da '20-25 anni'), got ${eta}`, _exPso.patient);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// DOSE-BLEED (P0) — dose/frequenza non devono sanguinare da un farmaco
+// adiacente sulla stessa riga (rischio: dose clinicamente errata).
+// ════════════════════════════════════════════════════════════════════
+
+const { extracted: _exDB1 } = parseVisitText(
+  "MOTIVO DELLA VISITA: controllo.\n\nTERAPIA IN ATTO: Infliximab ogni 8 settimane, Prednisone 5 mg/die",
+);
+const _thDB1 = _exDB1.therapies ?? [];
+const _findDB1 = (re) => _thDB1.find((t) => re.test(t.drug_name ?? ""));
+
+runTest("DOSEBLEED-1 · Infliximab non eredita la dose di Prednisone (dose null, freq 'ogni 8 settimane')", () => {
+  const ifx = _findDB1(/infliximab/i);
+  assert(ifx != null, "Infliximab deve essere presente", _thDB1.map((t) => t.drug_name));
+  assert(ifx?.dose == null, `Infliximab dose deve essere null (got '${ifx?.dose}')`, ifx);
+  assert(/ogni\s+8\s+settimane/i.test(ifx?.frequency ?? ""), `Infliximab freq = 'ogni 8 settimane' (got '${ifx?.frequency}')`, ifx);
+});
+
+runTest("DOSEBLEED-2 · Prednisone mantiene la propria dose 5 mg", () => {
+  const pre = _findDB1(/prednisone/i);
+  assert(pre != null, "Prednisone deve essere presente", _thDB1.map((t) => t.drug_name));
+  assert(/\b5\s*mg\b/i.test(pre?.dose ?? ""), `Prednisone dose = '5 mg' (got '${pre?.dose}')`, pre);
+});
+
+const { extracted: _exDB2 } = parseVisitText(
+  "MOTIVO DELLA VISITA: controllo.\n\nTERAPIA IN ATTO: Methotrexate settimanale, Colecalciferolo 10000 UI ogni 15 giorni",
+);
+const _thDB2 = _exDB2.therapies ?? [];
+
+runTest("DOSEBLEED-3 · Methotrexate non eredita '10000 UI' dal Colecalciferolo adiacente", () => {
+  const mtx = _thDB2.find((t) => /methotrexate/i.test(t.drug_name ?? ""));
+  assert(mtx != null, "Methotrexate deve essere presente", _thDB2.map((t) => t.drug_name));
+  assert(!/10[.\s]?000|10000/i.test(mtx?.dose ?? ""), `Methotrexate dose NON deve contenere '10000 UI' (got '${mtx?.dose}')`, mtx);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

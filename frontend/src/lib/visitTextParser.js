@@ -322,14 +322,26 @@ function extractTherapies(text, today) {
       const ctxBefore  = text.slice(Math.max(0, match.index - 250), match.index);
       const ctxAfter   = text.slice(match.index + match[0].length, ctxEnd);
 
-      const doseM  = context.match(FREQ_PER_WEEK) || context.match(DOSE_RE);
+      let doseScope = context;
+      {
+        const afterDrug = context.slice(match[0].length);
+        let nextDrugRel = Infinity;
+        for (const [p2, name2, , cs2] of DRUG_PATTERNS) {
+          if (name2 === drugName) continue;
+          const m2 = new RegExp(p2.source, cs2 ? "" : "i").exec(afterDrug);
+          if (m2 && m2.index < nextDrugRel) nextDrugRel = m2.index;
+        }
+        if (nextDrugRel !== Infinity) doseScope = context.slice(0, match[0].length + nextDrugRel);
+      }
+
+      const doseM  = doseScope.match(FREQ_PER_WEEK) || doseScope.match(DOSE_RE);
       const dose   = doseM ? doseM[0].trim() : null;
 
-      const freqPwM    = context.match(FREQ_PER_WEEK);
+      const freqPwM    = doseScope.match(FREQ_PER_WEEK);
       // Priority: specific interval patterns (ogni N settimane / spacing a N settimane)
       // beat generic abbreviations (die/bid/tid) even when both appear in the context.
-      const freqIntM   = context.match(FREQ_INTERVAL);
-      const freqGenM   = context.match(FREQ_GENERAL);
+      const freqIntM   = doseScope.match(FREQ_INTERVAL);
+      const freqGenM   = doseScope.match(FREQ_GENERAL);
       // Prefer the match that appears EARLIEST in context (closest to drug name).
       // Fixed-priority FREQ_PER_WEEK > FREQ_INTERVAL > FREQ_GENERAL is the tiebreaker
       // when two patterns match at the same position, but earliest-in-context prevents
@@ -377,7 +389,7 @@ function extractTherapies(text, today) {
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      const routeM = context.match(ROUTE_RE);
+      const routeM = doseScope.match(ROUTE_RE);
       const route  = routeM ? normalizeRoute(routeM[0]) : null;
 
       const _prnBreak = context.search(/[.;\n]/);
