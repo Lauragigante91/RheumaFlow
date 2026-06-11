@@ -10,7 +10,7 @@ import { Badge } from "../components/ui/badge";
 import {
   ArrowLeft, ArrowRight, Save, Check,
   ClipboardList, FlaskConical, Lightbulb, FileText, Printer, FolderOpen,
-  Search, ChevronDown, ChevronUp, X, Plus, Pill, Camera, Sparkles,
+  Search, ChevronDown, ChevronUp, X, Plus, Pill, Camera, Sparkles, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import TemplatePickerDialog from "../components/visits/TemplatePickerDialog";
@@ -90,24 +90,40 @@ function CheckRow({ label, checked, onToggle, isRed = false }) {
   );
 }
 
-function StepDot({ step, current, label, onJump }) {
-  const done = step < current;
+function StepDot({ step, current, label, incomplete = false, onJump }) {
   const active = step === current;
-  const clickable = done && onJump;
+  const done = step < current && !incomplete;
+  const clickable = !!onJump;
+
+  let circle, text, content;
+  if (active) {
+    circle = "border-[#0A2540] text-[#0A2540] bg-white";
+    text = "text-[#0A2540]";
+    content = step;
+  } else if (incomplete) {
+    circle = "border-amber-400 text-amber-600 bg-amber-50 group-hover:border-amber-500";
+    text = "text-amber-600 group-hover:text-amber-700";
+    content = <AlertCircle className="w-3.5 h-3.5" />;
+  } else if (done) {
+    circle = "bg-[#0A2540] border-[#0A2540] text-white group-hover:bg-[#1e3a5f] group-hover:border-[#1e3a5f]";
+    text = "text-gray-500 group-hover:text-[#0A2540]";
+    content = <Check className="w-3.5 h-3.5" />;
+  } else {
+    circle = "border-gray-200 text-gray-400 bg-white group-hover:border-gray-400 group-hover:text-gray-600";
+    text = "text-gray-400 group-hover:text-gray-600";
+    content = step;
+  }
+
   return (
     <div
       className={`flex flex-col items-center gap-1 ${clickable ? "cursor-pointer group" : ""}`}
-      onClick={clickable ? onJump : undefined}
-      title={clickable ? `Torna a: ${label}` : undefined}
+      onClick={onJump}
+      title={clickable ? `Vai a: ${label}${incomplete ? " (sezione incompleta)" : ""}` : undefined}
     >
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-        done ? "bg-[#0A2540] border-[#0A2540] text-white group-hover:bg-[#1e3a5f] group-hover:border-[#1e3a5f]" :
-        active ? "border-[#0A2540] text-[#0A2540] bg-white" :
-        "border-gray-200 text-gray-300 bg-white"
-      }`}>
-        {done ? <Check className="w-3.5 h-3.5" /> : step}
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${circle}`}>
+        {content}
       </div>
-      <span className={`text-[9px] font-medium text-center leading-tight hidden sm:block ${active ? "text-[#0A2540]" : done ? "text-gray-500 group-hover:text-[#0A2540]" : "text-gray-300"}`}>{label}</span>
+      <span className={`text-[9px] font-medium text-center leading-tight hidden sm:block ${text}`}>{label}</span>
     </div>
   );
 }
@@ -286,6 +302,12 @@ export default function FirstVisitPage() {
 
   const isConverting = data.clinical_decision === "converting";
 
+  const isStepIncomplete = (n) => {
+    if (n === 1) return !data.referral_reason || !data.clinical_question?.trim();
+    if (n === 6) return isConverting && !data.confirmed_diagnosis?.trim();
+    return false;
+  };
+
   const toggleHypothesis = (label) => patch((p) => {
     const current = p.suggested_diagnosis ? p.suggested_diagnosis.split(", ").filter(Boolean) : [];
     const next = current.includes(label) ? current.filter(h => h !== label) : [...current, label];
@@ -381,7 +403,8 @@ export default function FirstVisitPage() {
                 step={i + 1}
                 current={step}
                 label={label}
-                onJump={i + 1 < step ? () => setStep(i + 1) : undefined}
+                incomplete={isStepIncomplete(i + 1)}
+                onJump={i + 1 !== step ? () => setStep(i + 1) : undefined}
               />
               {i < STEPS.length - 1 && (
                 <div className={`flex-1 h-px mt-3.5 ${step > i + 1 ? "bg-[#0A2540]" : "bg-gray-200"}`} />
@@ -496,12 +519,10 @@ export default function FirstVisitPage() {
                     const term = comorbiditiesSearch.trim();
                     if (!term) return;
                     const hasMatch = COMORBIDITY_CATEGORIES.some((cat) =>
-                      cat.items?.some((item) =>
-                        item.toLowerCase().includes(term.toLowerCase())
-                      )
+                      cat.items.some((item) => matchesComorbiditySearch(item, term))
                     );
                     if (!hasMatch) {
-                      toggleComorbidity("altro", term);
+                      toggleComorbidity("other", term);
                       setComorbiditiesSearch("");
                     }
                   }
@@ -533,12 +554,12 @@ export default function FirstVisitPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      toggleComorbidity("altro", comorbiditiesSearch.trim());
+                      toggleComorbidity("other", comorbiditiesSearch.trim());
                       setComorbiditiesSearch("");
                     }}
                     className="text-[11px] text-blue-600 font-medium bg-blue-50 border border-blue-200 rounded-md px-2 py-0.5 hover:bg-blue-100 transition-colors flex items-center gap-1"
                   >
-                    <span>↵</span> Aggiungi come "altro"
+                    <Plus className="w-3 h-3" /> Aggiungi «{comorbiditiesSearch.trim()}» come altro
                   </button>
                 </div>
               );
