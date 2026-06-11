@@ -60,6 +60,7 @@
 - [raccordoParser Sprint 3A — Rule 0C](raccordo-rule0c.md) — history-list rule for cDMARD/bDMARD sentences; 2 guards prevent FP; baseline TP=76 FP=0 Macro-F1=0.895.
 - [raccordoParser multi-stop + restart verbs](raccordo-multistop-restart.md) — Rule 3 global while-loop per-stop window; RESTART_VERB_RE inferred_by:"restart_verb"; FP=0 invariato.
 - [Security/PHI scan gotchas](security-scan-rg-gotcha.md) — rg `-E` is --encoding not regex; never `2>/dev/null || echo none` (masks scan errors as "clean").
+- [Replit secrets tooling quirks](replit-secrets-tooling-quirks.md) — viewEnvVars `keys` filter echoes requested keys (use unfiltered list); deleteEnvVars can't delete Secrets (user does it in GUI); JWT_SECRET runtime-present but absent from viewEnvVars.
 - [Therapy regime-change persistence](therapy-regime-persistence.md) — freq/route/formulation changes persist only via full upsert (_skip:false); continuity payload carries dose only and silently drops them.
 - [Debug parse-trace privacy](parse-trace-privacy.md) — /api/debug/parse-trace must stay dev-only (client NODE_ENV + server build-presence gate) and metadata-only; never log source text or clinical values.
 - [Dev bare-domain 502](dev-bare-domain-port-forward.md) — externalPort 80 reshuffles to a dead localPort on recovery merges; app fine on 5000/8000; agent can't edit .replit ports → TCP forwarder shim in start.sh.
