@@ -68,3 +68,4 @@
 - [Therapy event projection](therapy-event-projection.md) — all longitudinal therapy writes go through one projection helper; update_therapy must diff vs current (""→None) or full-object PUTs from the frontend pollute the event ledger.
 - [Militello permanent regression test](militello-regression-test.md) — intentional red TDD test for the Militello letter; don't "fix" it to match current parser output.
 - [Atlas bad-auth (code 8000) diagnosis](atlas-bad-auth-diagnosis.md) — 8000=creds rejected but cluster reached; safe URI-structure probe (no secret print); dotenv override=False = Secrets win over .env.
+- [Hb svuotata da emoglobina urinaria](lab-hb-emoglobina-urine-collision.md) — PARAM hb alias "emoglobina" catturato dal loop qualitativo su "emoglobina assente/negativa" urinaria → key hb in qualKeys → Hb numerica emocromo scartata; OCR text non persistito.
