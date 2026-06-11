@@ -649,58 +649,86 @@ const PARAMS = [
 // Gestisce pattern con numero prima dell'alias: "17 emazie/campo", "5 leucociti/campo"
 // Il formato italiano per il sedimento urinario è: VALORE TIPO/campo
 
+// Unità per-campo (sedimento urinario): unico segnale affidabile di contesto urine.
+const URINE_FIELD_UNIT = "(?:\\/\\s*campo|\\s+al\\s+campo|p\\/campo|\\/HPF|x\\s*campo)";
+// Token di contesto urine per ammettere il formato compatto senza unità ("EU: emazie 22*").
+const URINE_CONTEXT_RE = /\bEU\b|esame\s+urine|sedimento|urinar|urine/i;
+
 const URINE_COUNT_PATTERNS = [
   {
     key:   "urine_rbc",
     label: "Emazie urine",
     panel: "urine",
-    // Formato 1: "17 emazie/campo" — numero prima dell'alias
-    // Formato 2: "emazie 22*"  — alias prima del numero (EU compatto italiano), asterisco opzionale
-    re:    /\b(?:(?:(\d+(?:[.,]\d+)?)\s*\*?\s*(?:emazie|eritrociti|globuli\s+rossi)(?:\s*(?:\/\s*campo|\s+al\s+campo|\/HPF|\/μL|\/uL))?)|(?:(?:emazie|eritrociti|globuli\s+rossi)\s+(\d+(?:[.,]\d+)?)\s*\*?))\b/gi,
+    // Strict: alias + valore con unità per-campo obbligatoria (blocca RBC ematici).
+    strictRe: new RegExp(
+      "\\b(?:(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)|(?:emazie|eritrociti|globuli\\s+rossi|GR\\b)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*" + URINE_FIELD_UNIT,
+      "gi",
+    ),
+    // Soft: solo "emazie" senza unità, valido unicamente in contesto urine.
+    softRe: /\b(?:(\d+(?:[.,]\d+)?)\s*\*?\s*emazie|emazie\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
     unit:  "/campo",
-    // Custom extract: cattura il gruppo 1 (formato num-prima) o il gruppo 2 (formato alias-prima)
-    extractValue: (m) => m[1] || m[2],
   },
   {
     key:   "urine_wbc",
     label: "Leucociti urine",
     panel: "urine",
-    re:    /\b(?:(?:(\d+(?:[.,]\d+)?)\s*\*?\s*(?:leucociti|piociti)(?:\s*(?:\/\s*campo|\s+al\s+campo|\/HPF|\/μL|\/uL))?)|(?:(?:leucociti|piociti)\s+(\d+(?:[.,]\d+)?)\s*\*?))\b/gi,
+    strictRe: new RegExp(
+      "\\b(?:(\\d+(?:[.,]\\d+)?)\\s*\\*?\\s*(?:leucociti|piociti)|(?:leucociti|piociti)\\s+(\\d+(?:[.,]\\d+)?)\\s*\\*?)\\s*" + URINE_FIELD_UNIT,
+      "gi",
+    ),
+    // Soft: solo "piociti" (specifico urine) senza unità, in contesto urine.
+    softRe: /\b(?:(\d+(?:[.,]\d+)?)\s*\*?\s*piociti|piociti\s+(\d+(?:[.,]\d+)?)\s*\*?)\b/gi,
     unit:  "/campo",
-    extractValue: (m) => m[1] || m[2],
   },
 ];
 
 function extractUrineCountValues(text) {
   const results = [];
   for (const p of URINE_COUNT_PATTERNS) {
-    const re = new RegExp(p.re.source, p.re.flags);
+    let chosen = null;
+
+    const strict = new RegExp(p.strictRe.source, p.strictRe.flags);
     let m;
-    while ((m = re.exec(text)) !== null) {
-      const rawStr = p.extractValue ? p.extractValue(m) : m[1];
+    while ((m = strict.exec(text)) !== null) {
+      const rawStr = m[1] || m[2];
       if (!rawStr) continue;
-      const raw = rawStr.replace(",", ".");
-      const val = parseFloat(raw);
-      if (isNaN(val)) continue;
-      results.push({
-        id:             `${p.key}_uc_${Math.random().toString(36).slice(2, 7)}`,
-        key:            p.key,
-        label:          p.label,
-        panel:          p.panel,
-        value:          val,
-        qualitative:    null,
-        unit:           p.unit,
-        normalizedValue: null,
-        normalizedUnit:  null,
-        status:         null,
-        detectedRange:  null,
-        sourceText:     m[0].trim(),
-        param_key:      p.key,
-        name:           p.label,
-        confidence:     "high",
-        inferred_unit:  false,
-      });
+      chosen = { raw: rawStr, src: m[0].trim() };
+      break;
     }
+
+    if (!chosen) {
+      const soft = new RegExp(p.softRe.source, p.softRe.flags);
+      while ((m = soft.exec(text)) !== null) {
+        const rawStr = m[1] || m[2];
+        if (!rawStr) continue;
+        const before = text.slice(Math.max(0, m.index - 60), m.index);
+        if (!URINE_CONTEXT_RE.test(before)) continue;
+        chosen = { raw: rawStr, src: m[0].trim() };
+        break;
+      }
+    }
+
+    if (!chosen) continue;
+    const val = parseFloat(chosen.raw.replace(",", "."));
+    if (isNaN(val)) continue;
+    results.push({
+      id:             `${p.key}_uc_${Math.random().toString(36).slice(2, 7)}`,
+      key:            p.key,
+      label:          p.label,
+      panel:          p.panel,
+      value:          val,
+      qualitative:    null,
+      unit:           p.unit,
+      normalizedValue: null,
+      normalizedUnit:  null,
+      status:         null,
+      detectedRange:  null,
+      sourceText:     chosen.src,
+      param_key:      p.key,
+      name:           p.label,
+      confidence:     "high",
+      inferred_unit:  false,
+    });
   }
   return results;
 }
@@ -1429,6 +1457,57 @@ export function extractLabValues(rawText) {
   }
 
   return results;
+}
+
+function normalizeDmy(dStr, moStr, yStr) {
+  const d  = dStr.padStart(2, "0");
+  const mo = moStr.padStart(2, "0");
+  const y  = yStr.length === 2
+    ? (parseInt(yStr, 10) < 50 ? `20${yStr.padStart(2, "0")}` : `19${yStr.padStart(2, "0")}`)
+    : yStr;
+  const year = parseInt(y, 10);
+  if (year < 1990 || year > 2100) return null;
+  if (parseInt(mo, 10) < 1 || parseInt(mo, 10) > 12) return null;
+  if (parseInt(d, 10) < 1 || parseInt(d, 10) > 31) return null;
+  return { iso: `${y}-${mo}-${d}`, display: `${d}/${mo}/${y}` };
+}
+
+const REPORT_DATE_LABELS = [
+  { rank: 1, source: "prelievo",     re: /(?:data\s+(?:del\s+|di\s+)?(?:prelievo|raccolta|esecuzione)|prelievo\s+del|prelevato\s+il|eseguito\s+il|data\s+esecuzione)/gi },
+  { rank: 2, source: "accettazione", re: /(?:data\s+(?:di\s+)?accettazione|accettazione\s+del|accettato\s+il)/gi },
+  { rank: 3, source: "esami",        re: /(?:esami\s+(?:ematici\s+)?del|esami\s+del|in\s+data)/gi },
+  { rank: 4, source: "referto",      re: /(?:data\s+(?:del\s+)?referto|referto\s+del|refertato\s+il)/gi },
+  { rank: 5, source: "stampa",       re: /(?:data\s+(?:di\s+)?stampa|stampato\s+il|data\s+emissione|emesso\s+il|data\s+refertazione)/gi },
+];
+
+const REPORT_DMY_RE = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;
+
+/**
+ * Estrae la data del referto SOLO da pattern espliciti etichettati nel testo.
+ * Priorita (alta -> bassa): prelievo/esecuzione > accettazione > esami del/in data
+ * > referto > stampa/emissione. La data di prelievo descrive quando il campione
+ * e stato raccolto ed e clinicamente piu rilevante della data di stampa/refertazione.
+ * Restituisce { date, displayDate, source } oppure null se nessun pattern affidabile.
+ */
+export function detectReportDate(text) {
+  if (!text?.trim()) return null;
+  let best = null;
+  for (const lab of REPORT_DATE_LABELS) {
+    const re = new RegExp(lab.re.source, lab.re.flags);
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+      const dm = after.match(REPORT_DMY_RE);
+      if (!dm) continue;
+      const norm = normalizeDmy(dm[1], dm[2], dm[3]);
+      if (!norm) continue;
+      if (!best || lab.rank < best.rank || (lab.rank === best.rank && m.index < best.index)) {
+        best = { rank: lab.rank, index: m.index, date: norm.iso, displayDate: norm.display, source: lab.source };
+      }
+    }
+  }
+  if (!best) return null;
+  return { date: best.date, displayDate: best.displayDate, source: best.source };
 }
 
 /**

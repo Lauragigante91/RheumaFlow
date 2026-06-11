@@ -17,6 +17,13 @@ Italian lab reports write sediment counts as `VALUE LABEL/campo` (number before 
 
 **Pattern keys:** `urine_rbc` (emazie), `urine_wbc` (leucociti). Unit: `/campo`.
 
+## Strict vs soft matching (avoid blood-count false positives)
+
+URINE_COUNT_PATTERNS split into strictRe (per-field unit REQUIRED: `/campo|al campo|p/campo|/HPF|x campo`; `/μL` and `/uL` dropped) and softRe (unit-less, only `emazie`/`piociti`, accepted ONLY when URINE_CONTEXT_RE — `EU|esame urine|sedimento|urinar|urine` — matches the preceding ~60 chars).
+
+**Why:** "Globuli rossi 4.52 10^6/uL" and "Leucociti 12.4 K/μL" are emocromo (blood), not sediment — they were wrongly populating urine_rbc/urine_wbc. Requiring a per-field unit (or urine context for the bare emazie/piociti shorthand) prevents inventing urine sediment when absent.
+**How to apply:** never let `/μL`-style blood units feed urine counts; eritrociti/globuli rossi/GR/leucociti need an explicit per-field unit; only the urine shorthand `emazie`/`piociti` may be unit-less, and only in urine context.
+
 ## PANEL_QUAL_LABELS (qualitative urine findings)
 
 Added: `hemoglobinuria`, `proteinuria_stick`, `urinary_casts`, `leucocituria`, `hematuria`. These match qualitative terms (neg/nn/nella norma) in the visit text.

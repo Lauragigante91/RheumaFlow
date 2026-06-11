@@ -4,7 +4,7 @@ description: ADMIN_PASSWORD env governs ONLY the seeded admin@clinimetria.it acc
 ---
 
 - The FastAPI startup handler (`server.py` `startup_event`, "Seed admin user") reads `ADMIN_EMAIL` (default `admin@clinimetria.it`) + `ADMIN_PASSWORD` and, every boot, realigns that ONE user's bcrypt hash to the current `ADMIN_PASSWORD` if it doesn't already verify.
-- All other accounts (clinicians, incl. the owner's personal logins like `laura.gigante.91@gmail.com` / `laura@rheumaflow.it`, plus demo/test accounts) store their own bcrypt password hash only in MongoDB (`db.users.password_hash`).
+- All other accounts (clinicians, incl. the owner's personal logins, plus demo/test accounts) store their own bcrypt password hash only in MongoDB (`db.users.password_hash`).
 
 **Why:** Rotating the `ADMIN_PASSWORD` secret changes ONLY `admin@clinimetria.it`. The owner normally logs in with a personal account, so after rotation the "old password" still works for that account — this is expected, NOT a failed rotation. Those personal passwords were never in `.env`/git, so they were never leaked and need no rotation. (Verification trick: with the app's resolved env, `bcrypt.checkpw(ADMIN_PASSWORD, stored_hash)` True for admin@clinimetria.it proves the seed rotation took.)
 

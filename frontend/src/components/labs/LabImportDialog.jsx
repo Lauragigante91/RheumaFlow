@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { labExamsApi } from "../../lib/api";
-import { extractLabValuesByDate } from "../../lib/labValueExtractor";
+import { extractLabValuesByDate, detectReportDate } from "../../lib/labValueExtractor";
 import { extractTextFromPdf } from "../../lib/pdfLabExtractor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Button } from "../ui/button";
@@ -55,7 +55,7 @@ function parseLocalLabText(text) {
   });
   const panels = {};
   const confidenceMap = {};
-  let date = null;
+  let date = (detectReportDate(text)?.date) || null;
   groups.forEach(g => {
     if (!date && g.date) date = g.date;
     (g.items || []).forEach(item => {
@@ -202,7 +202,7 @@ export default function LabImportDialog({ open, onOpenChange, patient, onImporte
       try {
         const data = parseLocalLabText(initialText);
         setExtracted(data);
-        setEditedDate(data.date || new Date().toISOString().slice(0, 10));
+        setEditedDate(data.date || "");
         setEditedPanels(data.panels || {});
         const total = Object.values(data.panels || {}).reduce(
           (acc, p) => acc + Object.keys(p || {}).length, 0
@@ -244,7 +244,7 @@ export default function LabImportDialog({ open, onOpenChange, patient, onImporte
       }
       const data = parseLocalLabText(text);
       setExtracted(data);
-      setEditedDate(data.date || new Date().toISOString().slice(0, 10));
+      setEditedDate(data.date || "");
       setEditedPanels(data.panels || {});
       const totalTests = Object.values(data.panels || {}).reduce(
         (acc, p) => acc + Object.keys(p || {}).length, 0
@@ -298,7 +298,10 @@ export default function LabImportDialog({ open, onOpenChange, patient, onImporte
   );
 
   const save = async () => {
-    if (!editedDate) { toast.error("Inserisci la data del prelievo"); return; }
+    if (!editedDate) {
+      const ok = window.confirm("Nessuna data di prelievo rilevata nel referto. Salvare comunque gli esami senza data?");
+      if (!ok) return;
+    }
     if (totalKept === 0) { toast.error("Nessun valore da salvare"); return; }
     setSaving(true);
     try {
@@ -314,7 +317,7 @@ export default function LabImportDialog({ open, onOpenChange, patient, onImporte
       if (Object.keys(allValues).length === 0) { toast.error("Nessun valore da salvare"); return; }
       await labExamsApi.upsert({
         patient_id: patient.id,
-        date: editedDate,
+        date: editedDate || null,
         values: allValues,
         notes: extracted?.raw_notes || "",
       });

@@ -877,12 +877,13 @@ async def delete_therapy(therapy_id: str, user: dict = Depends(get_current_user)
 
 @router.post("/lab-exams/upsert", response_model=LabExam)
 async def upsert_lab_exam(payload: LabExamBase, user: dict = Depends(get_current_user)):
-    """One record per patient+date. If a record already exists for this date, merges values (new wins on conflict)."""
+    """One record per patient+date. If a record already exists for this date, merges values (new wins on conflict).
+    Gli esami senza data (date=None) vengono sempre inseriti come nuovo record: non si fondono mai tra loro."""
     await verify_patient_in_org(payload.patient_id, user["organization_id"])
     existing = await db.lab_exams.find_one(
         {"patient_id": payload.patient_id, "date": payload.date, "organization_id": user["organization_id"]},
         {"_id": 0},
-    )
+    ) if payload.date else None
     if existing:
         merged = {**existing.get("values", {}), **payload.values}
         await db.lab_exams.update_one(

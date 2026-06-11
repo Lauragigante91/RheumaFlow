@@ -101,7 +101,7 @@ export function buildLabExamPayload(ex, patientId, sourceFilename) {
   }
   return {
     patient_id:      patientId,
-    date:            ex.date || new Date().toISOString().slice(0, 10),
+    date:            ex.date ?? null,
     values,
     notes:           null,
     source_filename: sourceFilename || null,

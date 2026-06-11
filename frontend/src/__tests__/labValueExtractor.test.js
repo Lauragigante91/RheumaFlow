@@ -15,7 +15,7 @@
  *   - Intervallo di riferimento inline (v.n. X-Y)
  */
 
-import { extractLabValues, extractLabValuesByDate } from "../lib/labValueExtractor";
+import { extractLabValues, extractLabValuesByDate, detectReportDate } from "../lib/labValueExtractor";
 
 // helper
 function findLab(results, key) {
@@ -623,5 +623,62 @@ describe("extractLabValuesByDate — raggruppamento multi-data", () => {
   test("testo senza lab validi → array vuoto", () => {
     const groups = extractLabValuesByDate("Paziente in buon controllo generale.");
     expect(groups).toHaveLength(0);
+  });
+});
+
+// ─── detectReportDate — data referto esplicita o null ─────────────────────────
+describe("detectReportDate — data referto", () => {
+  test("data prelievo prevale su data stampa", () => {
+    const det = detectReportDate("Data prelievo 05/06/2025  -  Data di stampa 07/06/2025");
+    expect(det?.date).toBe("2025-06-05");
+    expect(det?.source).toBe("prelievo");
+  });
+
+  test("multi-data accettazione/prelievo/stampa → vince prelievo", () => {
+    const text =
+      "Data accettazione: 10/03/2024\n" +
+      "Data prelievo: 09/03/2024\n" +
+      "Data di stampa: 12/03/2024";
+    const det = detectReportDate(text);
+    expect(det?.date).toBe("2024-03-09");
+    expect(det?.source).toBe("prelievo");
+  });
+
+  test("stampa usata solo se non c'è prelievo/accettazione", () => {
+    const det = detectReportDate("Referto stampato il 12/03/2024");
+    expect(det?.date).toBe("2024-03-12");
+  });
+
+  test("null quando nessun pattern esplicito", () => {
+    const det = detectReportDate("Emocromo: Hb 13.5 g/dL, WBC 6.2, PLT 250.");
+    expect(det).toBeNull();
+  });
+});
+
+// ─── Sedimento urinario — niente falsi positivi da RBC/WBC ematici ────────────
+describe("Urine — emazie/leucociti solo con unità per-campo o contesto", () => {
+  test("'Globuli rossi 4.52 10^6/uL' (emocromo) → nessun urine_rbc", () => {
+    const r = findLab(extractLabValues("Emocromo: Globuli rossi 4.52 10^6/uL, Hb 13.5"), "urine_rbc");
+    expect(r).toBeNull();
+  });
+
+  test("'globuli rossi 10.5' senza unità → nessun urine_rbc", () => {
+    const r = findLab(extractLabValues("Sedimento urinario: globuli rossi 10.5"), "urine_rbc");
+    expect(r).toBeNull();
+  });
+
+  test("'Leucociti 12.4 K/μL' (emocromo) → nessun urine_wbc", () => {
+    const r = findLab(extractLabValues("Emocromo: Leucociti 12.4 K/μL, Hb 14"), "urine_wbc");
+    expect(r).toBeNull();
+  });
+
+  test("'17 emazie/campo' → urine_rbc=17", () => {
+    const r = findLab(extractLabValues("EU 04/04/26: 17 emazie/campo"), "urine_rbc");
+    expect(r?.value).toBe(17);
+  });
+
+  test("'EU: emazie 22*' in contesto urine → urine_rbc=22", () => {
+    const r = findLab(extractLabValues("EU: emazie 22*, leucociti 8/campo"), "urine_rbc");
+    expect(r?.value).toBe(22);
   });
 });

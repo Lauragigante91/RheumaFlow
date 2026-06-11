@@ -14,7 +14,7 @@ import {
   AlertTriangle, ShieldCheck, RefreshCw, FlaskConical, Check, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
-import { extractLabValues } from "../../lib/labValueExtractor";
+import { extractLabValues, detectReportDate } from "../../lib/labValueExtractor";
 import { extractTextFromPdf } from "../../lib/pdfLabExtractor";
 import { labExamsApi } from "../../lib/api";
 import ItalianDatePicker from "../shared/ItalianDatePicker";
@@ -51,33 +51,19 @@ function StatusBadge({ status }) {
 // ── Main dialog ───────────────────────────────────────────────────────────────
 // ── Format confirmed values as plain text (for narrative text areas) ──────────
 function buildLabText(confirmed, editValues, date) {
-  const byPanel = {};
+  const items = [];
   for (const r of confirmed) {
     const ev  = editValues[r.id];
     const val = parseFloat(String(ev?.value ?? "").replace(",", "."));
     if (isNaN(val)) continue;
     const unit = ev?.unit || r.unit || "";
-    if (!byPanel[r.panel]) byPanel[r.panel] = [];
-    byPanel[r.panel].push({ label: r.label, value: val, unit, status: r.status });
+    const flag = r.status === "high" ? " ↑" : r.status === "low" ? " ↓" : "";
+    items.push(`${r.label} ${val} ${unit}${flag}`.trim());
   }
-  const PANEL_IT = {
-    fase_acuta:    "Flogosi",
-    emocromo:      "Emocromo",
-    complemento:   "Complemento",
-    funzione:      "Funzione d'organo",
-    urine:         "Urine",
-    elettroforesi: "Elettroforesi",
-    autoanticorpi: "Autoanticorpi",
-  };
-  const dateStr = date ? ` (${date})` : "";
-  return Object.entries(byPanel).map(([panel, items]) => {
-    const label = PANEL_IT[panel] || panel;
-    const vals  = items.map(i => {
-      const flag = i.status === "high" ? " ↑" : i.status === "low" ? " ↓" : "";
-      return `${i.label} ${i.value} ${i.unit}${flag}`.trim();
-    }).join(", ");
-    return `${label}${dateStr}: ${vals}`;
-  }).join("\n");
+  if (!items.length) return "";
+  const dmy   = date ? date.split("-").reverse().join("/") : null;
+  const intro = dmy ? `Esami di laboratorio del ${dmy}` : "Esami di laboratorio";
+  return `${intro}: ${items.join(", ")}`;
 }
 
 export default function LabImportFromImageDialog({ open, onOpenChange, patient, onImported, onTextGenerated }) {
@@ -244,7 +230,8 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
       setOcrText(text);
       setOcrConfidence(conf);
       parseText(text);
-      setDate(new Date().toISOString().slice(0, 10));
+      const det = detectReportDate(text);
+      setDate(det ? det.date : "");
       setStep("review");
 
       if (conf < 60) {
@@ -266,7 +253,8 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
       setOcrText(text);
       setOcrConfidence(null); // PDF text is reliable — no OCR confidence
       parseText(text);
-      setDate(new Date().toISOString().slice(0, 10));
+      const det = detectReportDate(text);
+      setDate(det ? det.date : "");
       setStep("review");
     } catch (err) {
       toast.error("Estrazione PDF fallita: " + (err?.message || "errore sconosciuto"));
@@ -294,7 +282,10 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
 
   // ── Save confirmed values ─────────────────────────────────────────────────
   const save = async () => {
-    if (!date) { toast.error("Seleziona la data del prelievo"); return; }
+    if (!date) {
+      const ok = window.confirm("Nessuna data di prelievo rilevata nel referto. Salvare comunque gli esami senza data?");
+      if (!ok) return;
+    }
     const confirmed = results.filter(r => checked[r.id]);
     if (confirmed.length === 0) { toast.error("Seleziona almeno un valore da salvare"); return; }
 
@@ -315,7 +306,7 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
       let panels = 0;
       for (const [panel, values] of Object.entries(byPanel)) {
         if (Object.keys(values).length === 0) continue;
-        await labExamsApi.create({ patient_id: patient.id, date, panel, values });
+        await labExamsApi.create({ patient_id: patient.id, date: date || null, panel, values });
         panels++;
       }
       toast.success(`Importati ${confirmed.length} valori da ${panels} pannelli`);

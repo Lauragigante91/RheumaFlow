@@ -303,7 +303,7 @@ class TherapyUpsert(BaseModel):
 
 class LabExamBase(BaseModel):
     patient_id: str
-    date: str
+    date: Optional[str] = None
     panel: Optional[str] = None
     values: Dict[str, Any] = {}
     notes: Optional[str] = None

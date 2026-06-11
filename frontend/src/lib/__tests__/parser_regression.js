@@ -11,7 +11,7 @@
  */
 
 import { parseVisitText } from "../visitTextParser.js";
-import { extractLabValues, extractLabValuesByDate } from "../labValueExtractor.js";
+import { extractLabValues, extractLabValuesByDate, detectReportDate } from "../labValueExtractor.js";
 import { LAB_PANELS } from "../labPanels.js";
 import { parseInstrumentalFindings } from "../instrumentalParser.js";
 import { parseRaccordoTimeline } from "../raccordoParser.js";
@@ -910,6 +910,102 @@ runTest("PELLICONI-9 · MTX discontinuation_reason non è l'intera frase trigger
     `discontinuation_reason deve essere conciso (< 40 char), got: '${reason}'`,
     reason,
   );
+});
+
+// ════════════════════════════════════════════════════════════════════
+// LAB-DATE — estrazione data referto (detectReportDate)
+// Bug #1/#2: niente data odierna/visita forzata; data reale o null.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("LAB-DATE-1 · detectReportDate: data prelievo prevale su data stampa", () => {
+  const det = detectReportDate("Data prelievo 05/06/2025  -  Data di stampa 07/06/2025");
+  assert(det != null, "detectReportDate deve trovare una data", det);
+  assert(det?.date === "2025-06-05", `data deve essere il prelievo 2025-06-05 (got ${det?.date})`, det);
+  assert(det?.source === "prelievo", `source deve essere 'prelievo' (got ${det?.source})`, det);
+});
+
+runTest("LAB-DATE-2 · detectReportDate: null quando nessun pattern esplicito", () => {
+  const det = detectReportDate("Emocromo: Hb 13.5 g/dL, WBC 6.2, PLT 250. Paziente in buone condizioni.");
+  assert(det === null, "detectReportDate deve tornare null senza date etichettate", det);
+});
+
+runTest("LAB-DATE-3 · multi-data (accettazione/prelievo/stampa) → vince prelievo", () => {
+  const REPORT_MULTI = `LABORATORIO ANALISI
+Data accettazione: 10/03/2024
+Data prelievo: 09/03/2024
+Data di stampa: 12/03/2024
+Emocromo: Hb 13.5 g/dL, WBC 6.2`;
+  const det = detectReportDate(REPORT_MULTI);
+  assert(det?.date === "2024-03-09", `prelievo (2024-03-09) deve vincere su accettazione/stampa (got ${det?.date})`, det);
+  assert(det?.source === "prelievo", `source deve essere 'prelievo' (got ${det?.source})`, det);
+});
+
+// ════════════════════════════════════════════════════════════════════
+// LAB-NODATE — propagazione null in PATH A (parseVisitText)
+// La data non riconosciuta NON deve diventare la data odierna/visita.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("LAB-NODATE-1 · lab senza header data → lab_exams.date === null (mai oggi/visita)", () => {
+  const LETTER_NODATE_LAB = `MOTIVO DELLA VISITA: controllo
+
+In visione:
+Hb 14.0 g/dL, WBC 7800, PLT 198.000, VES 23, PCR 5.8 mg/dL`;
+  const { extracted: ex } = parseVisitText(LETTER_NODATE_LAB);
+  const labs = ex.lab_exams ?? [];
+  assert(labs.length >= 1, `lab_exams non vuoto (got ${labs.length})`, labs);
+  assert(
+    labs.every(l => l.date === null),
+    "ogni lab_exam senza data esplicita deve avere date === null",
+    labs.map(l => l.date),
+  );
+});
+
+runTest("LAB-LABELDATE-1 · header 'Data prelievo:' in sezione lab → data rilevata (non null/oggi)", () => {
+  const LETTER_LABEL_DATE = `MOTIVO DELLA VISITA: controllo
+
+In visione:
+Data prelievo: 09/03/2024
+Hb 14.0 g/dL, WBC 7800, PLT 198.000, VES 23, PCR 5.8 mg/dL`;
+  const { extracted: ex } = parseVisitText(LETTER_LABEL_DATE);
+  const labs = ex.lab_exams ?? [];
+  assert(labs.length >= 1, `lab_exams non vuoto (got ${labs.length})`, labs);
+  assert(
+    labs.every(l => l.date === "2024-03-09"),
+    "lab_exam deve usare la data del prelievo 2024-03-09 (mai null/oggi)",
+    labs.map(l => l.date),
+  );
+});
+
+// ════════════════════════════════════════════════════════════════════
+// LAB-URINE — sedimento urinario: niente falsi positivi da RBC ematici
+// Bug #4: "Globuli rossi 4.52" (emocromo) NON deve popolare urine_rbc.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("LAB-URINE-NOFP-1 · 'Globuli rossi 4.52 10^6/uL' (emocromo) → nessun urine_rbc", () => {
+  const items = extractLabValues("Emocromo: Globuli rossi 4.52 10^6/uL, Hb 13.5, WBC 6.2");
+  const rbc = items.find(i => i.key === "urine_rbc");
+  assert(rbc == null, "RBC ematici non devono produrre urine_rbc (manca unità per-campo)", rbc);
+});
+
+runTest("LAB-URINE-NOFP-2 · 'globuli rossi 10.5' senza unità → nessun urine_rbc", () => {
+  const items = extractLabValues("Sedimento urinario: globuli rossi 10.5");
+  const rbc = items.find(i => i.key === "urine_rbc");
+  assert(rbc == null, "'globuli rossi' senza unità per-campo non deve produrre urine_rbc", rbc);
+});
+
+runTest("LAB-URINE-NOFP-3 · 'Leucociti 12.4 K/μL' (emocromo) → nessun urine_wbc", () => {
+  const items = extractLabValues("Emocromo: Leucociti 12.4 K/μL, Hb 14");
+  const wbc = items.find(i => i.key === "urine_wbc");
+  assert(wbc == null, "Leucociti ematici non devono produrre urine_wbc (manca unità per-campo)", wbc);
+});
+
+runTest("LAB-URINE-REAL-1 · formato compatto 'EU: emazie 22*' in contesto urine → urine_rbc=22", () => {
+  const items = extractLabValues("EU: emazie 22*, leucociti 8/campo");
+  const rbc = items.find(i => i.key === "urine_rbc");
+  assert(rbc != null, "urine_rbc deve essere estratto in contesto urine (EU)", items.map(i => i.key));
+  assert(rbc?.value === 22, `urine_rbc.value deve essere 22 (got ${rbc?.value})`, rbc);
+  const wbc = items.find(i => i.key === "urine_wbc");
+  assert(wbc?.value === 8, `urine_wbc.value deve essere 8 da 'leucociti 8/campo' (got ${wbc?.value})`, wbc);
 });
 
 // ── Report finale ─────────────────────────────────────────────────────────────

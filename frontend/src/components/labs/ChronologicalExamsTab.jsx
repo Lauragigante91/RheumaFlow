@@ -243,8 +243,13 @@ export default function ChronologicalExamsTab({ patient }) {
       });
     }
 
-    // Sort newest first
-    list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort newest first; esami senza data in fondo
+    list.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(b.date) - new Date(a.date);
+    });
     return list;
   }, [labExams, instrumentalExams, specVisits]);
 

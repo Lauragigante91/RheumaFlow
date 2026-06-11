@@ -15,7 +15,7 @@
  */
 
 import { parseClinimetryFromText } from "./clinimetryTextParser";
-import { extractLabValuesByDate, extractLabValues } from "./labValueExtractor";
+import { extractLabValuesByDate, extractLabValues, detectReportDate } from "./labValueExtractor";
 import { parseInstrumentalFindings } from "./instrumentalParser";
 import { DRUG_ALIAS_MAP } from "./drugs";
 import { segmentLetterSections, extractRequestedTests } from "./letterSectionParser";
@@ -629,14 +629,15 @@ const PANEL_TO_CATEGORY = {
  * Converts output of extractLabValuesByDate() into lab_exams array.
  * One record per date (all panels merged) — one draw = one record.
  * Each result keeps its `panel` field for display grouping.
- * Date falls back to fallbackDate.
+ * Le date non riconosciute restano null: mai inventate.
  */
-function groupLabValuesByDate(dateGroups, fallbackDate) {
+function groupLabValuesByDate(dateGroups) {
+  const NULL_KEY = "__no_date__";
   const byDate = {};
   for (const { date, items } of dateGroups) {
     if (!items || !items.length) continue;
-    const d = date || fallbackDate;
-    if (!byDate[d]) byDate[d] = [];
+    const key = date || NULL_KEY;
+    if (!byDate[key]) byDate[key] = [];
     for (const lv of items) {
       const result = { name: lv.label, panel: lv.panel || "custom" };
       if (lv.value != null) { result.value = String(lv.value); result.unit = lv.unit || ""; }
@@ -647,13 +648,13 @@ function groupLabValuesByDate(dateGroups, fallbackDate) {
       if (lv.review_reason)  result.review_reason  = lv.review_reason;
       if (lv.sourceText)     result.source_text    = lv.sourceText;
       if (lv.key)            result.param_key      = lv.key;
-      byDate[d].push(result);
+      byDate[key].push(result);
     }
   }
   const exams = [];
-  for (const [date, results] of Object.entries(byDate)) {
+  for (const [key, results] of Object.entries(byDate)) {
     if (!results.some(r => r.value != null || r.qualitative)) continue;
-    exams.push({ date, results });
+    exams.push({ date: key === NULL_KEY ? null : key, results });
   }
   return exams;
 }
@@ -1299,6 +1300,10 @@ export function parseVisitText(text) {
   // Lab exams — from archive-exam sections only (not HO RICHIESTO, not VISITA ODIERNA)
   const labScope      = join("ESAMI_PREGRESSI", "RECA_IN_VISIONE", "AGGIORNAMENTO") || text;
   const labDateGroups = extractLabValuesByDate(labScope);
+  if (labDateGroups.length === 1 && !labDateGroups[0].date) {
+    const rd = detectReportDate(labScope);
+    if (rd?.date) labDateGroups[0] = { ...labDateGroups[0], date: rd.date };
+  }
   const labItems      = labDateGroups.flatMap((g) => g.items || []);
 
   // ── Confidence split ───────────────────────────────────────────────────────
@@ -1312,7 +1317,7 @@ export function parseVisitText(text) {
     ...g,
     items: (g.items || []).filter(li => li.confidence !== "low"),
   }));
-  const lab_exams = groupLabValuesByDate(cleanGroups, visitDate);
+  const lab_exams = groupLabValuesByDate(cleanGroups);
 
   // Build lab_review_items with full context for the review panel.
   const lab_review_items = [];
@@ -1322,7 +1327,7 @@ export function parseVisitText(text) {
         key:            li.key,
         label:          li.label,
         panel:          li.panel,
-        date:           grpDate || visitDate,
+        date:           grpDate || null,
         proposed_value: li.value != null ? li.value : null,
         proposed_unit:  li.unit  || null,
         inferred_unit:  li.inferred_unit || false,
