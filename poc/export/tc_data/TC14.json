@@ -1,0 +1,49 @@
+{
+  "id": "TC14",
+  "description": "SSc — terapia vascolare e immunosoppressiva complessa",
+  "raccordo": "Sclerosi sistemica diffusa (SSc-dcSSc), diagnosi 2016, anticorpi anti-Scl70+. Coinvolgimento: ILD con FVC 65%, ipertensione polmonare borderline, Raynaud grave con ulcere digitali. Dalla diagnosi: Nifedipina 30 mg/die per Raynaud, Sildenafil 25 mg tid aggiunto nel 2017 per ulcere digitali refrattarie. Bosentan 125 mg bid avviato nel 2018 per progressione PAP. Micofenolato Mofetil 2g/die dal 2016 per ILD. Nel 2021 progressione ILD (FVC 55%); aggiunto Nintedanib 150 mg bid. Nel 2022 sospeso MMF per intolleranza GI severa; mantenuto Nintedanib. Rituximab 1g x2 avviato nel 2023 per progressione ILD nonostante Nintedanib.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Nifedipina",
+      "event_type": "therapy_start",
+      "date_year": 2016,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_start",
+      "date_year": 2016,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Sildenafil",
+      "event_type": "therapy_start",
+      "date_year": 2017,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Bosentan",
+      "event_type": "therapy_start",
+      "date_year": 2018,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Nintedanib",
+      "event_type": "therapy_start",
+      "date_year": 2021,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_stop",
+      "date_year": 2022,
+      "reason": "intolleranza GI severa"
+    },
+    {
+      "drug_canonical": "Rituximab",
+      "event_type": "therapy_start",
+      "date_year": 2023,
+      "reason": null
+    }
+  ]
+}

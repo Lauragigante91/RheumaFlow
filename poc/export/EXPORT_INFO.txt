@@ -1,0 +1,18 @@
+RheumaFlow — POC raccordo LLM — Pacchetto offline
+Generato:             2026-06-04 12:46
+Test case:            15 (TC01-TC15)
+Farmaci canonici:     193
+Parser baseline F1:   0.277 (Pre=0.644 Rec=0.190)
+Falsi farmaci parser: 1
+Corr. stim. parser:   55min
+
+Struttura directory:
+  tc_data/TCxx.json          raccordo + ground truth (input per LLM)
+  parser_baseline/TCxx.json  output parser regex + metriche
+  parser_baseline.csv        tabella riepilogo (confronto con LLM)
+  all_tc_data.json           tutti i dati in un file
+
+Per eseguire su PC locale:
+  bash poc/run_local.sh                          # 3B vs 7B
+  bash poc/run_local.sh qwen2.5:3b               # solo 3B
+  bash poc/run_local.sh qwen2.5:3b --tc TC01,TC06 --verbose

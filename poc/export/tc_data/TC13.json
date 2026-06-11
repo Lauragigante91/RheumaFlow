@@ -1,0 +1,37 @@
+{
+  "id": "TC13",
+  "description": "AR — biosimilare e switch brand per motivi non clinici",
+  "raccordo": "AR sieropositiva, in cura presso il nostro centro dal 2017. Riferisce terapia pregressa: Methotrexate 10 mg/sett. dal 2015, aumentato a 15 mg nel 2016. Nel 2017 introdotto Adalimumab originator 40 mg bisettimanale; nel 2019 switch obbligatorio a biosimilare per decreto regionale senza variazione di efficacia. Nel 2022 sospeso adalimumab per comparsa di psoriasi palmoplantare de novo attribuita al biologico; avviato Tofacitinib 5 mg bid. A 6 mesi di terapia con Tofacitinib incremento delle transaminasi; ridotta dose a 5 mg/die con monitoraggio.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2015,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_start",
+      "date_year": 2017,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_stop",
+      "date_year": 2022,
+      "reason": "psoriasi palmoplantare de novo"
+    },
+    {
+      "drug_canonical": "Tofacitinib",
+      "event_type": "therapy_start",
+      "date_year": 2022,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Tofacitinib",
+      "event_type": "dose_change",
+      "date_year": null,
+      "reason": "incremento transaminasi"
+    }
+  ]
+}

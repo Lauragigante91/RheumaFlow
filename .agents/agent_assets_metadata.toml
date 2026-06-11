@@ -1,0 +1,44 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "jI-w6-d9m7U2lDQ31ZeZp"
+uri = "file://README.md"
+type = "text"
+title = "RheumaFlow — Developer Reference"
+
+[[outputs]]
+id = "J99oymVul2RYbYosKbD7x"
+uri = "file://poc/rheumaflow_poc.zip"
+type = "unspecified"
+title = "RheumaFlow POC — 42 file, 56 KB (include standalone + tutti i launcher)"
+
+[[outputs]]
+id = "owndZGmzbOs8QdKLbsOCB"
+uri = "file://poc/rheumaflow_poc_v9.zip"
+type = "unspecified"
+title = "RheumaFlow POC v9 — --audit salva sempre results/audit_<nome>_<ts>.{txt,json}"
+
+[[outputs]]
+id = "b2sB5lvCggpujzbVPyby7"
+uri = "file://poc/results/2026-06-05T1226_audit/audit_report.md"
+type = "text"
+title = "Audit report — raccordoParser (Markdown)"
+
+[[outputs]]
+id = "a66cos30b9bP3MiN8uMT9"
+uri = "file://poc/results/2026-06-05T1226_audit/audit_results.csv"
+type = "table"
+title = "Audit results — mismatch per riga (CSV)"
+
+[[outputs]]
+id = "GM0LM7sHZSJHVxh7bk2Sz"
+uri = "file://poc/results/2026-06-05T1226_audit/audit_results.json"
+type = "unspecified"
+title = "Audit results — dati completi (JSON)"
+
+[[outputs]]
+id = "Zl71OZrf9VqY-AkRZ1o86"
+uri = "file://docs/piano-repo-canonico-rheumaflow.md"
+type = "text"
+title = "Piano repo canonico RheumaFlow (read-only)"

@@ -1,0 +1,31 @@
+{
+  "id": "TC03",
+  "description": "Negazione sospensione + terapia mai interrotta",
+  "raccordo": "LES con nefrite lupica classe III diagnosticato nel 2015. In terapia con Idrossiclorochina 200 mg/die mai sospesa dal 2015. Dal 2015 Prednisone 5 mg/die, ridotto progressivamente. Nel 2017 esordio nefrite, aggiunto Micofenolato Mofetil 2g/die. Nel 2019 remissione renale; tapering del Micofenolato a 1g/die. Nel 2021 sospeso Micofenolato per gravidanza programmata.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Idrossiclorochina",
+      "event_type": "therapy_start",
+      "date_year": 2015,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Prednisone",
+      "event_type": "therapy_start",
+      "date_year": 2015,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_start",
+      "date_year": 2017,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_stop",
+      "date_year": 2021,
+      "reason": "gravidanza programmata"
+    }
+  ]
+}

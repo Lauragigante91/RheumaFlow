@@ -1,0 +1,34 @@
+{
+  "summary": "Regression test for BASDAI/BASFI PRO QR flow PASSED. Verified end-to-end via public PRO endpoints that scores computed client-side with the new q1..q6 (BASDAI) and q1..q10 (BASFI) keys are correctly persisted as 5.0 (not 0) in the backend, and are preserved when the doctor converts the PRO into assessments. HAQ unaffected as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pro_basdai_basfi_regression.py",
+    "/app/test_reports/pytest/pro_basdai_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note: the backend does NOT recompute BASDAI/BASFI scores — it trusts whatever the frontend sends in submitted_responses. This means score integrity depends entirely on proInstruments.js item keys matching the calcBASDAI/calcBASFI destructuring signatures. Consider adding server-side score recomputation as a defense-in-depth measure, especially before convert() writes to assessments.",
+    "In server.py:1083, convert() iterates responses.get('instruments') — but the submit endpoint stores the full payload (with a nested 'instruments' key) under submitted_responses. This works today because frontend PublicPRO.jsx posts {instruments: computed} as responses. Any change in payload shape (missing top-level 'instruments' key) would silently produce 0 assessments — would benefit from a schema validator on PROSubmit.responses."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pro_basdai_basfi_regression.py (new regression test file)"
+  ],
+  "success_rate": {
+    "backend": "100% (3/3 tests passed)",
+    "frontend": "N/A (backend-only test requested)"
+  },
+  "test_credentials": "admin@clinimetria.it / admin123",
+  "seed_data_creation": "Created one TEST_BAS_* patient per test run. The fixture cleans it up via DELETE /api/patients/{id} in teardown. One successful submit + one convert leave 2 PRO tokens + 2 assessments on the patient before deletion; if delete cascades, nothing remains. If not, scan for patients whose nome starts with 'TEST_BAS_' to purge residuals.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression file at /app/backend/tests/test_pro_basdai_basfi_regression.py covers: (1) BASDAI q1..q6=5 → 5.0; (2) BASFI q1..q10=5 → 5.0; (3) HAQ baseline 0; (4) public GET/submit/re-GET/duplicate-submit (409); (5) convert → assessments with non-zero scores. Run with: REACT_APP_BACKEND_URL=<preview> pytest backend/tests/test_pro_basdai_basfi_regression.py -v. The backend stores scores verbatim from the frontend payload — the fix actually lives in frontend/src/lib/proInstruments.js where BASDAI items use q1..q6 and BASFI items use q1..q10 to match the calc* signatures in clinimetrics.js.",
+  "rca of the issue": "Original bug: proInstruments.js BASDAI/BASFI items used keys that didn't match calcBASDAI({q1..q6})/calcBASFI(values['q1'..'q10']) destructuring, so destructuring yielded undefined → Number(undefined)||0 → 0 for every term → final score = 0. Fix verified: BASDAI items now use key: 'q1'..'q6' and BASFI items use 'q1'..'q10'. Verified at lines 70-77 (BASDAI) and 91-101 (BASFI) of /app/frontend/src/lib/proInstruments.js. End-to-end submit through public QR flow now yields BASDAI=5.0 and BASFI=5.0 when patient answers 5 on every NRS slider."
+}

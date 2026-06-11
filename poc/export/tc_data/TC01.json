@@ -1,0 +1,37 @@
+{
+  "id": "TC01",
+  "description": "Stop+ripresa con date esplicite",
+  "raccordo": "Paziente con artrite reumatoide sieropositiva (FR+, anti-CCP+), esordita nel 2011 con interessamento poliarticolare simmetrico. Dal 2011 in terapia con Methotrexate 15 mg/settimana. Sospeso nel settembre 2022 per intolleranza gastrica severa. Ripreso a dicembre 2022 dopo 3 mesi di wash-out con aggiunta di acido folico. Sospeso definitivamente a luglio 2023 per persistente intolleranza GI. Dal luglio 2023 avviato Baricitinib 4 mg/die con buon controllo di malattia.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2011,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_year": 2022,
+      "reason": "intolleranza gastrica severa"
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2022,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_year": 2023,
+      "reason": "persistente intolleranza GI"
+    },
+    {
+      "drug_canonical": "Baricitinib",
+      "event_type": "therapy_start",
+      "date_year": 2023,
+      "reason": null
+    }
+  ]
+}

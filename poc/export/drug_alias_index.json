@@ -1,0 +1,1166 @@
+{
+  "canonicals": [
+    "ASA",
+    "Abatacept",
+    "Abrocitinib",
+    "Aceclofenac",
+    "Acenocumarolo",
+    "Acido Zoledronico",
+    "Acido folico",
+    "Acido zoledronico",
+    "Adalimumab",
+    "Adefovir",
+    "Alendronato",
+    "Allopurinolo",
+    "Ambrisentan",
+    "Amiodarone",
+    "Amitriptilina",
+    "Amlodipina",
+    "Anakinra",
+    "Anifrolumab",
+    "Apixaban",
+    "Apremilast",
+    "Atenololo",
+    "Atorvastatina",
+    "Avacopan",
+    "Azatioprina",
+    "Baricitinib",
+    "Belimumab",
+    "Benzbromarone",
+    "Betametasone",
+    "Bimekizumab",
+    "Bisoprololo",
+    "Bosentan",
+    "Calcio carbonato",
+    "Canagliflozin",
+    "Canakinumab",
+    "Candesartan",
+    "Carvedilolo",
+    "Celecoxib",
+    "Certolizumab pegol",
+    "Ciclofosfamide",
+    "Ciclosporina",
+    "Clopidogrel",
+    "Clorambucile",
+    "Clorochina",
+    "Colchicina",
+    "Dabigatran",
+    "Daclatasvir",
+    "Dapagliflozin",
+    "Dapsone",
+    "Deflazacort",
+    "Denosumab",
+    "Desametasone",
+    "Deucravacitinib",
+    "Diclofenac",
+    "Digossina",
+    "Diltiazem",
+    "Dulaglutide",
+    "Duloxetina",
+    "Dupilumab",
+    "Edoxaban",
+    "Empagliflozin",
+    "Enalapril",
+    "Enoxaparina",
+    "Entecavir",
+    "Epoprostenol",
+    "Esomeprazolo",
+    "Etanercept",
+    "Etoricoxib",
+    "Ezetimibe",
+    "FANS",
+    "Febuxostat",
+    "Felodipina",
+    "Fenofibrato",
+    "Filgotinib",
+    "Fluoxetina",
+    "Fluvastatina",
+    "Fondaparinux",
+    "Fosinopril",
+    "Furosemide",
+    "Gabapentin",
+    "Glecaprevir/Pibrentasvir",
+    "Glibenclamide",
+    "Gliclazide",
+    "Golimumab",
+    "Guselkumab",
+    "IVIg",
+    "Ibandronato",
+    "Ibuprofene",
+    "Idroclorotiazide",
+    "Idrocortisone",
+    "Idrossiclorochina",
+    "Iloprost",
+    "Indapamide",
+    "Indometacina",
+    "Infliximab",
+    "Insulina",
+    "Irbesartan",
+    "Ivabradina",
+    "Ixekizumab",
+    "Ketoprofene",
+    "Lamivudina",
+    "Lansoprazolo",
+    "Ledipasvir/Sofosbuvir",
+    "Leflunomide",
+    "Levotiroxina",
+    "Linagliptin",
+    "Liraglutide",
+    "Lisinopril",
+    "Losartan",
+    "Lovastatina",
+    "Macitentan",
+    "Meloxicam",
+    "Mepolizumab",
+    "Metformina",
+    "Methotrexate",
+    "Metilprednisolone",
+    "Metimazolo",
+    "Metoprololo",
+    "Micofenolato Mofetil",
+    "Nadroparina",
+    "Naprossene",
+    "Nebivololo",
+    "Nifedipina",
+    "Nimesulide",
+    "Nintedanib",
+    "Olmesartan",
+    "Olmesartan/Idroclorotiazide",
+    "Omeprazolo",
+    "Pantoprazolo",
+    "Paracetamolo",
+    "Pegloticase",
+    "Perindopril",
+    "Pirfenidone",
+    "Piroxicam",
+    "Prasugrel",
+    "Pravastatina",
+    "Prednisolone",
+    "Prednisone",
+    "Pregabalin",
+    "Probenecid",
+    "Propiltiouracile",
+    "Propranololo",
+    "Rabeprazolo",
+    "Raloxifene",
+    "Ramipril",
+    "Rasburicase",
+    "Rilonacept",
+    "Riociguat",
+    "Risankizumab",
+    "Risedronato",
+    "Rituximab",
+    "Rivaroxaban",
+    "Romosozumab",
+    "Rosuvastatina",
+    "Rosuvastatina/Ezetimibe",
+    "Sacubitril/Valsartan",
+    "Sarilumab",
+    "Saxagliptin",
+    "Secukinumab",
+    "Selexipag",
+    "Semaglutide",
+    "Sildenafil",
+    "Siltuximab",
+    "Simvastatina",
+    "Sitagliptin",
+    "Sofosbuvir",
+    "Sofosbuvir/Velpatasvir",
+    "Spironolattone",
+    "Sulfasalazina",
+    "Tacrolimus",
+    "Tadalafil",
+    "Telbivudina",
+    "Telmisartan",
+    "Tenofovir",
+    "Tenofovir alafenamide",
+    "Teriparatide",
+    "Ticagrelor",
+    "Tildrakizumab",
+    "Tocilizumab",
+    "Tofacitinib",
+    "Torasemide",
+    "Tramadolo",
+    "Treprostinil",
+    "Triamcinolone",
+    "Upadacitinib",
+    "Ustekinumab",
+    "Valsartan",
+    "Verapamil",
+    "Vitamina B12",
+    "Vitamina C",
+    "Vitamina D3",
+    "Voclosporin",
+    "Warfarin",
+    "Zofenopril"
+  ],
+  "alias_map": {
+    "Celecoxib": [
+      "celecoxib",
+      "celebrex"
+    ],
+    "Etoricoxib": [
+      "etoricoxib",
+      "arcoxia"
+    ],
+    "Naprossene": [
+      "naprossene",
+      "naproxen",
+      "naprosyn",
+      "aleve",
+      "momendol",
+      "synflex"
+    ],
+    "Indometacina": [
+      "indometacina",
+      "indomethacin",
+      "liometacen"
+    ],
+    "Ibuprofene": [
+      "ibuprofene",
+      "ibuprofen",
+      "moment",
+      "brufen",
+      "nurofen"
+    ],
+    "Diclofenac": [
+      "diclofenac",
+      "voltaren",
+      "flector",
+      "dicloreum"
+    ],
+    "Ketoprofene": [
+      "ketoprofene",
+      "ketoprofen",
+      "fastum",
+      "orudis",
+      "ketodol",
+      "oki"
+    ],
+    "Meloxicam": [
+      "meloxicam",
+      "mobic"
+    ],
+    "Piroxicam": [
+      "piroxicam",
+      "feldene"
+    ],
+    "Nimesulide": [
+      "nimesulide",
+      "aulin"
+    ],
+    "Aceclofenac": [
+      "aceclofenac"
+    ],
+    "FANS": [
+      "fans",
+      "nsaid"
+    ],
+    "Prednisone": [
+      "prednisone",
+      "deltacortene",
+      "lodotra"
+    ],
+    "Prednisolone": [
+      "prednisolone",
+      "prelone"
+    ],
+    "Deflazacort": [
+      "deflazacort",
+      "deflan",
+      "calcort",
+      "flazacort"
+    ],
+    "Metilprednisolone": [
+      "metilprednisolone",
+      "methylprednisolone",
+      "medrol",
+      "urbason",
+      "solu-medrol",
+      "solumedrol",
+      "depo-medrol",
+      "depomedrol"
+    ],
+    "Betametasone": [
+      "betametasone",
+      "betamethasone",
+      "bentelan",
+      "celestone"
+    ],
+    "Desametasone": [
+      "desametasone",
+      "dexamethasone",
+      "soldesam"
+    ],
+    "Triamcinolone": [
+      "triamcinolone",
+      "kenacort",
+      "triam"
+    ],
+    "Idrocortisone": [
+      "idrocortisone",
+      "hydrocortisone",
+      "cortef"
+    ],
+    "Methotrexate": [
+      "methotrexate",
+      "metotrexato",
+      "metotressato",
+      "mtx",
+      "reumaflex"
+    ],
+    "Leflunomide": [
+      "leflunomide",
+      "lef",
+      "leflu",
+      "arava"
+    ],
+    "Sulfasalazina": [
+      "sulfasalazina",
+      "sulphasalazine",
+      "salazopyrin",
+      "salazoprina",
+      "salazopirina",
+      "ssz",
+      "sasp"
+    ],
+    "Idrossiclorochina": [
+      "idrossiclorochina",
+      "idrossiclorichina",
+      "hydroxychloroquine",
+      "plaquenil",
+      "hcq"
+    ],
+    "Clorochina": [
+      "clorochina",
+      "chloroquine"
+    ],
+    "Azatioprina": [
+      "azatioprina",
+      "azathioprine",
+      "aza",
+      "imuran"
+    ],
+    "Micofenolato Mofetil": [
+      "micofenolato",
+      "mycophenolate",
+      "mmf",
+      "cellcept",
+      "mofetile"
+    ],
+    "Ciclosporina": [
+      "ciclosporina",
+      "cyclosporina",
+      "cyclosporine",
+      "csa",
+      "sandimmun",
+      "neoral"
+    ],
+    "Tacrolimus": [
+      "tacrolimus",
+      "prograf"
+    ],
+    "Dapsone": [
+      "dapsone",
+      "diaminodifenilsulfone"
+    ],
+    "Ciclofosfamide": [
+      "ciclofosfamide",
+      "cyclophosphamide",
+      "cyc",
+      "endoxan"
+    ],
+    "Clorambucile": [
+      "clorambucile",
+      "chlorambucil",
+      "leukeran"
+    ],
+    "Adalimumab": [
+      "adalimumab",
+      "humira",
+      "imraldi",
+      "hyrimoz",
+      "amgevita",
+      "hadlima",
+      "idacio"
+    ],
+    "Etanercept": [
+      "etanercept",
+      "enbrel",
+      "benepali",
+      "erelzi",
+      "lifmior"
+    ],
+    "Infliximab": [
+      "infliximab",
+      "remicade",
+      "remsima",
+      "inflectra",
+      "flixabi",
+      "zessly"
+    ],
+    "Certolizumab pegol": [
+      "certolizumab",
+      "cimzia"
+    ],
+    "Golimumab": [
+      "golimumab",
+      "simponi"
+    ],
+    "Tocilizumab": [
+      "tocilizumab",
+      "roactemra",
+      "actemra",
+      "tyenne"
+    ],
+    "Sarilumab": [
+      "sarilumab",
+      "kevzara"
+    ],
+    "Siltuximab": [
+      "siltuximab",
+      "sylvant"
+    ],
+    "Rituximab": [
+      "rituximab",
+      "mabthera",
+      "truxima",
+      "rixathon",
+      "ritemvia",
+      "rituzena"
+    ],
+    "Abatacept": [
+      "abatacept",
+      "orencia"
+    ],
+    "Belimumab": [
+      "belimumab",
+      "benlysta"
+    ],
+    "Anifrolumab": [
+      "anifrolumab",
+      "saphnelo"
+    ],
+    "Voclosporin": [
+      "voclosporin",
+      "lupkynis"
+    ],
+    "Secukinumab": [
+      "secukinumab",
+      "cosentyx"
+    ],
+    "Ixekizumab": [
+      "ixekizumab",
+      "taltz"
+    ],
+    "Bimekizumab": [
+      "bimekizumab",
+      "bimzelx"
+    ],
+    "Ustekinumab": [
+      "ustekinumab",
+      "stelara"
+    ],
+    "Guselkumab": [
+      "guselkumab",
+      "tremfya"
+    ],
+    "Risankizumab": [
+      "risankizumab",
+      "skyrizi"
+    ],
+    "Tildrakizumab": [
+      "tildrakizumab",
+      "ilumetri"
+    ],
+    "Anakinra": [
+      "anakinra",
+      "kineret"
+    ],
+    "Canakinumab": [
+      "canakinumab",
+      "ilaris"
+    ],
+    "Rilonacept": [
+      "rilonacept",
+      "arcalyst"
+    ],
+    "Avacopan": [
+      "avacopan",
+      "tavneos"
+    ],
+    "Mepolizumab": [
+      "mepolizumab",
+      "nucala"
+    ],
+    "Dupilumab": [
+      "dupilumab",
+      "dupixent"
+    ],
+    "Baricitinib": [
+      "baricitinib",
+      "olumiant"
+    ],
+    "Tofacitinib": [
+      "tofacitinib",
+      "xeljanz"
+    ],
+    "Upadacitinib": [
+      "upadacitinib",
+      "rinvoq"
+    ],
+    "Filgotinib": [
+      "filgotinib",
+      "jyseleca"
+    ],
+    "Abrocitinib": [
+      "abrocitinib",
+      "cibinqo"
+    ],
+    "Deucravacitinib": [
+      "deucravacitinib",
+      "sotyktu"
+    ],
+    "Apremilast": [
+      "apremilast",
+      "otezla"
+    ],
+    "Colchicina": [
+      "colchicina",
+      "colchicine",
+      "colchysat"
+    ],
+    "Denosumab": [
+      "denosumab",
+      "prolia",
+      "xgeva",
+      "denosumab",
+      "prolia"
+    ],
+    "Alendronato": [
+      "alendronato",
+      "alendronate",
+      "fosamax",
+      "adronat",
+      "osteomax",
+      "alendronato",
+      "alendronate",
+      "fosamax",
+      "fosavance",
+      "adronat"
+    ],
+    "Risedronato": [
+      "risedronato",
+      "risedronate",
+      "actonel",
+      "risedronato",
+      "risedronate",
+      "actonel"
+    ],
+    "Ibandronato": [
+      "ibandronato",
+      "ibandronate",
+      "bonviva",
+      "ibandronato",
+      "bonviva"
+    ],
+    "Acido zoledronico": [
+      "acido zoledronico",
+      "zoledronato",
+      "zoledronico",
+      "zometa",
+      "aclasta"
+    ],
+    "Raloxifene": [
+      "raloxifene",
+      "evista"
+    ],
+    "Teriparatide": [
+      "teriparatide",
+      "forsteo",
+      "terrosa",
+      "teriparatide",
+      "forteo"
+    ],
+    "Romosozumab": [
+      "romosozumab",
+      "evenity",
+      "romosozumab",
+      "evenity"
+    ],
+    "Nintedanib": [
+      "nintedanib",
+      "ofev"
+    ],
+    "Pirfenidone": [
+      "pirfenidone",
+      "esbriet"
+    ],
+    "Bosentan": [
+      "bosentan",
+      "tracleer",
+      "stayveer"
+    ],
+    "Ambrisentan": [
+      "ambrisentan",
+      "volibris",
+      "letairis"
+    ],
+    "Macitentan": [
+      "macitentan",
+      "opsumit"
+    ],
+    "Sildenafil": [
+      "sildenafil",
+      "revatio"
+    ],
+    "Tadalafil": [
+      "tadalafil",
+      "adcirca",
+      "cialis"
+    ],
+    "Riociguat": [
+      "riociguat",
+      "adempas"
+    ],
+    "Selexipag": [
+      "selexipag",
+      "uptravi"
+    ],
+    "Iloprost": [
+      "iloprost",
+      "endoprost",
+      "ventavis",
+      "ilomedine",
+      "ilomedin"
+    ],
+    "Epoprostenol": [
+      "epoprostenol",
+      "flolan",
+      "veletri"
+    ],
+    "Treprostinil": [
+      "treprostinil",
+      "remodulin",
+      "tyvaso"
+    ],
+    "Nifedipina": [
+      "nifedipina",
+      "nifedipine",
+      "adalat",
+      "nifedicor",
+      "nifedipina",
+      "adalat"
+    ],
+    "Felodipina": [
+      "plendil",
+      "felodipina",
+      "felodipine"
+    ],
+    "Amlodipina": [
+      "amlodipina",
+      "amlodipine",
+      "norvasc",
+      "amlodipina",
+      "amlodipine",
+      "norvasc"
+    ],
+    "Losartan": [
+      "losartan",
+      "lortaan",
+      "hyzaar",
+      "losartan",
+      "cozaar"
+    ],
+    "Fluoxetina": [
+      "fluoxetina",
+      "fluoxetine",
+      "prozac"
+    ],
+    "Paracetamolo": [
+      "paracetamolo",
+      "acetaminofene",
+      "acetaminophen",
+      "tachipirina",
+      "efferalgan",
+      "paracetamolo",
+      "acetaminophen",
+      "tachipirina",
+      "efferalgan"
+    ],
+    "Tramadolo": [
+      "tramadolo",
+      "tramadol",
+      "tachidol",
+      "contramal",
+      "tramadolo",
+      "tramadol",
+      "contramal"
+    ],
+    "Pregabalin": [
+      "pregabalin",
+      "lyrica",
+      "pregabalin",
+      "lyrica"
+    ],
+    "Gabapentin": [
+      "gabapentin",
+      "neurontin",
+      "gabapentin",
+      "neurontin"
+    ],
+    "Duloxetina": [
+      "duloxetina",
+      "duloxetine",
+      "cymbalta"
+    ],
+    "Amitriptilina": [
+      "amitriptilina",
+      "amitriptyline"
+    ],
+    "Acido folico": [
+      "acido folico",
+      "folic acid",
+      "acifol"
+    ],
+    "Omeprazolo": [
+      "omeprazolo",
+      "omeprazole",
+      "losec",
+      "omeprazolo",
+      "omeprazol",
+      "losec"
+    ],
+    "Pantoprazolo": [
+      "pantoprazolo",
+      "pantoprazole",
+      "pantopan",
+      "pantoprazolo",
+      "pantoprazol",
+      "pantopan",
+      "pantorc"
+    ],
+    "Lansoprazolo": [
+      "lansoprazolo",
+      "lansoprazole",
+      "lansox",
+      "lansoprazolo",
+      "zoton"
+    ],
+    "Esomeprazolo": [
+      "esomeprazolo",
+      "esomeprazole",
+      "nexium",
+      "esomeprazolo",
+      "nexium"
+    ],
+    "Rabeprazolo": [
+      "rabeprazolo",
+      "rabeprazole",
+      "rabeprazolo",
+      "pariet"
+    ],
+    "Calcio carbonato": [
+      "calcio carbonato",
+      "calcio citrato",
+      "calcio",
+      "calcium",
+      "caltrate"
+    ],
+    "Vitamina D3": [
+      "vitamina d",
+      "vitamina d3",
+      "vit d",
+      "colecalciferolo",
+      "ergocalciferolo",
+      "calcifediolo",
+      "dibase",
+      "rocaltrol"
+    ],
+    "Vitamina B12": [
+      "vitamina b12",
+      "cobalamina"
+    ],
+    "Vitamina C": [
+      "vitamina c",
+      "acido ascorbico"
+    ],
+    "ASA": [
+      "cardioaspirina",
+      "aspirina",
+      "aspirin",
+      "asa",
+      "acido acetilsalicilico"
+    ],
+    "Clopidogrel": [
+      "clopidogrel",
+      "plavix"
+    ],
+    "Ticagrelor": [
+      "ticagrelor",
+      "brilique"
+    ],
+    "Prasugrel": [
+      "prasugrel",
+      "efient"
+    ],
+    "Ramipril": [
+      "ramipril",
+      "triatec",
+      "altace"
+    ],
+    "Lisinopril": [
+      "lisinopril",
+      "zestril",
+      "prinivil"
+    ],
+    "Enalapril": [
+      "enalapril",
+      "enapren",
+      "naprilene"
+    ],
+    "Perindopril": [
+      "perindopril",
+      "coversyl"
+    ],
+    "Zofenopril": [
+      "zofenopril",
+      "zofenil"
+    ],
+    "Fosinopril": [
+      "fosinopril"
+    ],
+    "Valsartan": [
+      "valsartan",
+      "diovan",
+      "tareg"
+    ],
+    "Irbesartan": [
+      "irbesartan",
+      "aprovel"
+    ],
+    "Candesartan": [
+      "candesartan",
+      "atacand"
+    ],
+    "Olmesartan": [
+      "olmesartan",
+      "olmetec"
+    ],
+    "Olmesartan/Idroclorotiazide": [
+      "olprezide"
+    ],
+    "Telmisartan": [
+      "telmisartan",
+      "micardis"
+    ],
+    "Diltiazem": [
+      "diltiazem",
+      "tildiem"
+    ],
+    "Verapamil": [
+      "verapamil",
+      "isoptin"
+    ],
+    "Bisoprololo": [
+      "bisoprololo",
+      "bisoprolol",
+      "concor",
+      "cardicor"
+    ],
+    "Metoprololo": [
+      "metoprololo",
+      "metoprolol",
+      "seloken",
+      "lopresor"
+    ],
+    "Carvedilolo": [
+      "carvedilolo",
+      "carvedilol",
+      "coreg"
+    ],
+    "Nebivololo": [
+      "nebivololo",
+      "nebilet"
+    ],
+    "Atenololo": [
+      "atenololo",
+      "atenolol",
+      "tenormin"
+    ],
+    "Propranololo": [
+      "propranololo",
+      "inderal"
+    ],
+    "Warfarin": [
+      "warfarin",
+      "coumadin"
+    ],
+    "Acenocumarolo": [
+      "acenocumarolo",
+      "acenocoumarol",
+      "sintrom",
+      "aldocumar"
+    ],
+    "Rivaroxaban": [
+      "rivaroxaban",
+      "xarelto"
+    ],
+    "Apixaban": [
+      "apixaban",
+      "eliquis"
+    ],
+    "Dabigatran": [
+      "dabigatran",
+      "pradaxa"
+    ],
+    "Edoxaban": [
+      "edoxaban",
+      "lixiana"
+    ],
+    "Enoxaparina": [
+      "enoxaparina",
+      "clexane",
+      "lovenox"
+    ],
+    "Fondaparinux": [
+      "fondaparinux",
+      "arixtra"
+    ],
+    "Nadroparina": [
+      "nadroparina",
+      "fraxiparina"
+    ],
+    "Furosemide": [
+      "furosemide",
+      "lasix"
+    ],
+    "Idroclorotiazide": [
+      "idroclorotiazide",
+      "hct"
+    ],
+    "Spironolattone": [
+      "spironolattone",
+      "aldactone"
+    ],
+    "Torasemide": [
+      "torasemide",
+      "diuremid"
+    ],
+    "Indapamide": [
+      "indapamide",
+      "natrilix"
+    ],
+    "Amiodarone": [
+      "amiodarone",
+      "cordarone"
+    ],
+    "Digossina": [
+      "digossina",
+      "lanoxin"
+    ],
+    "Ivabradina": [
+      "ivabradina",
+      "procoralan"
+    ],
+    "Sacubitril/Valsartan": [
+      "sacubitril",
+      "entresto"
+    ],
+    "Atorvastatina": [
+      "atorvastatina",
+      "atorvastatin",
+      "torvast",
+      "lipitor"
+    ],
+    "Rosuvastatina": [
+      "rosuvastatina",
+      "rosuvastatin",
+      "crestor"
+    ],
+    "Simvastatina": [
+      "simvastatina",
+      "simvastatin",
+      "zocor"
+    ],
+    "Pravastatina": [
+      "pravastatina",
+      "pravastatin"
+    ],
+    "Fluvastatina": [
+      "fluvastatina"
+    ],
+    "Lovastatina": [
+      "lovastatina"
+    ],
+    "Ezetimibe": [
+      "ezetimibe",
+      "zetia",
+      "ezetrol"
+    ],
+    "Rosuvastatina/Ezetimibe": [
+      "aurozeb"
+    ],
+    "Fenofibrato": [
+      "fenofibrato",
+      "lipanthyl"
+    ],
+    "Metformina": [
+      "metformina",
+      "metformin",
+      "glucophage"
+    ],
+    "Gliclazide": [
+      "gliclazide",
+      "diamicron"
+    ],
+    "Glibenclamide": [
+      "glibenclamide",
+      "daonil"
+    ],
+    "Sitagliptin": [
+      "sitagliptin",
+      "januvia"
+    ],
+    "Saxagliptin": [
+      "saxagliptin",
+      "onglyza"
+    ],
+    "Linagliptin": [
+      "linagliptin",
+      "trajenta"
+    ],
+    "Empagliflozin": [
+      "empagliflozin",
+      "jardiance"
+    ],
+    "Dapagliflozin": [
+      "dapagliflozin",
+      "forxiga"
+    ],
+    "Canagliflozin": [
+      "canagliflozin",
+      "invokana"
+    ],
+    "Semaglutide": [
+      "semaglutide",
+      "ozempic",
+      "wegovy"
+    ],
+    "Liraglutide": [
+      "liraglutide",
+      "victoza"
+    ],
+    "Dulaglutide": [
+      "dulaglutide",
+      "trulicity"
+    ],
+    "Insulina": [
+      "insulina",
+      "insulin",
+      "lantus",
+      "toujeo",
+      "tresiba",
+      "novorapid",
+      "humalog"
+    ],
+    "Allopurinolo": [
+      "allopurinolo",
+      "allopurinol",
+      "zyloric"
+    ],
+    "Febuxostat": [
+      "febuxostat",
+      "adenuric"
+    ],
+    "Benzbromarone": [
+      "benzbromarone",
+      "benzbromaron",
+      "uricovac",
+      "desuric"
+    ],
+    "Probenecid": [
+      "probenecid"
+    ],
+    "Pegloticase": [
+      "pegloticase",
+      "krystexxa"
+    ],
+    "Rasburicase": [
+      "rasburicase",
+      "fasturtec"
+    ],
+    "Levotiroxina": [
+      "levotiroxina",
+      "levothyroxine",
+      "eutirox",
+      "tirosint",
+      "l-tiroxina"
+    ],
+    "Propiltiouracile": [
+      "propiltiouracile"
+    ],
+    "Metimazolo": [
+      "tapazole"
+    ],
+    "Acido Zoledronico": [
+      "zoledronato",
+      "zoledronate",
+      "acido zoledronico",
+      "aclasta",
+      "zometa"
+    ],
+    "Tenofovir": [
+      "tenofovir",
+      "viread"
+    ],
+    "Tenofovir alafenamide": [
+      "vemlidy"
+    ],
+    "Entecavir": [
+      "entecavir",
+      "baraclude"
+    ],
+    "Lamivudina": [
+      "lamivudina",
+      "epivir"
+    ],
+    "Telbivudina": [
+      "telbivudina",
+      "sebivo"
+    ],
+    "Adefovir": [
+      "adefovir"
+    ],
+    "Sofosbuvir": [
+      "sofosbuvir",
+      "sovaldi"
+    ],
+    "Daclatasvir": [
+      "daclatasvir",
+      "daklinza"
+    ],
+    "Ledipasvir/Sofosbuvir": [
+      "ledipasvir",
+      "harvoni"
+    ],
+    "Sofosbuvir/Velpatasvir": [
+      "velpatasvir",
+      "epclusa"
+    ],
+    "Glecaprevir/Pibrentasvir": [
+      "glecaprevir",
+      "maviret"
+    ],
+    "IVIg": [
+      "immunoglobuline",
+      "immunoglobuline ev",
+      "ig endovena",
+      "ivig",
+      "gammaglobuline",
+      "privigen",
+      "octagam",
+      "kiovig"
+    ]
+  }
+}

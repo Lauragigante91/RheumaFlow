@@ -1,0 +1,37 @@
+{
+  "id": "TC11",
+  "description": "Vasculite ANCA — ciclofosfamide + rituximab + mantenimento",
+  "raccordo": "Vasculite associata ad ANCA (MPO+) con coinvolgimento renale e polmonare, diagnosi 12/2018. Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering. Raggiunta remissione completa nel 06/2019. Mantenimento con Rituximab 500 mg ogni 6 mesi (07/2019 in corso). Prednisone progressivamente scalato a 5 mg/die. Nel 2023 recidiva lieve; aumentata frequenza RTX a ogni 4 mesi, aggiunto MMF 1g/die come ancillare.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Ciclofosfamide",
+      "event_type": "therapy_start",
+      "date_year": 2019,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Ciclofosfamide",
+      "event_type": "therapy_stop",
+      "date_year": 2019,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Prednisone",
+      "event_type": "therapy_start",
+      "date_year": 2019,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Rituximab",
+      "event_type": "therapy_start",
+      "date_year": 2019,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_start",
+      "date_year": 2023,
+      "reason": null
+    }
+  ]
+}

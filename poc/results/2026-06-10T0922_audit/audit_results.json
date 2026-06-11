@@ -1,0 +1,3651 @@
+{
+  "generated_at": "2026-06-10T09:22:55.492Z",
+  "parser_version": "raccordoParser.js (live bundle)",
+  "tc_count": 15,
+  "aggregate": {
+    "macro_f1": 0.895,
+    "micro_precision": 1,
+    "micro_recall": 0.835,
+    "micro_f1": 0.91,
+    "avg_reason_recall": 0.792,
+    "total_tp": 76,
+    "total_fp": 0,
+    "total_fn": 15,
+    "total_gt_events": 91,
+    "total_parser_events": 76
+  },
+  "error_frequency": {
+    "MISSING_START": 8,
+    "MISSING_STOP": 5,
+    "DATE_MISMATCH": 4,
+    "REASON_MISSING": 4,
+    "MISSING_SPACING": 1,
+    "MISSING_DOSE_CHANGE": 1,
+    "REASON_PARTIAL": 1
+  },
+  "test_cases": [
+    {
+      "tc_id": "TC01",
+      "description": "Stop+ripresa con date esplicite",
+      "raccordo": "Paziente con artrite reumatoide sieropositiva (FR+, anti-CCP+), esordita nel 2011 con interessamento poliarticolare simmetrico. Dal 2011 in terapia con Methotrexate 15 mg/settimana. Sospeso nel settembre 2022 per intolleranza gastrica severa. Ripreso a dicembre 2022 dopo 3 mesi di wash-out con aggiunta di acido folico. Sospeso definitivamente a luglio 2023 per persistente intolleranza GI. Dal luglio 2023 avviato Baricitinib 4 mg/die con buon controllo di malattia.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2011,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_year": 2022,
+          "reason": "intolleranza gastrica severa"
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2022,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_year": 2023,
+          "reason": "persistente intolleranza GI"
+        },
+        {
+          "drug_canonical": "Baricitinib",
+          "event_type": "therapy_start",
+          "date_year": 2023,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2011-01-01",
+          "date_year": 2011,
+          "date_text": "Dal 2011",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2011 in terapia con Methotrexate 15 mg/settimana."
+        },
+        {
+          "drug_canonical": "Baricitinib",
+          "event_type": "therapy_start",
+          "date_value": "2023-07-01",
+          "date_year": 2023,
+          "date_text": "Dal luglio 2023",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal luglio 2023 avviato Baricitinib 4 mg/die con buon controllo di malattia."
+        }
+      ],
+      "metrics": {
+        "gt_count": 5,
+        "parser_count": 2,
+        "tp": 2,
+        "fp": 0,
+        "fn": 3,
+        "precision": 1,
+        "recall": 0.4,
+        "f1": 0.571,
+        "reason_recall": null
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2011,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2011-01-01",
+            "date_year": 2011,
+            "date_text": "Dal 2011",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2011 in terapia con Methotrexate 15 mg/settimana."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Baricitinib",
+            "event_type": "therapy_start",
+            "date_year": 2023,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Baricitinib",
+            "event_type": "therapy_start",
+            "date_value": "2023-07-01",
+            "date_year": 2023,
+            "date_text": "Dal luglio 2023",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal luglio 2023 avviato Baricitinib 4 mg/die con buon controllo di malattia."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC01",
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "match_status": "FN",
+          "error_category": "MISSING_STOP",
+          "gt_date_year": 2022,
+          "parser_date_year": null,
+          "gt_reason": "intolleranza gastrica severa",
+          "parser_reason": null,
+          "source_fragment": null
+        },
+        {
+          "tc_id": "TC01",
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2022,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        },
+        {
+          "tc_id": "TC01",
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "match_status": "FN",
+          "error_category": "MISSING_STOP",
+          "gt_date_year": 2023,
+          "parser_date_year": null,
+          "gt_reason": "persistente intolleranza GI",
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC02",
+      "description": "Switch biologico con spacing e anafora",
+      "raccordo": "Spondilite anchilosante accertata nel 2009. Dal 2009 Sulfasalazina 2g/die. Dal 2013 aggiunto Adalimumab 40 mg ogni 2 settimane. Nel 2018 perdita di efficacia primaria; sospeso per inefficacia e avviato Secukinumab 150 mg mensile. Nel 2021 spacing a 10 settimane per remissione prolungata. Nel 2022 riacutizzazione con ripresa della dose standard.",
+      "gt_events": [
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_start",
+          "date_year": 2009,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_year": 2013,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_year": 2018,
+          "reason": "inefficacia"
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "therapy_start",
+          "date_year": 2018,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "dose_spacing",
+          "date_year": 2021,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_start",
+          "date_value": "2009-01-01",
+          "date_year": 2009,
+          "date_text": "Dal 2009",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2009 Sulfasalazina 2g/die."
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_value": "2013-01-01",
+          "date_year": 2013,
+          "date_text": "Dal 2013",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2013 aggiunto Adalimumab 40 mg ogni 2 settimane."
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "sospeso per inefficacia e avviato Secukinumab 150 mg mensile."
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "dose_spacing",
+          "date_value": "2021-01-01",
+          "date_year": 2021,
+          "date_text": "Nel 2021",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2021 spacing a 10 settimane per remissione prolungata."
+        }
+      ],
+      "metrics": {
+        "gt_count": 5,
+        "parser_count": 4,
+        "tp": 4,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.8,
+        "f1": 0.889,
+        "reason_recall": null
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_start",
+            "date_year": 2009,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_start",
+            "date_value": "2009-01-01",
+            "date_year": 2009,
+            "date_text": "Dal 2009",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2009 Sulfasalazina 2g/die."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_year": 2013,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_value": "2013-01-01",
+            "date_year": 2013,
+            "date_text": "Dal 2013",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2013 aggiunto Adalimumab 40 mg ogni 2 settimane."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "therapy_start",
+            "date_year": 2018,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "sospeso per inefficacia e avviato Secukinumab 150 mg mensile."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "dose_spacing",
+            "date_year": 2021,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "dose_spacing",
+            "date_value": "2021-01-01",
+            "date_year": 2021,
+            "date_text": "Nel 2021",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2021 spacing a 10 settimane per remissione prolungata."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC02",
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "match_status": "FN",
+          "error_category": "MISSING_STOP",
+          "gt_date_year": 2018,
+          "parser_date_year": null,
+          "gt_reason": "inefficacia",
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC03",
+      "description": "Negazione sospensione + terapia mai interrotta",
+      "raccordo": "LES con nefrite lupica classe III diagnosticato nel 2015. In terapia con Idrossiclorochina 200 mg/die mai sospesa dal 2015. Dal 2015 Prednisone 5 mg/die, ridotto progressivamente. Nel 2017 esordio nefrite, aggiunto Micofenolato Mofetil 2g/die. Nel 2019 remissione renale; tapering del Micofenolato a 1g/die. Nel 2021 sospeso Micofenolato per gravidanza programmata.",
+      "gt_events": [
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_year": 2017,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_year": 2021,
+          "reason": "gravidanza programmata"
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "dal 2015",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "In terapia con Idrossiclorochina 200 mg/die mai sospesa dal 2015."
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "Dal 2015",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2015 Prednisone 5 mg/die, ridotto progressivamente."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_value": "2021-01-01",
+          "date_year": 2021,
+          "date_text": "Nel 2021",
+          "date_precision": "year",
+          "reason": "gravidanza programmata",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2021 sospeso Micofenolato per gravidanza programmata."
+        }
+      ],
+      "metrics": {
+        "gt_count": 4,
+        "parser_count": 3,
+        "tp": 3,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.75,
+        "f1": 0.857,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "dal 2015",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "In terapia con Idrossiclorochina 200 mg/die mai sospesa dal 2015."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Prednisone",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Prednisone",
+            "event_type": "therapy_start",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "Dal 2015",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2015 Prednisone 5 mg/die, ridotto progressivamente."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_year": 2021,
+            "reason": "gravidanza programmata"
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_value": "2021-01-01",
+            "date_year": 2021,
+            "date_text": "Nel 2021",
+            "date_precision": "year",
+            "reason": "gravidanza programmata",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2021 sospeso Micofenolato per gravidanza programmata."
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC03",
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2017,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC04",
+      "description": "Narrativo senza date (solo sequenza temporale relativa)",
+      "raccordo": "Artrite psoriasica con interessamento assiale e periferico, diagnosi posta circa tre anni fa. Inizialmente trattata con FANS e Methotrexate a basse dosi. Dopo circa un anno di terapia, aggiunto Etanercept per scarso controllo della componente assiale. Dopo sei mesi di trattamento, sospeso Etanercept per reazione cutanea al sito di iniezione. Avviato quindi Ixekizumab, ancora in corso.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_year": null,
+          "reason": "reazione cutanea al sito di iniezione"
+        },
+        {
+          "drug_canonical": "Ixekizumab",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Inizialmente trattata con FANS e Methotrexate a basse dosi."
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Dopo circa un anno di terapia, aggiunto Etanercept per scarso controllo della componente assiale."
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": "reazione cutanea al sito di iniezione",
+          "confidence": 0.7,
+          "source_fragment": "Dopo sei mesi di trattamento, sospeso Etanercept per reazione cutanea al sito di iniezione."
+        },
+        {
+          "drug_canonical": "Ixekizumab",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Avviato quindi Ixekizumab, ancora in corso."
+        }
+      ],
+      "metrics": {
+        "gt_count": 4,
+        "parser_count": 4,
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": null,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Inizialmente trattata con FANS e Methotrexate a basse dosi."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_year": null,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Dopo circa un anno di terapia, aggiunto Etanercept per scarso controllo della componente assiale."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_year": null,
+            "reason": "reazione cutanea al sito di iniezione"
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": "reazione cutanea al sito di iniezione",
+            "confidence": 0.7,
+            "source_fragment": "Dopo sei mesi di trattamento, sospeso Etanercept per reazione cutanea al sito di iniezione."
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Ixekizumab",
+            "event_type": "therapy_start",
+            "date_year": null,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Ixekizumab",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Avviato quindi Ixekizumab, ancora in corso."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": []
+    },
+    {
+      "tc_id": "TC05",
+      "description": "Multiple sospensioni con ragioni diverse + switch",
+      "raccordo": "Artrite reumatoide FR+ esordita nel 2008. Trattata inizialmente con Methotrexate 10 mg poi aumentato a 15 mg/settimana. Nel 2010 aggiunta Idrossiclorochina 200 mg. Nel 2012 sospeso MTX per tossicità epatica (ALT 3x ULN); avviato Leflunomide 20 mg. Nel 2014 sospeso LEF per scarsa tolleranza (nausea persistente). Dal 2014 monoterapia con Abatacept ev. Nel 2019 switch a formulazione sottocutanea per comodità del paziente. Ancora in corso.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2008,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_year": 2010,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_year": 2012,
+          "reason": "tossicità epatica"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_year": 2012,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_year": 2014,
+          "reason": "nausea persistente"
+        },
+        {
+          "drug_canonical": "Abatacept",
+          "event_type": "therapy_start",
+          "date_year": 2014,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Trattata inizialmente con Methotrexate 10 mg poi aumentato a 15 mg/settimana."
+        },
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_value": "2010-01-01",
+          "date_year": 2010,
+          "date_text": "Nel 2010",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2010 aggiunta Idrossiclorochina 200 mg."
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_value": "2012-01-01",
+          "date_year": 2012,
+          "date_text": "Nel 2012",
+          "date_precision": "year",
+          "reason": "tossicità epatica (ALT 3x ULN)",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2012 sospeso MTX per tossicità epatica (ALT 3x ULN);"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "avviato Leflunomide 20 mg."
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_value": "2014-01-01",
+          "date_year": 2014,
+          "date_text": "Nel 2014",
+          "date_precision": "year",
+          "reason": "scarsa tolleranza (nausea persistente)",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2014 sospeso LEF per scarsa tolleranza (nausea persistente)."
+        },
+        {
+          "drug_canonical": "Abatacept",
+          "event_type": "therapy_start",
+          "date_value": "2014-01-01",
+          "date_year": 2014,
+          "date_text": "Dal 2014",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2014 monoterapia con Abatacept ev."
+        }
+      ],
+      "metrics": {
+        "gt_count": 6,
+        "parser_count": 6,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2008,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Trattata inizialmente con Methotrexate 10 mg poi aumentato a 15 mg/settimana."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_year": 2010,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_value": "2010-01-01",
+            "date_year": 2010,
+            "date_text": "Nel 2010",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2010 aggiunta Idrossiclorochina 200 mg."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_year": 2012,
+            "reason": "tossicità epatica"
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_value": "2012-01-01",
+            "date_year": 2012,
+            "date_text": "Nel 2012",
+            "date_precision": "year",
+            "reason": "tossicità epatica (ALT 3x ULN)",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2012 sospeso MTX per tossicità epatica (ALT 3x ULN);"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_year": 2012,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "avviato Leflunomide 20 mg."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_year": 2014,
+            "reason": "nausea persistente"
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_value": "2014-01-01",
+            "date_year": 2014,
+            "date_text": "Nel 2014",
+            "date_precision": "year",
+            "reason": "scarsa tolleranza (nausea persistente)",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2014 sospeso LEF per scarsa tolleranza (nausea persistente)."
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Abatacept",
+            "event_type": "therapy_start",
+            "date_year": 2014,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Abatacept",
+            "event_type": "therapy_start",
+            "date_value": "2014-01-01",
+            "date_year": 2014,
+            "date_text": "Dal 2014",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2014 monoterapia con Abatacept ev."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": []
+    },
+    {
+      "tc_id": "TC06",
+      "description": "AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX)",
+      "raccordo": "AR sieropositiva FR+/CCP+ dal 2006. MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN). Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso. Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria. RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente. Dal 2021 Baricitinib 4 mg con risposta parziale.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2006,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_year": 2009,
+          "reason": "ipertransaminasemia"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_year": 2010,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_year": 2011,
+          "reason": "rash cutaneo diffuso"
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_year": 2011,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_year": 2015,
+          "reason": "perdita di risposta secondaria"
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_stop",
+          "date_year": 2020,
+          "reason": "polmonite batterica ricorrente"
+        },
+        {
+          "drug_canonical": "Baricitinib",
+          "event_type": "therapy_start",
+          "date_year": 2021,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2006-01-01",
+          "date_year": 2006,
+          "date_text": "dal 2006",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN)."
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_value": "2009-12-01",
+          "date_year": 2009,
+          "date_text": "12/2009",
+          "date_precision": "month_year",
+          "reason": "ipertransaminasemia (ALT 4xULN)",
+          "confidence": 0.9,
+          "source_fragment": "MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN)."
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_value": "2010-01-01",
+          "date_year": 2010,
+          "date_text": "dal 01/2010",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_value": "2010-01-01",
+          "date_year": 2010,
+          "date_text": "01/2010",
+          "date_precision": "month_year",
+          "reason": "rash cutaneo diffuso",
+          "confidence": 0.9,
+          "source_fragment": "Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_value": "2011-07-01",
+          "date_year": 2011,
+          "date_text": "dal 07/2011",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_value": "2011-07-01",
+          "date_year": 2011,
+          "date_text": "07/2011",
+          "date_precision": "month_year",
+          "reason": "perdita di risposta secondaria",
+          "confidence": 0.9,
+          "source_fragment": "Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_value": "2015-06-01",
+          "date_year": 2015,
+          "date_text": "dal 06/2015",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_stop",
+          "date_value": "2015-06-01",
+          "date_year": 2015,
+          "date_text": "06/2015",
+          "date_precision": "month_year",
+          "reason": "polmonite batterica ricorrente",
+          "confidence": 0.9,
+          "source_fragment": "RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+        },
+        {
+          "drug_canonical": "Baricitinib",
+          "event_type": "therapy_start",
+          "date_value": "2021-01-01",
+          "date_year": 2021,
+          "date_text": "Dal 2021",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2021 Baricitinib 4 mg con risposta parziale."
+        }
+      ],
+      "metrics": {
+        "gt_count": 9,
+        "parser_count": 9,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2006,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2006-01-01",
+            "date_year": 2006,
+            "date_text": "dal 2006",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN)."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_year": 2009,
+            "reason": "ipertransaminasemia"
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_value": "2009-12-01",
+            "date_year": 2009,
+            "date_text": "12/2009",
+            "date_precision": "month_year",
+            "reason": "ipertransaminasemia (ALT 4xULN)",
+            "confidence": 0.9,
+            "source_fragment": "MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN)."
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_year": 2010,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_value": "2010-01-01",
+            "date_year": 2010,
+            "date_text": "dal 01/2010",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_year": 2011,
+            "reason": "rash cutaneo diffuso"
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_value": "2010-01-01",
+            "date_year": 2010,
+            "date_text": "01/2010",
+            "date_precision": "month_year",
+            "reason": "rash cutaneo diffuso",
+            "confidence": 0.9,
+            "source_fragment": "Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+          },
+          "date_mismatch": true,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_year": 2011,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_value": "2011-07-01",
+            "date_year": 2011,
+            "date_text": "dal 07/2011",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_year": 2015,
+            "reason": "perdita di risposta secondaria"
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_value": "2011-07-01",
+            "date_year": 2011,
+            "date_text": "07/2011",
+            "date_precision": "month_year",
+            "reason": "perdita di risposta secondaria",
+            "confidence": 0.9,
+            "source_fragment": "Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+          },
+          "date_mismatch": true,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_value": "2015-06-01",
+            "date_year": 2015,
+            "date_text": "dal 06/2015",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_stop",
+            "date_year": 2020,
+            "reason": "polmonite batterica ricorrente"
+          },
+          "parser": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_stop",
+            "date_value": "2015-06-01",
+            "date_year": 2015,
+            "date_text": "06/2015",
+            "date_precision": "month_year",
+            "reason": "polmonite batterica ricorrente",
+            "confidence": 0.9,
+            "source_fragment": "RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+          },
+          "date_mismatch": true,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Baricitinib",
+            "event_type": "therapy_start",
+            "date_year": 2021,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Baricitinib",
+            "event_type": "therapy_start",
+            "date_value": "2021-01-01",
+            "date_year": 2021,
+            "date_text": "Dal 2021",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2021 Baricitinib 4 mg con risposta parziale."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC06",
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "DATE_MISMATCH",
+          "gt_date_year": 2011,
+          "parser_date_year": 2010,
+          "gt_reason": "rash cutaneo diffuso",
+          "parser_reason": "rash cutaneo diffuso",
+          "source_fragment": "Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+        },
+        {
+          "tc_id": "TC06",
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "DATE_MISMATCH",
+          "gt_date_year": 2015,
+          "parser_date_year": 2011,
+          "gt_reason": "perdita di risposta secondaria",
+          "parser_reason": "perdita di risposta secondaria",
+          "source_fragment": "Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+        },
+        {
+          "tc_id": "TC06",
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "DATE_MISMATCH",
+          "gt_date_year": 2020,
+          "parser_date_year": 2015,
+          "gt_reason": "polmonite batterica ricorrente",
+          "parser_reason": "polmonite batterica ricorrente",
+          "source_fragment": "RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+        }
+      ]
+    },
+    {
+      "tc_id": "TC07",
+      "description": "SpA — raccordo con ragionamento clinico esplicitato",
+      "raccordo": "Spondilite anchilosante HLA-B27 positiva, diagnosi 2013. Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance). Nel 2015 iniziato Certolizumab pegol 200 mg ogni 2 settimane con buona risposta iniziale. Nel 2018 progressivo peggioramento della rigidità mattutina; incrementato a dose piena ogni 2 settimane senza miglioramento. Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente. Dal 2022 in remissione clinica, ASDAS <1.3.",
+      "gt_events": [
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_start",
+          "date_year": 2013,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_stop",
+          "date_year": 2015,
+          "reason": "scarsa risposta assiale"
+        },
+        {
+          "drug_canonical": "Certolizumab pegol",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Certolizumab pegol",
+          "event_type": "therapy_stop",
+          "date_year": 2019,
+          "reason": "progressivo peggioramento"
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "therapy_start",
+          "date_year": 2019,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_start",
+          "date_value": "2013-01-01",
+          "date_year": 2013,
+          "date_text": "dal 2013",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance)."
+        },
+        {
+          "drug_canonical": "Sulfasalazina",
+          "event_type": "therapy_stop",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": "scarsa risposta assiale (BASDAI >4 nonostante compliance)",
+          "confidence": 0.7,
+          "source_fragment": "Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance)."
+        },
+        {
+          "drug_canonical": "Certolizumab pegol",
+          "event_type": "therapy_start",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "Nel 2015",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2015 iniziato Certolizumab pegol 200 mg ogni 2 settimane con buona risposta iniziale."
+        },
+        {
+          "drug_canonical": "Certolizumab pegol",
+          "event_type": "therapy_stop",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "Nel 2019",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente."
+        },
+        {
+          "drug_canonical": "Secukinumab",
+          "event_type": "therapy_start",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "Nel 2019",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente."
+        }
+      ],
+      "metrics": {
+        "gt_count": 5,
+        "parser_count": 5,
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "reason_recall": 0.5
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_start",
+            "date_year": 2013,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_start",
+            "date_value": "2013-01-01",
+            "date_year": 2013,
+            "date_text": "dal 2013",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance)."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_stop",
+            "date_year": 2015,
+            "reason": "scarsa risposta assiale"
+          },
+          "parser": {
+            "drug_canonical": "Sulfasalazina",
+            "event_type": "therapy_stop",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": "scarsa risposta assiale (BASDAI >4 nonostante compliance)",
+            "confidence": 0.7,
+            "source_fragment": "Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance)."
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Certolizumab pegol",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Certolizumab pegol",
+            "event_type": "therapy_start",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "Nel 2015",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2015 iniziato Certolizumab pegol 200 mg ogni 2 settimane con buona risposta iniziale."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Certolizumab pegol",
+            "event_type": "therapy_stop",
+            "date_year": 2019,
+            "reason": "progressivo peggioramento"
+          },
+          "parser": {
+            "drug_canonical": "Certolizumab pegol",
+            "event_type": "therapy_stop",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "Nel 2019",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente."
+          },
+          "date_mismatch": false,
+          "reason_match": "missing"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "therapy_start",
+            "date_year": 2019,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Secukinumab",
+            "event_type": "therapy_start",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "Nel 2019",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC07",
+          "drug_canonical": "Certolizumab pegol",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "REASON_MISSING",
+          "gt_date_year": 2019,
+          "parser_date_year": 2019,
+          "gt_reason": "progressivo peggioramento",
+          "parser_reason": null,
+          "source_fragment": "Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente."
+        }
+      ]
+    },
+    {
+      "tc_id": "TC08",
+      "description": "LES — immunosoppressori, gravidanza, switch in corso",
+      "raccordo": "LES con coinvolgimento cutaneo, articolare e renale (nefrite classe II), diagnosi 2014. Idrossiclorochina 200 mg/die in corso dal 2014 senza interruzioni. Prednisone a dosi variabili, attualmente 5 mg/die. Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³). Micofenolato Mofetil 1.5g/die dal 2018. Nel 2020 sospeso MMF per gravidanza programmata; mantenuta solo Idrossiclorochina. Nel 2021 ripreso MMF post-partum 1g/die, progressivamente aumentato a 2g/die. Nel 2023 esordio nefrite classe III; potenziato con Belimumab 200 mg/settimana sottocute.",
+      "gt_events": [
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_year": 2014,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_year": 2014,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Azatioprina",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Azatioprina",
+          "event_type": "therapy_stop",
+          "date_year": 2018,
+          "reason": "leucopenia"
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_year": 2018,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_year": 2020,
+          "reason": "gravidanza programmata"
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_year": 2021,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Belimumab",
+          "event_type": "therapy_start",
+          "date_year": 2023,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_value": "2014-01-01",
+          "date_year": 2014,
+          "date_text": "dal 2014",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Idrossiclorochina 200 mg/die in corso dal 2014 senza interruzioni."
+        },
+        {
+          "drug_canonical": "Azatioprina",
+          "event_type": "therapy_start",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "nel 2015",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+        },
+        {
+          "drug_canonical": "Azatioprina",
+          "event_type": "therapy_stop",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "nel 2015",
+          "date_precision": "year",
+          "reason": "leucopenia (GB 2",
+          "confidence": 0.9,
+          "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_value": "2018-01-01",
+          "date_year": 2018,
+          "date_text": "dal 2018",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Micofenolato Mofetil 1.5g/die dal 2018."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_value": "2020-01-01",
+          "date_year": 2020,
+          "date_text": "Nel 2020",
+          "date_precision": "year",
+          "reason": "gravidanza programmata",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2020 sospeso MMF per gravidanza programmata;"
+        },
+        {
+          "drug_canonical": "Belimumab",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "potenziato con Belimumab 200 mg/settimana sottocute."
+        }
+      ],
+      "metrics": {
+        "gt_count": 8,
+        "parser_count": 6,
+        "tp": 6,
+        "fp": 0,
+        "fn": 2,
+        "precision": 1,
+        "recall": 0.75,
+        "f1": 0.857,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_year": 2014,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_value": "2014-01-01",
+            "date_year": 2014,
+            "date_text": "dal 2014",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Idrossiclorochina 200 mg/die in corso dal 2014 senza interruzioni."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Azatioprina",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Azatioprina",
+            "event_type": "therapy_start",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "nel 2015",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Azatioprina",
+            "event_type": "therapy_stop",
+            "date_year": 2018,
+            "reason": "leucopenia"
+          },
+          "parser": {
+            "drug_canonical": "Azatioprina",
+            "event_type": "therapy_stop",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "nel 2015",
+            "date_precision": "year",
+            "reason": "leucopenia (GB 2",
+            "confidence": 0.9,
+            "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+          },
+          "date_mismatch": true,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_year": 2018,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_value": "2018-01-01",
+            "date_year": 2018,
+            "date_text": "dal 2018",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Micofenolato Mofetil 1.5g/die dal 2018."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_year": 2020,
+            "reason": "gravidanza programmata"
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_value": "2020-01-01",
+            "date_year": 2020,
+            "date_text": "Nel 2020",
+            "date_precision": "year",
+            "reason": "gravidanza programmata",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2020 sospeso MMF per gravidanza programmata;"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Belimumab",
+            "event_type": "therapy_start",
+            "date_year": 2023,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Belimumab",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "potenziato con Belimumab 200 mg/settimana sottocute."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC08",
+          "drug_canonical": "Azatioprina",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "DATE_MISMATCH",
+          "gt_date_year": 2018,
+          "parser_date_year": 2015,
+          "gt_reason": "leucopenia",
+          "parser_reason": "leucopenia (GB 2",
+          "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+        },
+        {
+          "tc_id": "TC08",
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2014,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        },
+        {
+          "tc_id": "TC08",
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2021,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC09",
+      "description": "AR — formato elenco puntato (stile lettera strutturata)",
+      "raccordo": "STORIA TERAPEUTICA:\n- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)\n- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die\n- 2016: sospensione Leflunomide per epatotossicità, proseguita HCQ\n- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)\n- 2019-oggi: Upadacitinib 15 mg/die, buon controllo",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2010,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_year": 2012,
+          "reason": "citopenia"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_year": 2012,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_year": 2012,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_year": 2016,
+          "reason": "epatotossicità"
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_year": 2016,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_year": 2019,
+          "reason": "infezione cutanea grave"
+        },
+        {
+          "drug_canonical": "Upadacitinib",
+          "event_type": "therapy_start",
+          "date_year": 2019,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2010-01-01",
+          "date_year": 2010,
+          "date_text": "2010",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)"
+        },
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_stop",
+          "date_value": "2012-01-01",
+          "date_year": 2012,
+          "date_text": "2012",
+          "date_precision": "year",
+          "reason": "citopenia",
+          "confidence": 0.9,
+          "source_fragment": "- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_value": "2012-01-01",
+          "date_year": 2012,
+          "date_text": "2012",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die"
+        },
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_value": "2012-01-01",
+          "date_year": 2012,
+          "date_text": "2012",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die"
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_value": "2016-01-01",
+          "date_year": 2016,
+          "date_text": "2016",
+          "date_precision": "year",
+          "reason": "epatotossicità",
+          "confidence": 0.9,
+          "source_fragment": "- 2016: sospensione Leflunomide per epatotossicità, proseguita HCQ"
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_value": "2016-01-01",
+          "date_year": 2016,
+          "date_text": "2016",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)"
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "2019",
+          "date_precision": "year",
+          "reason": "infezione cutanea grave",
+          "confidence": 0.9,
+          "source_fragment": "- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)"
+        },
+        {
+          "drug_canonical": "Upadacitinib",
+          "event_type": "therapy_start",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "2019",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "- 2019-oggi: Upadacitinib 15 mg/die, buon controllo"
+        }
+      ],
+      "metrics": {
+        "gt_count": 8,
+        "parser_count": 8,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2010,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2010-01-01",
+            "date_year": 2010,
+            "date_text": "2010",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_year": 2012,
+            "reason": "citopenia"
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_stop",
+            "date_value": "2012-01-01",
+            "date_year": 2012,
+            "date_text": "2012",
+            "date_precision": "year",
+            "reason": "citopenia",
+            "confidence": 0.9,
+            "source_fragment": "- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_year": 2012,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_value": "2012-01-01",
+            "date_year": 2012,
+            "date_text": "2012",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_year": 2012,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Idrossiclorochina",
+            "event_type": "therapy_start",
+            "date_value": "2012-01-01",
+            "date_year": 2012,
+            "date_text": "2012",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_year": 2016,
+            "reason": "epatotossicità"
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_value": "2016-01-01",
+            "date_year": 2016,
+            "date_text": "2016",
+            "date_precision": "year",
+            "reason": "epatotossicità",
+            "confidence": 0.9,
+            "source_fragment": "- 2016: sospensione Leflunomide per epatotossicità, proseguita HCQ"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_year": 2016,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_value": "2016-01-01",
+            "date_year": 2016,
+            "date_text": "2016",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_year": 2019,
+            "reason": "infezione cutanea grave"
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "2019",
+            "date_precision": "year",
+            "reason": "infezione cutanea grave",
+            "confidence": 0.9,
+            "source_fragment": "- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Upadacitinib",
+            "event_type": "therapy_start",
+            "date_year": 2019,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Upadacitinib",
+            "event_type": "therapy_start",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "2019",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "- 2019-oggi: Upadacitinib 15 mg/die, buon controllo"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": []
+    },
+    {
+      "tc_id": "TC10",
+      "description": "SpA — sospensione implicita con verbo 'passato a' e 'sostituito'",
+      "raccordo": "Artrite psoriasica con interessamento poliarticolare e assiale, diagnosi 2012. Methotrexate 15 mg/settimana dal 2012, senza beneficio sulla componente assiale. Nel 2014 iniziato Adalimumab 40 mg ogni 2 settimane; risposta inizialmente buona. Nel 2017 perdita di risposta; passato a Golimumab 50 mg mensile. Nel 2020 inefficacia Golimumab; sostituito con Ixekizumab 80 mg ogni 4 settimane. Ottima risposta cutanea e articolare. Nel 2024 spacing a ogni 8 settimane per remissione sostenuta.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2012,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_year": 2014,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_year": 2017,
+          "reason": "perdita di risposta"
+        },
+        {
+          "drug_canonical": "Golimumab",
+          "event_type": "therapy_start",
+          "date_year": 2017,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Golimumab",
+          "event_type": "therapy_stop",
+          "date_year": 2020,
+          "reason": "inefficacia"
+        },
+        {
+          "drug_canonical": "Ixekizumab",
+          "event_type": "therapy_start",
+          "date_year": 2020,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Ixekizumab",
+          "event_type": "dose_spacing",
+          "date_year": 2024,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2012-01-01",
+          "date_year": 2012,
+          "date_text": "dal 2012",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Methotrexate 15 mg/settimana dal 2012, senza beneficio sulla componente assiale."
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_value": "2014-01-01",
+          "date_year": 2014,
+          "date_text": "Nel 2014",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2014 iniziato Adalimumab 40 mg ogni 2 settimane;"
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_value": "2017-01-01",
+          "date_year": 2017,
+          "date_text": "Nel 2017",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "passato a Golimumab 50 mg mensile."
+        },
+        {
+          "drug_canonical": "Golimumab",
+          "event_type": "therapy_start",
+          "date_value": "2017-01-01",
+          "date_year": 2017,
+          "date_text": "Nel 2017",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "passato a Golimumab 50 mg mensile."
+        },
+        {
+          "drug_canonical": "Golimumab",
+          "event_type": "therapy_stop",
+          "date_value": "2020-01-01",
+          "date_year": 2020,
+          "date_text": "Nel 2020",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "sostituito con Ixekizumab 80 mg ogni 4 settimane."
+        },
+        {
+          "drug_canonical": "Ixekizumab",
+          "event_type": "therapy_start",
+          "date_value": "2020-01-01",
+          "date_year": 2020,
+          "date_text": "Nel 2020",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "sostituito con Ixekizumab 80 mg ogni 4 settimane."
+        }
+      ],
+      "metrics": {
+        "gt_count": 7,
+        "parser_count": 6,
+        "tp": 6,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.857,
+        "f1": 0.923,
+        "reason_recall": 0
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2012,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2012-01-01",
+            "date_year": 2012,
+            "date_text": "dal 2012",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Methotrexate 15 mg/settimana dal 2012, senza beneficio sulla componente assiale."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_year": 2014,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_value": "2014-01-01",
+            "date_year": 2014,
+            "date_text": "Nel 2014",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2014 iniziato Adalimumab 40 mg ogni 2 settimane;"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_year": 2017,
+            "reason": "perdita di risposta"
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_value": "2017-01-01",
+            "date_year": 2017,
+            "date_text": "Nel 2017",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "passato a Golimumab 50 mg mensile."
+          },
+          "date_mismatch": false,
+          "reason_match": "missing"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Golimumab",
+            "event_type": "therapy_start",
+            "date_year": 2017,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Golimumab",
+            "event_type": "therapy_start",
+            "date_value": "2017-01-01",
+            "date_year": 2017,
+            "date_text": "Nel 2017",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "passato a Golimumab 50 mg mensile."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Golimumab",
+            "event_type": "therapy_stop",
+            "date_year": 2020,
+            "reason": "inefficacia"
+          },
+          "parser": {
+            "drug_canonical": "Golimumab",
+            "event_type": "therapy_stop",
+            "date_value": "2020-01-01",
+            "date_year": 2020,
+            "date_text": "Nel 2020",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "sostituito con Ixekizumab 80 mg ogni 4 settimane."
+          },
+          "date_mismatch": false,
+          "reason_match": "missing"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Ixekizumab",
+            "event_type": "therapy_start",
+            "date_year": 2020,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Ixekizumab",
+            "event_type": "therapy_start",
+            "date_value": "2020-01-01",
+            "date_year": 2020,
+            "date_text": "Nel 2020",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "sostituito con Ixekizumab 80 mg ogni 4 settimane."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC10",
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "REASON_MISSING",
+          "gt_date_year": 2017,
+          "parser_date_year": 2017,
+          "gt_reason": "perdita di risposta",
+          "parser_reason": null,
+          "source_fragment": "passato a Golimumab 50 mg mensile."
+        },
+        {
+          "tc_id": "TC10",
+          "drug_canonical": "Golimumab",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "REASON_MISSING",
+          "gt_date_year": 2020,
+          "parser_date_year": 2020,
+          "gt_reason": "inefficacia",
+          "parser_reason": null,
+          "source_fragment": "sostituito con Ixekizumab 80 mg ogni 4 settimane."
+        },
+        {
+          "tc_id": "TC10",
+          "drug_canonical": "Ixekizumab",
+          "event_type": "dose_spacing",
+          "match_status": "FN",
+          "error_category": "MISSING_SPACING",
+          "gt_date_year": 2024,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC11",
+      "description": "Vasculite ANCA — ciclofosfamide + rituximab + mantenimento",
+      "raccordo": "Vasculite associata ad ANCA (MPO+) con coinvolgimento renale e polmonare, diagnosi 12/2018. Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering. Raggiunta remissione completa nel 06/2019. Mantenimento con Rituximab 500 mg ogni 6 mesi (07/2019 in corso). Prednisone progressivamente scalato a 5 mg/die. Nel 2023 recidiva lieve; aumentata frequenza RTX a ogni 4 mesi, aggiunto MMF 1g/die come ancillare.",
+      "gt_events": [
+        {
+          "drug_canonical": "Ciclofosfamide",
+          "event_type": "therapy_start",
+          "date_year": 2019,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Ciclofosfamide",
+          "event_type": "therapy_stop",
+          "date_year": 2019,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_year": 2019,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_year": 2019,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_year": 2023,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Ciclofosfamide",
+          "event_type": "therapy_start",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "01/2019",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering."
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_value": "2019-01-01",
+          "date_year": 2019,
+          "date_text": "01/2019",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering."
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_value": "2019-07-01",
+          "date_year": 2019,
+          "date_text": "07/2019",
+          "date_precision": "month_year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Mantenimento con Rituximab 500 mg ogni 6 mesi (07/2019 in corso)."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "aumentata frequenza RTX a ogni 4 mesi, aggiunto MMF 1g/die come ancillare."
+        }
+      ],
+      "metrics": {
+        "gt_count": 5,
+        "parser_count": 4,
+        "tp": 4,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.8,
+        "f1": 0.889,
+        "reason_recall": null
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Ciclofosfamide",
+            "event_type": "therapy_start",
+            "date_year": 2019,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Ciclofosfamide",
+            "event_type": "therapy_start",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "01/2019",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Prednisone",
+            "event_type": "therapy_start",
+            "date_year": 2019,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Prednisone",
+            "event_type": "therapy_start",
+            "date_value": "2019-01-01",
+            "date_year": 2019,
+            "date_text": "01/2019",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Induzione con Ciclofosfamide ev 15 mg/kg ogni 3 settimane per 6 cicli (01/2019-06/2019) e Prednisone 1 mg/kg/die in tapering."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_year": 2019,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_value": "2019-07-01",
+            "date_year": 2019,
+            "date_text": "07/2019",
+            "date_precision": "month_year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Mantenimento con Rituximab 500 mg ogni 6 mesi (07/2019 in corso)."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_year": 2023,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "aumentata frequenza RTX a ogni 4 mesi, aggiunto MMF 1g/die come ancillare."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC11",
+          "drug_canonical": "Ciclofosfamide",
+          "event_type": "therapy_stop",
+          "match_status": "FN",
+          "error_category": "MISSING_STOP",
+          "gt_date_year": 2019,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC12",
+      "description": "AR — storia lunga con 3 biologici, reason sempre presenti",
+      "raccordo": "Artrite reumatoide sieronegativa, esordio 2003 con poliartrite erosiva. Dal 2003 Methotrexate 15 mg/sett. + Idrossiclorochina. Nel 2007 aggiunto Infliximab 3 mg/kg per risposta insufficiente al cDMARD; sospeso nel 2010 per anticorpi anti-farmaco con perdita di efficacia. Dal 2010 Etanercept 50 mg/sett, sospeso nel 2013 per infezione delle vie urinarie recidivante (3 episodi/anno). Dal 2013 Abatacept ev mensile; incrementata la dose nel 2016 per flare persistente. Nel 2020 switch a Abatacept sc per autonomia del paziente. Attualmente in remissione DAS28 1.8.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2003,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "date_year": 2003,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_start",
+          "date_year": 2007,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_stop",
+          "date_year": 2010,
+          "reason": "anticorpi anti-farmaco"
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_year": 2010,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_year": 2013,
+          "reason": "infezione vie urinarie recidivante"
+        },
+        {
+          "drug_canonical": "Abatacept",
+          "event_type": "therapy_start",
+          "date_year": 2013,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2003-01-01",
+          "date_year": 2003,
+          "date_text": "Dal 2003",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2003 Methotrexate 15 mg/sett."
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_start",
+          "date_value": "2007-01-01",
+          "date_year": 2007,
+          "date_text": "Nel 2007",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2007 aggiunto Infliximab 3 mg/kg per risposta insufficiente al cDMARD;"
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_start",
+          "date_value": "2010-01-01",
+          "date_year": 2010,
+          "date_text": "Dal 2010",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2010 Etanercept 50 mg/sett, sospeso nel 2013 per infezione delle vie urinarie recidivante (3 episodi/anno)."
+        },
+        {
+          "drug_canonical": "Etanercept",
+          "event_type": "therapy_stop",
+          "date_value": "2013-01-01",
+          "date_year": 2013,
+          "date_text": "nel 2013",
+          "date_precision": "year",
+          "reason": "infezione delle vie urinarie recidivante (3 episodi/anno)",
+          "confidence": 0.9,
+          "source_fragment": "Dal 2010 Etanercept 50 mg/sett, sospeso nel 2013 per infezione delle vie urinarie recidivante (3 episodi/anno)."
+        },
+        {
+          "drug_canonical": "Abatacept",
+          "event_type": "therapy_start",
+          "date_value": "2013-01-01",
+          "date_year": 2013,
+          "date_text": "Dal 2013",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dal 2013 Abatacept ev mensile;"
+        }
+      ],
+      "metrics": {
+        "gt_count": 7,
+        "parser_count": 5,
+        "tp": 5,
+        "fp": 0,
+        "fn": 2,
+        "precision": 1,
+        "recall": 0.714,
+        "f1": 0.833,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2003,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2003-01-01",
+            "date_year": 2003,
+            "date_text": "Dal 2003",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2003 Methotrexate 15 mg/sett."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Infliximab",
+            "event_type": "therapy_start",
+            "date_year": 2007,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Infliximab",
+            "event_type": "therapy_start",
+            "date_value": "2007-01-01",
+            "date_year": 2007,
+            "date_text": "Nel 2007",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2007 aggiunto Infliximab 3 mg/kg per risposta insufficiente al cDMARD;"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_year": 2010,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_start",
+            "date_value": "2010-01-01",
+            "date_year": 2010,
+            "date_text": "Dal 2010",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2010 Etanercept 50 mg/sett, sospeso nel 2013 per infezione delle vie urinarie recidivante (3 episodi/anno)."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_year": 2013,
+            "reason": "infezione vie urinarie recidivante"
+          },
+          "parser": {
+            "drug_canonical": "Etanercept",
+            "event_type": "therapy_stop",
+            "date_value": "2013-01-01",
+            "date_year": 2013,
+            "date_text": "nel 2013",
+            "date_precision": "year",
+            "reason": "infezione delle vie urinarie recidivante (3 episodi/anno)",
+            "confidence": 0.9,
+            "source_fragment": "Dal 2010 Etanercept 50 mg/sett, sospeso nel 2013 per infezione delle vie urinarie recidivante (3 episodi/anno)."
+          },
+          "date_mismatch": false,
+          "reason_match": "partial"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Abatacept",
+            "event_type": "therapy_start",
+            "date_year": 2013,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Abatacept",
+            "event_type": "therapy_start",
+            "date_value": "2013-01-01",
+            "date_year": 2013,
+            "date_text": "Dal 2013",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dal 2013 Abatacept ev mensile;"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC12",
+          "drug_canonical": "Idrossiclorochina",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2003,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        },
+        {
+          "tc_id": "TC12",
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_stop",
+          "match_status": "FN",
+          "error_category": "MISSING_STOP",
+          "gt_date_year": 2010,
+          "parser_date_year": null,
+          "gt_reason": "anticorpi anti-farmaco",
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC13",
+      "description": "AR — biosimilare e switch brand per motivi non clinici",
+      "raccordo": "AR sieropositiva, in cura presso il nostro centro dal 2017. Riferisce terapia pregressa: Methotrexate 10 mg/sett. dal 2015, aumentato a 15 mg nel 2016. Nel 2017 introdotto Adalimumab originator 40 mg bisettimanale; nel 2019 switch obbligatorio a biosimilare per decreto regionale senza variazione di efficacia. Nel 2022 sospeso adalimumab per comparsa di psoriasi palmoplantare de novo attribuita al biologico; avviato Tofacitinib 5 mg bid. A 6 mesi di terapia con Tofacitinib incremento delle transaminasi; ridotta dose a 5 mg/die con monitoraggio.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": 2015,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_year": 2017,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_year": 2022,
+          "reason": "psoriasi palmoplantare de novo"
+        },
+        {
+          "drug_canonical": "Tofacitinib",
+          "event_type": "therapy_start",
+          "date_year": 2022,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Tofacitinib",
+          "event_type": "dose_change",
+          "date_year": null,
+          "reason": "incremento transaminasi"
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": "2015-01-01",
+          "date_year": 2015,
+          "date_text": "dal 2015",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Riferisce terapia pregressa: Methotrexate 10 mg/sett. dal 2015, aumentato a 15 mg nel 2016."
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_start",
+          "date_value": "2017-01-01",
+          "date_year": 2017,
+          "date_text": "Nel 2017",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Nel 2017 introdotto Adalimumab originator 40 mg bisettimanale;"
+        },
+        {
+          "drug_canonical": "Adalimumab",
+          "event_type": "therapy_stop",
+          "date_value": "2022-01-01",
+          "date_year": 2022,
+          "date_text": "Nel 2022",
+          "date_precision": "year",
+          "reason": "comparsa di psoriasi palmoplantare de novo attribuita al",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2022 sospeso adalimumab per comparsa di psoriasi palmoplantare de novo attribuita al biologico;"
+        },
+        {
+          "drug_canonical": "Tofacitinib",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "avviato Tofacitinib 5 mg bid."
+        }
+      ],
+      "metrics": {
+        "gt_count": 5,
+        "parser_count": 4,
+        "tp": 4,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.8,
+        "f1": 0.889,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": 2015,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": "2015-01-01",
+            "date_year": 2015,
+            "date_text": "dal 2015",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Riferisce terapia pregressa: Methotrexate 10 mg/sett. dal 2015, aumentato a 15 mg nel 2016."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_year": 2017,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_start",
+            "date_value": "2017-01-01",
+            "date_year": 2017,
+            "date_text": "Nel 2017",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Nel 2017 introdotto Adalimumab originator 40 mg bisettimanale;"
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_year": 2022,
+            "reason": "psoriasi palmoplantare de novo"
+          },
+          "parser": {
+            "drug_canonical": "Adalimumab",
+            "event_type": "therapy_stop",
+            "date_value": "2022-01-01",
+            "date_year": 2022,
+            "date_text": "Nel 2022",
+            "date_precision": "year",
+            "reason": "comparsa di psoriasi palmoplantare de novo attribuita al",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2022 sospeso adalimumab per comparsa di psoriasi palmoplantare de novo attribuita al biologico;"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Tofacitinib",
+            "event_type": "therapy_start",
+            "date_year": 2022,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Tofacitinib",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "avviato Tofacitinib 5 mg bid."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC13",
+          "drug_canonical": "Tofacitinib",
+          "event_type": "dose_change",
+          "match_status": "FN",
+          "error_category": "MISSING_DOSE_CHANGE",
+          "gt_date_year": null,
+          "parser_date_year": null,
+          "gt_reason": "incremento transaminasi",
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC14",
+      "description": "SSc — terapia vascolare e immunosoppressiva complessa",
+      "raccordo": "Sclerosi sistemica diffusa (SSc-dcSSc), diagnosi 2016, anticorpi anti-Scl70+. Coinvolgimento: ILD con FVC 65%, ipertensione polmonare borderline, Raynaud grave con ulcere digitali. Dalla diagnosi: Nifedipina 30 mg/die per Raynaud, Sildenafil 25 mg tid aggiunto nel 2017 per ulcere digitali refrattarie. Bosentan 125 mg bid avviato nel 2018 per progressione PAP. Micofenolato Mofetil 2g/die dal 2016 per ILD. Nel 2021 progressione ILD (FVC 55%); aggiunto Nintedanib 150 mg bid. Nel 2022 sospeso MMF per intolleranza GI severa; mantenuto Nintedanib. Rituximab 1g x2 avviato nel 2023 per progressione ILD nonostante Nintedanib.",
+      "gt_events": [
+        {
+          "drug_canonical": "Nifedipina",
+          "event_type": "therapy_start",
+          "date_year": 2016,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_year": 2016,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Sildenafil",
+          "event_type": "therapy_start",
+          "date_year": 2017,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Bosentan",
+          "event_type": "therapy_start",
+          "date_year": 2018,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Nintedanib",
+          "event_type": "therapy_start",
+          "date_year": 2021,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_year": 2022,
+          "reason": "intolleranza GI severa"
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_year": 2023,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Sildenafil",
+          "event_type": "therapy_start",
+          "date_value": "2017-01-01",
+          "date_year": 2017,
+          "date_text": "nel 2017",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Dalla diagnosi: Nifedipina 30 mg/die per Raynaud, Sildenafil 25 mg tid aggiunto nel 2017 per ulcere digitali refrattarie."
+        },
+        {
+          "drug_canonical": "Bosentan",
+          "event_type": "therapy_start",
+          "date_value": "2018-01-01",
+          "date_year": 2018,
+          "date_text": "nel 2018",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Bosentan 125 mg bid avviato nel 2018 per progressione PAP."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_start",
+          "date_value": "2016-01-01",
+          "date_year": 2016,
+          "date_text": "dal 2016",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Micofenolato Mofetil 2g/die dal 2016 per ILD."
+        },
+        {
+          "drug_canonical": "Nintedanib",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "aggiunto Nintedanib 150 mg bid."
+        },
+        {
+          "drug_canonical": "Micofenolato Mofetil",
+          "event_type": "therapy_stop",
+          "date_value": "2022-01-01",
+          "date_year": 2022,
+          "date_text": "Nel 2022",
+          "date_precision": "year",
+          "reason": "intolleranza GI severa",
+          "confidence": 0.9,
+          "source_fragment": "Nel 2022 sospeso MMF per intolleranza GI severa;"
+        },
+        {
+          "drug_canonical": "Rituximab",
+          "event_type": "therapy_start",
+          "date_value": "2023-01-01",
+          "date_year": 2023,
+          "date_text": "nel 2023",
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.9,
+          "source_fragment": "Rituximab 1g x2 avviato nel 2023 per progressione ILD nonostante Nintedanib."
+        }
+      ],
+      "metrics": {
+        "gt_count": 7,
+        "parser_count": 6,
+        "tp": 6,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.857,
+        "f1": 0.923,
+        "reason_recall": 1
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_year": 2016,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_start",
+            "date_value": "2016-01-01",
+            "date_year": 2016,
+            "date_text": "dal 2016",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Micofenolato Mofetil 2g/die dal 2016 per ILD."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Sildenafil",
+            "event_type": "therapy_start",
+            "date_year": 2017,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Sildenafil",
+            "event_type": "therapy_start",
+            "date_value": "2017-01-01",
+            "date_year": 2017,
+            "date_text": "nel 2017",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Dalla diagnosi: Nifedipina 30 mg/die per Raynaud, Sildenafil 25 mg tid aggiunto nel 2017 per ulcere digitali refrattarie."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Bosentan",
+            "event_type": "therapy_start",
+            "date_year": 2018,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Bosentan",
+            "event_type": "therapy_start",
+            "date_value": "2018-01-01",
+            "date_year": 2018,
+            "date_text": "nel 2018",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Bosentan 125 mg bid avviato nel 2018 per progressione PAP."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Nintedanib",
+            "event_type": "therapy_start",
+            "date_year": 2021,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Nintedanib",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "aggiunto Nintedanib 150 mg bid."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_year": 2022,
+            "reason": "intolleranza GI severa"
+          },
+          "parser": {
+            "drug_canonical": "Micofenolato Mofetil",
+            "event_type": "therapy_stop",
+            "date_value": "2022-01-01",
+            "date_year": 2022,
+            "date_text": "Nel 2022",
+            "date_precision": "year",
+            "reason": "intolleranza GI severa",
+            "confidence": 0.9,
+            "source_fragment": "Nel 2022 sospeso MMF per intolleranza GI severa;"
+          },
+          "date_mismatch": false,
+          "reason_match": "full"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_year": 2023,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Rituximab",
+            "event_type": "therapy_start",
+            "date_value": "2023-01-01",
+            "date_year": 2023,
+            "date_text": "nel 2023",
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.9,
+            "source_fragment": "Rituximab 1g x2 avviato nel 2023 per progressione ILD nonostante Nintedanib."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC14",
+          "drug_canonical": "Nifedipina",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": 2016,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    },
+    {
+      "tc_id": "TC15",
+      "description": "AR — raccordo vago con farmaci citati senza struttura di inizio/fine",
+      "raccordo": "La paziente ci viene riferita per AR FR+/CCP+ di lunga data. Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco. Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene. Attualmente riferisce di assumere solo Prednisone 5 mg e di stare aspettando l'appuntamento per una nuova terapia biologica. Non ricorda le date precise.",
+      "gt_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_year": null,
+          "reason": "intolleranza gastrica"
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_stop",
+          "date_year": null,
+          "reason": "intolleranza"
+        },
+        {
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "date_year": null,
+          "reason": null
+        }
+      ],
+      "parser_events": [
+        {
+          "drug_canonical": "Methotrexate",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_start",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+        },
+        {
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": "mal di stomaco",
+          "confidence": 0.7,
+          "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+        },
+        {
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_stop",
+          "date_value": null,
+          "date_year": null,
+          "date_text": null,
+          "date_precision": "year",
+          "reason": null,
+          "confidence": 0.7,
+          "source_fragment": "Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+        }
+      ],
+      "metrics": {
+        "gt_count": 6,
+        "parser_count": 4,
+        "tp": 4,
+        "fp": 0,
+        "fn": 2,
+        "precision": 1,
+        "recall": 0.667,
+        "f1": 0.8,
+        "reason_recall": 0
+      },
+      "tp_detail": [
+        {
+          "gt": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_year": null,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Methotrexate",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_year": null,
+            "reason": null
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_start",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+          },
+          "date_mismatch": false,
+          "reason_match": "ok_no_gt"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_year": null,
+            "reason": "intolleranza gastrica"
+          },
+          "parser": {
+            "drug_canonical": "Leflunomide",
+            "event_type": "therapy_stop",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": "mal di stomaco",
+            "confidence": 0.7,
+            "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+          },
+          "date_mismatch": false,
+          "reason_match": "none"
+        },
+        {
+          "gt": {
+            "drug_canonical": "Infliximab",
+            "event_type": "therapy_stop",
+            "date_year": null,
+            "reason": "intolleranza"
+          },
+          "parser": {
+            "drug_canonical": "Infliximab",
+            "event_type": "therapy_stop",
+            "date_value": null,
+            "date_year": null,
+            "date_text": null,
+            "date_precision": "year",
+            "reason": null,
+            "confidence": 0.7,
+            "source_fragment": "Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+          },
+          "date_mismatch": false,
+          "reason_match": "missing"
+        }
+      ],
+      "mismatches": [
+        {
+          "tc_id": "TC15",
+          "drug_canonical": "Leflunomide",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "REASON_PARTIAL",
+          "gt_date_year": null,
+          "parser_date_year": null,
+          "gt_reason": "intolleranza gastrica",
+          "parser_reason": "mal di stomaco",
+          "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+        },
+        {
+          "tc_id": "TC15",
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_stop",
+          "match_status": "TP_WITH_ERROR",
+          "error_category": "REASON_MISSING",
+          "gt_date_year": null,
+          "parser_date_year": null,
+          "gt_reason": "intolleranza",
+          "parser_reason": null,
+          "source_fragment": "Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+        },
+        {
+          "tc_id": "TC15",
+          "drug_canonical": "Infliximab",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": null,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        },
+        {
+          "tc_id": "TC15",
+          "drug_canonical": "Prednisone",
+          "event_type": "therapy_start",
+          "match_status": "FN",
+          "error_category": "MISSING_START",
+          "gt_date_year": null,
+          "parser_date_year": null,
+          "gt_reason": null,
+          "parser_reason": null,
+          "source_fragment": null
+        }
+      ]
+    }
+  ]
+}

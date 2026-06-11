@@ -1,0 +1,55 @@
+{
+  "id": "TC08",
+  "description": "LES — immunosoppressori, gravidanza, switch in corso",
+  "raccordo": "LES con coinvolgimento cutaneo, articolare e renale (nefrite classe II), diagnosi 2014. Idrossiclorochina 200 mg/die in corso dal 2014 senza interruzioni. Prednisone a dosi variabili, attualmente 5 mg/die. Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³). Micofenolato Mofetil 1.5g/die dal 2018. Nel 2020 sospeso MMF per gravidanza programmata; mantenuta solo Idrossiclorochina. Nel 2021 ripreso MMF post-partum 1g/die, progressivamente aumentato a 2g/die. Nel 2023 esordio nefrite classe III; potenziato con Belimumab 200 mg/settimana sottocute.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Idrossiclorochina",
+      "event_type": "therapy_start",
+      "date_year": 2014,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Prednisone",
+      "event_type": "therapy_start",
+      "date_year": 2014,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Azatioprina",
+      "event_type": "therapy_start",
+      "date_year": 2015,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Azatioprina",
+      "event_type": "therapy_stop",
+      "date_year": 2018,
+      "reason": "leucopenia"
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_start",
+      "date_year": 2018,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_stop",
+      "date_year": 2020,
+      "reason": "gravidanza programmata"
+    },
+    {
+      "drug_canonical": "Micofenolato Mofetil",
+      "event_type": "therapy_start",
+      "date_year": 2021,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Belimumab",
+      "event_type": "therapy_start",
+      "date_year": 2023,
+      "reason": null
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "tc_id": "TC07",
+  "events": [
+    {
+      "drug_canonical": "Sulfasalazina",
+      "event_type": "therapy_stop",
+      "date_text": null,
+      "date_value": null,
+      "date_year": null,
+      "date_precision": "year",
+      "reason": "scarsa risposta assiale (BASDAI >4 nonostante compliance)",
+      "confidence": 0.7,
+      "source_fragment": "Prima del nostro follow-up riferisce Sulfasalazina 2g assunta dal 2013 al 2015, sospesa per scarsa risposta assiale (BASDAI >4 nonostante compliance)."
+    }
+  ],
+  "metrics": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 4,
+    "precision": 1.0,
+    "recall": 0.2,
+    "f1": 0.33333333333333337,
+    "false_drug_count": 0,
+    "reason_recall": 0.5,
+    "est_correction_s": 180
+  },
+  "dup_removed": 0
+}

@@ -1,0 +1,924 @@
+/**
+ * Parser Regression Tests — End-to-end
+ *
+ * Input reale: lettera clinica vasculite/porpora (visita 11/05/2026).
+ * Ogni test corrisponde a un bug trovato in produzione durante test clinici reali.
+ *
+ * Come eseguire:
+ *   cd frontend && npx esbuild src/lib/__tests__/parser_regression.js \
+ *     --bundle --platform=node --outfile=/tmp/parser_reg.cjs --format=cjs \
+ *     && node /tmp/parser_reg.cjs
+ */
+
+import { parseVisitText } from "../visitTextParser.js";
+import { extractLabValues, extractLabValuesByDate } from "../labValueExtractor.js";
+import { LAB_PANELS } from "../labPanels.js";
+import { parseInstrumentalFindings } from "../instrumentalParser.js";
+import { parseRaccordoTimeline } from "../raccordoParser.js";
+
+// ── Lettera reale (vasculite/porpora, paziente 21 anni, visita 11/05/2026) ────
+// Formato "inline header": ANAMNESI FISIOLOGICA: testo sullo stesso rigo,
+// senza riga vuota tra una sezione e l'altra → caso reale che ha triggerato i bug.
+const LETTER_VASCULITE = `MOTIVO DELLA VISITA: porpora palpabile alle gambe, emorragia sottocongiuntivale, sospetta vasculite
+
+Paziente di 21 anni.
+
+ANAMNESI FISIOLOGICA: non fumatrice, non abitudine alcolica, mai gravidanze, studentessa.
+ANAMNESI FAMILIARE: non familiarità per malattie reumatiche, psoriasi, IBD.
+COMORBILITA'/APR: nessuna eccetto verosimile oculorinite allergica. Pregressa AN.
+TERAPIA DOMICILIARE: Novadien (estroprogestinico, sospesa 3 gg fa)
+Allergie: Nurofen.
+
+RACCORDO ANAMNESTICO:
+Ad agosto 2025 comparsa di lesioni purpuriche agli arti inferiori, con successivo coinvolgimento del tronco. Episodio di emorragia sottocongiuntivale bilaterale. Sintomatologia migliorata dopo FANS e poi dopo ciclo di steroidi (Deltacortene 25 mg/die per 4 settimane con successivo scalaggio).
+
+VISITA ODIERNA:
+Dopo iniziale ottima risposta alla terapia steroidea, ricomparsa di lesioni purpuriche agli arti inferiori nell'ultimo mese. In programma biopsia la prossima settimana.
+Obiettivamente: non segni di artrite periferica, porpora palpabile agli arti inferiori, no edema, mucose integre, obiettività cardiopolmonare nella norma. ROT presenti e simmetrici. Non adenopatie.
+Peso 60 kg. Altezza 160 cm.
+
+In visione:
+- EE 13/03/26: Hb 14.0 G/L WBC 9500 PLT 215.000
+- EE 31/03/26: FR neg, ANA 1:160 (HEp-2), ANCA neg, Anticorpi antifosfolipidi neg, C3 non consumato, C4 non consumato, C1q non consumato, IgG nei limiti, IgA nei limiti, IgM nei limiti, crioglobuline neg
+- EU 04/04/26: proteinuria 24h nn, microematuria neg
+- EE 04/05/2026: Hb 14.2 G/L WBC 7800 PLT 198.000 VES 23 PCR 5.8
+
+CONCLUSIONI:
+Porpora palpabile + verosimile vasculite dei piccoli vasi. Sospendere estroprogestinico (già sospeso). Biopsia cute in programma.
+
+INDICAZIONI:
+- PROSEGUE scalaggio dello steroide come previsto: DELTACORTENE 25 mg 1 cp per altri 5 giorni, poi 3/4 cp per 2 settimane, poi 1/2 cp per 2 settimane, poi 1/4 cp con cui prosegue fino a controllo.
+- Associa Colchicina 1 mg (dimezza dosaggio se diarrea).
+- Esami ematici da ripetere prima della prossima visita
+- Dibase 10.000 UI 40 gtt/settimana`;
+
+// ── Utility: asserzioni e runner ─────────────────────────────────────────────
+let passed = 0;
+let failed = 0;
+
+function assert(condition, message, details = null) {
+  if (condition) {
+    console.log(`  ✓  ${message}`);
+    passed++;
+  } else {
+    console.error(`  ✗  FAIL: ${message}`);
+    if (details !== null) console.error(`       got: ${JSON.stringify(details)}`);
+    failed++;
+  }
+}
+
+function runTest(name, fn) {
+  console.log(`\n[${name}]`);
+  fn();
+}
+
+// ── Parse una volta sola ──────────────────────────────────────────────────────
+const { extracted } = parseVisitText(LETTER_VASCULITE);
+const pg  = extracted.profilo_generale;
+const vs  = extracted.visit_sections;
+const th  = extracted.therapies ?? [];
+const drugs = th.map(t => t.drug_name);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-NORM-1: normalizeImportedText univa le righe "HEADER: contenuto" consecutive
+// senza riga vuota, causando tutti i campi profilo_generale crammed in anamnesi_fisiologica.
+// Fix: SECTION_HEADER_NORM_RE in isBlockStart.
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-NORM-1 · profilo_generale split dal formato inline-header", () => {
+  assert(pg !== null, "profilo_generale non deve essere null");
+
+  assert(
+    pg?.anamnesi_fisiologica != null,
+    "anamnesi_fisiologica presente",
+    pg?.anamnesi_fisiologica,
+  );
+  assert(
+    pg?.anamnesi_fisiologica?.includes("non fumatrice"),
+    "anamnesi_fisiologica contiene 'non fumatrice'",
+    pg?.anamnesi_fisiologica,
+  );
+
+  assert(
+    !pg?.anamnesi_fisiologica?.includes("ANAMNESI FAMILIARE"),
+    "anamnesi_fisiologica NON deve contenere 'ANAMNESI FAMILIARE' (bug: tutto crammed in un campo)",
+    pg?.anamnesi_fisiologica,
+  );
+  assert(
+    !pg?.anamnesi_fisiologica?.includes("COMORBILITA"),
+    "anamnesi_fisiologica NON deve contenere 'COMORBILITA'",
+    pg?.anamnesi_fisiologica,
+  );
+  assert(
+    !pg?.anamnesi_fisiologica?.includes("TERAPIA DOMICILIARE"),
+    "anamnesi_fisiologica NON deve contenere 'TERAPIA DOMICILIARE'",
+    pg?.anamnesi_fisiologica,
+  );
+
+  assert(
+    pg?.anamnesi_familiare?.includes("familiarità per malattie reumatiche"),
+    "anamnesi_familiare correttamente estratta",
+    pg?.anamnesi_familiare,
+  );
+
+  assert(
+    pg?.comorbidita_apr?.includes("oculorinite allergica"),
+    "comorbidita_apr contiene 'oculorinite allergica'",
+    pg?.comorbidita_apr,
+  );
+  assert(
+    !pg?.comorbidita_apr?.startsWith("/APR"),
+    "comorbidita_apr NON inizia con '/APR' (bug: prefisso non strippato)",
+    pg?.comorbidita_apr,
+  );
+
+  assert(
+    pg?.terapia_domiciliare?.includes("Novadien"),
+    "terapia_domiciliare contiene 'Novadien'",
+    pg?.terapia_domiciliare,
+  );
+
+  assert(
+    pg?.allergie?.includes("Nurofen"),
+    "allergie contiene 'Nurofen'",
+    pg?.allergie,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-INDIC-1: la parola "programma" in "In programma biopsia..." matchava
+// la regex INDICAZIONI in extractVisitSections, causando:
+//   - indicazioni = "biopsia la prossima settimana." (falso positivo)
+//   - esame_obj assorbiva il testo dell'INDICAZIONI reale
+// Fix: rimosso PROGRAMMA dalla regex; ora solo INDICAZIONI header esplicito.
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-INDIC-1 · indicazioni = sezione prescrittiva, non 'biopsia prossima settimana'", () => {
+  assert(
+    vs != null,
+    "visit_sections presente",
+  );
+  assert(
+    vs?.indicazioni != null,
+    "visit_sections.indicazioni presente",
+  );
+  assert(
+    !vs?.indicazioni?.toLowerCase().includes("biopsia la prossima settimana"),
+    "indicazioni NON deve essere il falso positivo 'biopsia la prossima settimana'",
+    vs?.indicazioni?.slice(0, 100),
+  );
+  assert(
+    vs?.indicazioni?.toUpperCase().includes("DELTACORTENE") ||
+      vs?.indicazioni?.toLowerCase().includes("scalaggio") ||
+      vs?.indicazioni?.includes("Colchicina"),
+    "indicazioni contiene contenuto prescrittivo reale (Deltacortene / scalaggio / Colchicina)",
+    vs?.indicazioni?.slice(0, 120),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-EO-1: esame_obj non deve contenere testo dell'INDICAZIONI
+// (conseguenza di BUG-INDIC-1: quando il falso positivo spostava 'indicazioni'
+// prima di 'esame_obj', l'intera sezione INDICAZIONI finiva in esame_obj)
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-EO-1 · esame_obj non assorbe la sezione INDICAZIONI", () => {
+  assert(
+    vs?.esame_obj != null,
+    "visit_sections.esame_obj presente",
+  );
+  assert(
+    !vs?.esame_obj?.toUpperCase().includes("INDICAZIONI"),
+    "esame_obj NON deve contenere l'header 'INDICAZIONI'",
+    vs?.esame_obj?.slice(-200),
+  );
+  assert(
+    !vs?.esame_obj?.toUpperCase().includes("DELTACORTENE"),
+    "esame_obj NON deve contenere 'DELTACORTENE' (è terapia, non esame obiettivo)",
+    vs?.esame_obj?.slice(-200),
+  );
+  assert(
+    !vs?.esame_obj?.toLowerCase().includes("colchicina"),
+    "esame_obj NON deve contenere 'Colchicina'",
+    vs?.esame_obj?.slice(-200),
+  );
+  assert(
+    vs?.esame_obj?.toLowerCase().includes("porpora") ||
+      vs?.esame_obj?.toLowerCase().includes("artrite periferica") ||
+      vs?.esame_obj?.toLowerCase().includes("obiettiv"),
+    "esame_obj contiene contenuto dell'esame obiettivo reale",
+    vs?.esame_obj?.slice(0, 120),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-THERAPY-1: Colchicina non estratta
+// Cause: (a) therapyScope non includeva S.INDICAZIONI; (b) categoria "other" filtrata.
+// Fix: aggiunto S.INDICAZIONI a therapyScope; categoria Colchicina → "antiinflammatory".
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-THERAPY-1 · Colchicina estratta da INDICAZIONI", () => {
+  assert(
+    drugs.includes("Colchicina"),
+    `Colchicina presente in therapies (got: [${drugs.join(", ")}])`,
+  );
+  const colch = th.find(t => t.drug_name === "Colchicina");
+  assert(
+    colch?.status === "active",
+    "Colchicina ha status 'active'",
+    colch?.status,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-THERAPY-2: Prednisone estratto da INDICAZIONI (scalaggio steroide)
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-THERAPY-2 · Prednisone/Deltacortene estratto da INDICAZIONI", () => {
+  assert(
+    drugs.includes("Prednisone"),
+    `Prednisone presente in therapies (got: [${drugs.join(", ")}])`,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-THERAPY-3: Ibuprofene (Nurofen) NON deve essere estratto come terapia
+// Era un falso positivo perché: (a) therapyScope fallbackava al testo completo
+// (bug normalizzazione); (b) "Allergie: Nurofen" era nel testo completo.
+// Fix: con Bug-NORM-1 risolto, S.TERAPIA_DOMICILIARE è correttamente popolato
+// e therapyScope non include la sezione ALLERGIE.
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-THERAPY-3 · Ibuprofene/Nurofen NON estratto (è allergene, non terapia)", () => {
+  assert(
+    !drugs.includes("Ibuprofene"),
+    `Ibuprofene NON presente in therapies (got: [${drugs.join(", ")}])`,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-THERAPY-4: FANS NON deve comparire come terapia attiva
+// "migliorata dopo FANS" nel raccordo è un riferimento storico, non una
+// prescrizione attiva. Il raccordo non è in therapyScope.
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-THERAPY-4 · FANS NON estratto come terapia attiva (menzione storica nel raccordo)", () => {
+  const activeFans = th.find(t => t.drug_name === "FANS" && t.status === "active");
+  assert(
+    !activeFans,
+    "FANS con status 'active' NON deve essere presente",
+    activeFans,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-LAB-PROT-1: "proteinuria 24h nn" → valore 24 g/24h (CORRUZIONE DATI)
+//
+// Root cause (doppio):
+//  (a) extractQualitativeResults: la regex ALIAS\s*(nn|...) non catturava "nn"
+//      quando preceduto da "24h" (qualificatore temporale), quindi il parametro
+//      NON entrava in qualKeys e il controllo "if (qualKeys.has(param.key)) continue"
+//      non scattava.
+//  (b) extractLabValues: il numero "24" in "24h" veniva estratto come valore
+//      misurato; l'unità "h" non matchava nessuna knownUnit → defaultUnit="g/24h"
+//      → falso risultato "24 g/24h".
+//
+// Fix:
+//  (a) Regex qualitativa ampliata: ALIAS (?:\s+\d{1,3}\s*(?:h|ore))? [=:]? (nn|...)
+//  (b) Time-qualifier guard: dopo il match numerico, se il testo immediatamente
+//      successivo inizia con h/hr/hour/ore → skip (è periodo di raccolta, non valore).
+//
+// Regola clinica: meglio nessun dato che un dato falso.
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-PCR-1: Regola locale RheumaFlow — PCR senza unità = mg/dL (non mg/L)
+//
+// Precedentemente: defaultUnit="mg/L" + normalize(mg/dL → mg/L via ×10)
+//   "PCR 0.07" → 0.07 mg/dL → normalize → 0.7 mg/L (conversione implicita vietata)
+//
+// Fix:
+//   defaultUnit="mg/dL". normalize rimosso. inferred_unit=true quando unità assente.
+//   referenceHighByUnit: { "mg/dL": 0.5, "mg/L": 5 } per status corretto per unità.
+//   Per parametri ad alto rischio (HIGH_RISK_KEYS): inferred_unit → confidence="low"
+//   → va in lab_review_items, NON in lab_exams.
+//
+// Test diretti su extractLabValues (prima del confidence split in visitTextParser).
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-PCR-1 · PCR senza unità → mg/dL (default locale), non mg/L", () => {
+  const items = extractLabValues("PCR 0.07");
+  const pcr   = items.find(i => i.key === "crp");
+  assert(pcr != null, "PCR deve essere estratta", items.map(i => i.key));
+  assert(pcr.unit === "mg/dL", `unit deve essere 'mg/dL' (got: '${pcr.unit}')`, pcr);
+  assert(pcr.value === 0.07,   `value deve essere 0.07 (got: ${pcr.value})`,   pcr);
+  assert(pcr.inferred_unit === true, "inferred_unit deve essere true (unità non specificata)", pcr);
+});
+
+runTest("BUG-PCR-1b · PCR 0.07 → status normal (< 0.5 mg/dL)", () => {
+  const pcr = extractLabValues("PCR 0.07").find(i => i.key === "crp");
+  assert(pcr?.status === "normal", `status deve essere 'normal' per 0.07 mg/dL (got: ${pcr?.status})`, pcr);
+});
+
+runTest("BUG-PCR-1c · PCR 1.03* → valore 1.03 mg/dL (inferred), status high, confidence low", () => {
+  const items = extractLabValues("PCR 1.03*");
+  const pcr   = items.find(i => i.key === "crp");
+  assert(pcr != null, "PCR 1.03* deve essere estratta", items.map(i => i.key));
+  assert(pcr.value === 1.03, `value deve essere 1.03 (got: ${pcr.value})`, pcr);
+  assert(pcr.unit === "mg/dL", `unit deve essere 'mg/dL' (got: '${pcr.unit}')`, pcr);
+  assert(pcr.inferred_unit === true, "inferred_unit = true", pcr);
+  assert(pcr.confidence === "low", `confidence deve essere 'low' per HIGH_RISK senza unità (got: ${pcr.confidence})`, pcr);
+  assert(pcr.status === "high", `status deve essere 'high' per 1.03 > 0.5 mg/dL (got: ${pcr.status})`, pcr);
+});
+
+runTest("BUG-PCR-1d · PCR 7 mg/L → unit=mg/L, status high (> 5 mg/L), inferred_unit=false", () => {
+  const pcr = extractLabValues("PCR 7 mg/L").find(i => i.key === "crp");
+  assert(pcr != null, "PCR 7 mg/L deve essere estratta");
+  assert(pcr.unit === "mg/L",       `unit deve essere 'mg/L' (got: '${pcr.unit}')`, pcr);
+  assert(pcr.value === 7,           `value deve essere 7 (got: ${pcr.value})`,       pcr);
+  assert(pcr.status === "high",     `status deve essere 'high' per 7 > 5 mg/L (got: ${pcr.status})`, pcr);
+  assert(pcr.inferred_unit === false, "inferred_unit deve essere false (unità esplicita)", pcr);
+  // Con unità esplicita → inferred_unit=false → confidence="high" anche per HIGH_RISK
+  assert(pcr.confidence === "high", `confidence deve essere 'high' quando unità è esplicita (got: ${pcr.confidence})`, pcr);
+});
+
+runTest("BUG-PCR-1e · PCR 0.7 mg/dL → unit=mg/dL, status high (> 0.5), inferred_unit=false", () => {
+  const pcr = extractLabValues("PCR 0.7 mg/dL").find(i => i.key === "crp");
+  assert(pcr != null, "PCR 0.7 mg/dL deve essere estratta");
+  assert(pcr.unit === "mg/dL",      `unit deve essere 'mg/dL' (got: '${pcr.unit}')`, pcr);
+  assert(pcr.value === 0.7,         `value deve essere 0.7 (got: ${pcr.value})`,       pcr);
+  assert(pcr.status === "high",     `status deve essere 'high' per 0.7 > 0.5 mg/dL (got: ${pcr.status})`, pcr);
+  assert(pcr.inferred_unit === false, "inferred_unit = false per unità esplicita", pcr);
+});
+
+runTest("BUG-PCR-1f · PCR 3 mg/L normale (< 5 mg/L) → status normal", () => {
+  const pcr = extractLabValues("PCR 3 mg/L").find(i => i.key === "crp");
+  assert(pcr?.status === "normal", `3 mg/L deve essere 'normal' (< 5 mg/L) (got: ${pcr?.status})`, pcr);
+});
+
+runTest("BUG-PCR-1g · nessuna conversione implicita mg/dL → mg/L", () => {
+  const pcr = extractLabValues("PCR 0.5 mg/dL").find(i => i.key === "crp");
+  assert(pcr != null, "PCR 0.5 mg/dL deve essere estratta");
+  // Il valore NON deve essere moltiplicato per 10 (vecchio normalize)
+  assert(pcr.value === 0.5,    `value deve restare 0.5 (non convertire a 5) (got: ${pcr.value})`, pcr);
+  assert(pcr.unit === "mg/dL", `unit deve restare 'mg/dL' (got: '${pcr.unit}')`, pcr);
+  assert(pcr.normalizedValue == null, `normalizedValue deve essere null (no conversione) (got: ${pcr.normalizedValue})`, pcr);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-LAB-PROT-1: "proteinuria 24h nn" → valore 24 g/24h (CORRUZIONE DATI)
+// (stessa famiglia, test separati per chiarezza)
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("BUG-LAB-PROT-1 · 'proteinuria 24h nn' → null, non 24 g/24h", () => {
+  const items = extractLabValues("proteinuria 24h nn, microematuria neg");
+
+  const protItem = items.find(i => i.key === "proteinuria");
+
+  assert(
+    protItem == null || protItem.value === null,
+    `proteinuria NON deve avere value numerico (valore: ${protItem?.value ?? "null"}, unità: ${protItem?.unit ?? "-"})`,
+    protItem,
+  );
+  assert(
+    protItem == null || protItem.status === "normal",
+    `proteinuria deve avere status 'normal' quando trovato (got: ${protItem?.status ?? "null"})`,
+    protItem,
+  );
+});
+
+runTest("BUG-LAB-PROT-1b · varianti ortografiche del qualificatore temporale", () => {
+  const cases = [
+    "proteinuria 24 h nn",
+    "proteinuria 24hr nn",
+    "proteinuria 24ore nn",
+    "proteinuria 24h nella norma",
+    "proteinuria 24h negativa",
+    "proteinuria 24h assente",
+  ];
+  for (const input of cases) {
+    const items = extractLabValues(input);
+    const prot = items.find(i => i.key === "proteinuria");
+    assert(
+      prot == null || prot.value === null,
+      `"${input}" → proteinuria value deve essere null (got: ${prot?.value ?? "null"} ${prot?.unit ?? ""})`,
+      prot,
+    );
+  }
+});
+
+runTest("BUG-LAB-PROT-1c · valore reale proteinuria NON viene bloccato", () => {
+  const items = extractLabValues("proteinuria 1.2 g/24h");
+  const prot = items.find(i => i.key === "proteinuria");
+  assert(
+    prot != null && prot.value === 1.2,
+    `Valore reale "1.2 g/24h" deve essere estratto correttamente (got: ${prot?.value ?? "null"})`,
+    prot,
+  );
+});
+
+runTest("BUG-LAB-PROT-1d · EU 04/04/26 nella lettera clinica → no valore numerico per proteinuria", () => {
+  const labs = extracted.lab_exams ?? [];
+  const allItems = labs.flatMap(l => l.values ? Object.entries(l.values) : []);
+  const protVal = allItems.find(([k]) => k === "proteinuria" || k === "proteinuria_24h");
+  assert(
+    protVal == null || protVal[1] == null || protVal[1] === "",
+    `Nella lettera clinica, EU 04/04/26 'proteinuria 24h nn' NON deve produrre valore numerico (got: ${JSON.stringify(protVal?.[1])})`,
+    protVal,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-URINE — pannello Urine / Proteinuria
+// ─────────────────────────────────────────────────────────────────────────────
+
+runTest("BUG-URINE-1 · '17 emazie/campo' → urine_rbc=17, non assorbito come numero libero", () => {
+  const text = "EU 04/04/26: 17 emazie/campo, proteinuria 24h nn";
+  const items = extractLabValues(text);
+
+  const rbc = items.find(i => i.key === "urine_rbc");
+  assert(rbc != null, "urine_rbc deve essere estratto da '17 emazie/campo'", items.map(i => i.key));
+  assert(rbc.value === 17, `urine_rbc.value deve essere 17 (got ${rbc?.value})`, rbc);
+  assert(rbc.unit === "/campo", `urine_rbc.unit deve essere '/campo' (got '${rbc?.unit}')`, rbc);
+
+  const prot = items.find(i => i.key === "proteinuria");
+  assert(prot != null, "'proteinuria 24h nn' deve produrre un item proteinuria", items.map(i => i.key));
+  assert(
+    prot.value == null && prot.qualitative === "nella norma",
+    `proteinuria deve essere qualitativa 'nella norma', NON numerica (got value=${prot?.value}, qual=${prot?.qualitative})`,
+    prot,
+  );
+});
+
+runTest("BUG-URINE-2 · '5 leucociti/campo' → urine_wbc=5", () => {
+  const text = "EU 12/03/26: 5 leucociti/campo, peso specifico 1015, pH urine 6.0";
+  const items = extractLabValues(text);
+
+  const wbc = items.find(i => i.key === "urine_wbc");
+  assert(wbc != null, "urine_wbc deve essere estratto da '5 leucociti/campo'", items.map(i => i.key));
+  assert(wbc.value === 5, `urine_wbc.value deve essere 5 (got ${wbc?.value})`, wbc);
+
+  const sg = items.find(i => i.key === "urine_sg");
+  assert(sg != null, "urine_sg deve essere estratto da 'peso specifico 1015'", items.map(i => i.key));
+  assert(sg.value === 1015, `urine_sg.value deve essere 1015 (got ${sg?.value})`, sg);
+
+  const ph = items.find(i => i.key === "urine_ph");
+  assert(ph != null, "urine_ph deve essere estratto da 'pH urine 6.0'", items.map(i => i.key));
+  assert(ph.value === 6.0, `urine_ph.value deve essere 6.0 (got ${ph?.value})`, ph);
+});
+
+runTest("BUG-URINE-3 · pannello ha chiave 'proteinuria' (non proteinuria_24h) allineata all'extractor", () => {
+  const urinePanel = LAB_PANELS.urine;
+  assert(urinePanel != null, "pannello 'urine' deve esistere");
+
+  const hasProteuria24h = urinePanel.tests.some(t => t.key === "proteinuria_24h");
+  assert(!hasProteuria24h, "pannello NON deve avere chiave 'proteinuria_24h' (usa 'proteinuria')", urinePanel.tests.map(t => t.key));
+
+  const hasProteinuria = urinePanel.tests.some(t => t.key === "proteinuria");
+  assert(hasProteinuria, "pannello deve avere chiave 'proteinuria' allineata all'extractor", urinePanel.tests.map(t => t.key));
+
+  const hasAcr = urinePanel.tests.some(t => t.key === "acr");
+  assert(hasAcr, "pannello deve avere chiave 'acr' per ACR", urinePanel.tests.map(t => t.key));
+
+  assert(urinePanel.label === "Urine / Proteinuria", `label pannello deve essere 'Urine / Proteinuria' (got '${urinePanel.label}')`, urinePanel.label);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sanity checks aggiuntivi
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("SANITY · lab_exams estratti dalla sezione 'In visione'", () => {
+  const labs = extracted.lab_exams ?? [];
+  const dates = labs.map(l => l.date);
+  assert(
+    labs.length > 0,
+    `lab_exams non vuoto (got ${labs.length} exam/i)`,
+  );
+  assert(
+    dates.includes("2026-05-04"),
+    "EE 04/05/2026 estratto con data 2026-05-04",
+    dates,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [BUG-LAB-FRAG-1] un prelievo = un record
+// Parser non deve frammentare stessa data in più record (uno per pannello).
+// ─────────────────────────────────────────────────────────────────────────────
+runTest("[BUG-LAB-FRAG-1] · nessuna data duplicata in lab_exams (un prelievo = un record)", () => {
+  const labs = extracted.lab_exams ?? [];
+  const dateCounts = {};
+  for (const ex of labs) {
+    if (ex.date) dateCounts[ex.date] = (dateCounts[ex.date] || 0) + 1;
+  }
+  const duplicates = Object.entries(dateCounts).filter(([, n]) => n > 1);
+  assert(
+    duplicates.length === 0,
+    `Nessuna data duplicata — una data deve avere un solo record`,
+    duplicates,
+  );
+});
+
+runTest("[BUG-LAB-FRAG-2] · multi-pannello stesso giorno → un solo record con tutti i risultati (tramite extractLabValuesByDate)", () => {
+  // Test diretto sull'estrattore: stessa data, parametri di pannelli diversi → deve tornare 1 date-group
+  const snippet = "EE 10/01/2025: Hb 12.5 g/dL, WBC 6200 cellule/uL, PLT 180 x10^9/L, VES 45 mm/h, PCR 1.8 mg/dL, Creatinina 0.9 mg/dL";
+  const groups = extractLabValuesByDate(snippet);
+  // L'estrattore deve tornare 1 date-group (10/01/2025)
+  const grp = groups.find(g => g.date === "2025-01-10");
+  assert(grp != null, "Date-group 2025-01-10 estratto dall'extractLabValuesByDate");
+  if (!grp) return;
+  const panels = new Set((grp.items || []).map(i => i.panel).filter(p => p && p !== "custom"));
+  assert(
+    panels.size >= 2,
+    `Date-group 10/01/2025 deve avere parametri di ≥2 pannelli (got: ${[...panels].join(", ")})`,
+    [...panels],
+  );
+  // Il parser finale non deve frammentare: un date-group → un lab_exam (assenza di duplicati garantita da BUG-LAB-FRAG-1)
+});
+
+runTest("SANITY · raccordo presente", () => {
+  assert(
+    vs?.raccordo?.toLowerCase().includes("porpur") ||
+      vs?.raccordo?.toLowerCase().includes("agosto"),
+    "visit_sections.raccordo contiene anamnesi clinica",
+    vs?.raccordo?.slice(0, 120),
+  );
+});
+
+// ════════════════════════════════════════════════════════════════════
+// BUG-LAB-KEYS — chiavi canoniche nei lab_exams
+// Root cause: groupLabValuesByDate usava lv.label come name;
+//   toCanonicalLabKey("Hb / Emoglobina") → "hb_emoglobina" (slug del label)
+//   non trovato in mappa → salvato as-is nel DB invece di "hb".
+// Fix: VisitImportButton usa r.param_key || toCanonicalLabKey(r.name).
+// ════════════════════════════════════════════════════════════════════
+
+const SNIPPET_EE_0405 = `In visione:
+- EE 04/05/2026: Hb 13.5 g/dL WBC 15800 N 9700 Ly 5500 PLT 361.000 VES 10 PCR 0.07 mg/dL Creatinina 0.81 mg/dL AST 14 ALT 11 GGT 14`;
+
+const SNIPPET_EE_0331 = `In visione:
+- EE 13/03/26: Hb 14.0 g/dL WBC 9500 PLT 215.000
+- EE 31/03/26: FR neg, ANA neg, c-ANCA neg, p-ANCA neg, C3 120 mg/dL, C4 22 mg/dL, IgG 1100 mg/dL, IgA 180 mg/dL, IgM 85 mg/dL, crioglobuline neg, HBsAg neg, Anti-HCV neg, Anti-HIV neg`;
+
+runTest("[BUG-LAB-KEYS-1] · param_key usato come chiave → no chiavi composte (hb, not hb_emoglobina)", () => {
+  const groups = extractLabValuesByDate(SNIPPET_EE_0405);
+  const grp = groups.find(g => g.date === "2026-05-04");
+  assert(grp != null, "Date-group 2026-05-04 trovato");
+  if (!grp) return;
+
+  const keys = (grp.items || []).map(i => i.key);
+  const expected = ["hb", "wbc", "neutrophils", "lymphocytes", "plt", "ves", "crp", "creatinine", "ast", "alt", "ggt"];
+  for (const k of expected) {
+    assert(keys.includes(k), `param_key "${k}" presente nel date-group (non forma composta)`, keys);
+  }
+  // Nessuna chiave composta con slash-slug
+  const compound = keys.filter(k => k.includes("_emoglobina") || k.includes("_wbc") || k.includes("_piastrine") || k.includes("_esr") || k.includes("_crp") || k.includes("_got") || k.includes("_gpt"));
+  assert(compound.length === 0, `Nessuna chiave composta (es. hb_emoglobina) — got: ${compound.join(", ")}`, compound);
+});
+
+runTest("[BUG-LAB-KEYS-2] · param_key usato come chiave nel record finale (groupLabValuesByDate)", () => {
+  // Test diretto: verifica che param_key sia presente e sia la chiave corretta
+  const groups = extractLabValuesByDate(SNIPPET_EE_0405);
+  const grp = groups.find(g => g.date === "2026-05-04");
+  if (!grp) { assert(false, "Date-group 2026-05-04 non trovato"); return; }
+
+  const paramKeys = (grp.items || []).map(i => i.key).filter(Boolean);
+  assert(paramKeys.includes("crp"),        'param_key "crp" presente (non "pcr" né "pcr_crp")',        paramKeys);
+  assert(paramKeys.includes("creatinine"), 'param_key "creatinine" presente (non "creatinina")',        paramKeys);
+  assert(paramKeys.includes("hb"),         'param_key "hb" presente (non "hb_emoglobina")',              paramKeys);
+  assert(paramKeys.includes("wbc"),        'param_key "wbc" presente (non "gb_wbc")',                    paramKeys);
+  assert(paramKeys.includes("plt"),        'param_key "plt" presente (non "plt_piastrine")',             paramKeys);
+  assert(paramKeys.includes("ast"),        'param_key "ast" presente (non "ast_got")',                   paramKeys);
+  assert(paramKeys.includes("alt"),        'param_key "alt" presente (non "alt_gpt")',                   paramKeys);
+});
+
+runTest("[BUG-LAB-KEYS-3] · prelievo 31/03 → autoimmunità + complemento + sierologie estratti", () => {
+  const groups = extractLabValuesByDate(SNIPPET_EE_0331);
+  const grp0331 = groups.find(g => g.date === "2026-03-31");
+  assert(grp0331 != null, "Date-group 2026-03-31 trovato");
+  if (!grp0331) return;
+
+  const keys = (grp0331.items || []).map(i => i.key);
+  // Complemento
+  assert(keys.includes("c3"),  'C3 estratto', keys);
+  assert(keys.includes("c4"),  'C4 estratto', keys);
+  // Immunoglobuline
+  assert(keys.includes("igg"), 'IgG estratto', keys);
+  assert(keys.includes("iga"), 'IgA estratto', keys);
+  assert(keys.includes("igm"), 'IgM estratto', keys);
+  // Autoanticorpi qualitative
+  const items = grp0331.items || [];
+  const fr    = items.find(i => i.key === "fr");
+  const ana   = items.find(i => i.key === "ana_titolo" || i.key === "ana_pattern");
+  const anca  = items.find(i => i.key === "anca_pr3" || i.key === "anca_mpo");
+  assert(fr != null,   'FR estratto',   keys);
+  assert(ana != null,  'ANA estratto',  keys);
+  assert(anca != null, 'ANCA estratto', keys);
+});
+
+runTest("[BUG-LAB-KEYS-4] · result.param_key sempre presente e mai nullo per parametri noti", () => {
+  const groups = extractLabValuesByDate(SNIPPET_EE_0405);
+  const grp = groups.find(g => g.date === "2026-05-04");
+  if (!grp) { assert(false, "Date-group non trovato"); return; }
+
+  const missingParamKey = (grp.items || []).filter(i => !i.key);
+  assert(
+    missingParamKey.length === 0,
+    `Tutti i parametri hanno un key (param_key non nullo) — mancante su: ${missingParamKey.map(i => i.label).join(", ")}`,
+    missingParamKey.map(i => i.label),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-INSTR — instrumental parser keyword merging
+// ─────────────────────────────────────────────────────────────────────────────
+
+runTest("BUG-INSTR-1 · RX TORACE + ECOGRAFIA ADDOME → 2 record separati (no merging)", () => {
+  const text = `ESAMI PREGRESSI
+RX TORACE 15/01/2026: negativo, no versamenti, silhouette cardiaca nei limiti
+ECOGRAFIA ADDOME 20/02/2026: fegato nei limiti, reni nella norma, no litiasi`;
+  const findings = parseInstrumentalFindings(text);
+
+  assert(findings.length >= 2, `Attesi almeno 2 esami, trovati ${findings.length}`, findings.map(f => f.examLabel));
+
+  const rx = findings.find(f => f.examType === "xray");
+  assert(rx != null, "RX TORACE deve essere estratto come examType='xray'", findings.map(f => f.examType));
+  assert(
+    !(rx.reportText || "").toLowerCase().includes("fegato"),
+    `RX TORACE NON deve assorbire il testo di ECOGRAFIA (got reportText: '${rx.reportText}')`,
+    rx,
+  );
+
+  const eco = findings.find(f => f.examLabel === "Ecografia");
+  assert(eco != null, "ECOGRAFIA ADDOME deve essere estratta come examLabel='Ecografia'", findings.map(f => f.examLabel));
+  assert(
+    (eco.reportText || eco.territory || "").toLowerCase().includes("fegato") ||
+    (eco.territory || "").toLowerCase().includes("addome"),
+    `ECOGRAFIA deve contenere riferimento a fegato/addome (got: territory='${eco.territory}' reportText='${eco.reportText}')`,
+    eco,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-LAB-QUAL — qualitative extraction: nei limiti, non consumato, negativo/a/e
+// ─────────────────────────────────────────────────────────────────────────────
+
+runTest("BUG-LAB-QUAL-1 · 31/03 → FR neg, ANCA generico, antifosfolipidi, C3/C4/C1q non consumati, IgG/IgA/IgM nei limiti, crioglobuline neg", () => {
+  const groups = extractLabValuesByDate(LETTER_VASCULITE);
+  const grp = groups.find(g => g.date === "2026-03-31");
+  assert(grp != null, "date-group 2026-03-31 trovato in LETTER_VASCULITE");
+  if (!grp) return;
+  const items = grp.items || [];
+  const keys  = items.map(i => i.key);
+
+  const fr = items.find(i => i.key === "fr");
+  assert(fr != null && (fr.status === "negative" || fr.qualitative === "negativo"),
+    "FR neg estratto", { keys, fr });
+
+  const anca = items.find(i => i.key === "anca");
+  assert(anca != null && (anca.status === "negative" || anca.qualitative != null),
+    "ANCA generico neg estratto (key='anca')", { keys, anca });
+
+  const apls = items.find(i => i.key === "antifosfolipidi");
+  assert(apls != null && (apls.status === "negative" || apls.qualitative != null),
+    "Antifosfolipidi neg estratto (key='antifosfolipidi')", { keys, apls });
+
+  const c3 = items.find(i => i.key === "c3");
+  assert(c3 != null && c3.qualitative != null,
+    "C3 qualitativo estratto (non consumato)", { keys, c3 });
+
+  const c4 = items.find(i => i.key === "c4");
+  assert(c4 != null && c4.qualitative != null,
+    "C4 qualitativo estratto (non consumato)", { keys, c4 });
+
+  const c1q = items.find(i => i.key === "c1q");
+  assert(c1q != null && c1q.qualitative != null,
+    "C1q qualitativo estratto (non consumato)", { keys, c1q });
+
+  const igg = items.find(i => i.key === "igg");
+  assert(igg != null && igg.qualitative != null,
+    "IgG qualitativo estratto (nei limiti)", { keys, igg });
+
+  const iga = items.find(i => i.key === "iga");
+  assert(iga != null && iga.qualitative != null,
+    "IgA qualitativo estratto (nei limiti)", { keys, iga });
+
+  const igm = items.find(i => i.key === "igm");
+  assert(igm != null && igm.qualitative != null,
+    "IgM qualitativo estratto (nei limiti)", { keys, igm });
+
+  const crio = items.find(i => i.key === "crioglobuline");
+  assert(crio != null && (crio.status === "negative" || crio.qualitative != null),
+    "Crioglobuline neg estratte", { keys, crio });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PELLICONI — lettera reale (AR sieronegativa, AUSL Bologna, formato inline)
+// 9 asserzioni che coprono i bug corretti: terapia_domiciliare, allergie,
+// Urbason attivo, no falso stop Medrol, MTX sospeso + motivo, lab con date
+// parentesizzate/mesi italiani, anamnesi senza header duplicato.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LETTER_PELLICONI = `Gent.le collega
+controllo in pz. con osteoartrosi e artrite reumatoide
+ANAMNESI FISIOLOGICA: mai fumatrice, mai fratture, menopausa a 50 aa, in precedenza operaia in calzaturificio, OSS.
+ANAMNESI PATOLOGICA REMOTA: quantiferon positivo riscontrato nel 2011  e profilassi con nicozid 300 mg per 9 mesi, ipertensione arteriosa, discopatie.
+IC alluce valgo maggio 2020, isterectomia per fibromatosi.
+TERAPIA: atenololo - colecalciferolo  5 gtt al die - vit K2 -  urbason 4 mg : 1/2 cp al die
+Nega allergie.
+
+RACCORDO ANAMNESTICO: pz. Affetta da artrite reumatoide acpa negativa  a scarsa attivita'. Sempre seguita a ferrara per artrite reumatoide sieronegativa in terapia dal 2011 con methotrexate 10 mg / settimana  e steroidi a basso dosaggio ( 4 mg al die ) , ultima visita di controllo effettuata nel mese di  giugno 2021 veniva  confermato  un quadro articolare in remissione sotto MTX e basso dosaggio di steroide (Medrol 4 mg mai sospeso dal 2011). Eseguite nel 2018 le radiografie ai piedi - mani : artrosi diffusa , entesopatia achillea , piccolo sperone calcaneare sx . artrosi alle mani.
+Tentata prima sospensione di MTX a settembre 2022, poi ripreso dopo 3 mesi per ripresa delle artralgie, poi sospeso a metà 2023 per intolleranza GI. Valutata dalla mia collega Chiarini a agosto 2024 dopo 2 anni dall'ultimo controllo reumatologico: assumeva solo medrol 16 mg : 1/4 cp al die. Non artrite attiva al controllo, la sintomatologia riferita era principalmente meccanica localizzata ai piedi  e rachide cervicale, nega episodi di tumefazione articolare. Si prescrivevano ecografie articolari e si sospendeva steroide.
+
+ACCERTAMENTI PRECEDENTI :
+- Esami ( 4/1/22) : gb 17,42 * - gr 5,48 * - hb 14,7 - plt 332 - ves 5 - creatinina 0,97 - ast 16 - alt 13 - pcr 0,78 - urine nn
+- Esami ( giugno 2022 )  : gb 12,55 - gr 5,33 hb 14,3 - plt 264 - creatinina 1 - calcio 9 - ast 17 - alt 15-  fa 102 - calciuria nn - tsh 5,43 * - pth nn - vit d 20 - urine nn - elettroforesi nn
+- EE ( ottobre 2024 ) : alt 12 - pcr 0,58 - IVU - gb 11,75 - gr 5,25 - hb 14,2 - plt 291 - ves 14 - creatinina 1
+- EE 28/12/24: Hb 13.9, MCV 83, WBC 10.1, N 5.1, LY 3.7, Plt 281, VES 12, PCR non in visione, cr 1.03, GOT/GPT/GGT 18/14/19, FR e ACPA neg, ANA neg, vit D 40, HBV reflex, HCV neg, ELF di norma.
+- ECOGRAFIA MANI E PIEDI (11/2024): non segni di artrite attiva.
+
+VISITA ODIERNA:
+Peggioramento delle artralgie a livello dei piedi . Non riesce a sospendere l'Urbason che attualmente assume al dosaggio di 2 mg al die .Assenza di tumefazione articolare. Il dolore è peggiore nei movimenti, talora anche a riposo. Aveva sospeso palexia e passaggio a Targin , non tollerato . Sospeso l'alendronato su suggerimento del MMG .
+
+IN VISIONE :
+- EE ( agosto 2025 ) : emocromo nn - ves 22 - creatinina 1,16 - alt 12 - pcr 0,88 - IVU - elettroforesi nn
+
+OBBIETTIVAMENTE : non segni di artrite periferica.  Pes planus. Scrosci alle ginocchia. Non limitazione alle spalle , anche .
+
+CONCLUSIONI: Diagnosi di artrite reumatoide sieronegativa non in fase di attività.
+
+INDICAZIONI:
+- Urbason 4 mg  : 1/2  cp due giorni alla settimana , poi prova a sospendere
+- Flogorest : 1 cp al die per 10 gg
+- continua la vitamina D
+
+Controllo programmato tra 9 mesi con esami.
+Cordiali  saluti`;
+
+const _pelliconiParsed  = parseVisitText(LETTER_PELLICONI, null);
+const _pgP  = _pelliconiParsed.extracted.profilo_generale ?? {};
+const _vsP  = _pelliconiParsed.extracted.visit_sections  ?? {};
+const _thP  = _pelliconiParsed.extracted.therapies       ?? [];
+const _labP = _pelliconiParsed.extracted.lab_exams       ?? [];
+const _revP = _pelliconiParsed.extracted.lab_review_items ?? [];
+const _allLabsP = [..._labP, ..._revP];
+
+const _raccordoTextP = LETTER_PELLICONI.match(
+  /RACCORDO ANAMNESTICO\s*:([\s\S]*?)(?=\nACCERTAMENTI|\nVISITA ODIERNA|\nIN VISIONE|\nOBBIETTIVAMENTE)/
+)?.[1]?.trim() ?? "";
+const _raccordoResultP = parseRaccordoTimeline(_raccordoTextP);
+const _raccordoEventsP = _raccordoResultP?.events ?? _raccordoResultP ?? [];
+
+runTest("PELLICONI-1 · terapia_domiciliare pulita (no 'Nega allergie')", () => {
+  const td = _pgP.terapia_domiciliare ?? "";
+  assert(
+    td !== null && td.length > 0,
+    `terapia_domiciliare non deve essere null (got: ${JSON.stringify(td)})`,
+    td,
+  );
+  assert(
+    !/\b(?:nega|nessuna?)\s+allergi/i.test(td),
+    `terapia_domiciliare non deve contenere 'nega allergie' (got: '${td}')`,
+    td,
+  );
+  assert(
+    /atenololo/i.test(td) && /urbason|metilprednisolone/i.test(td),
+    `terapia_domiciliare deve contenere atenololo e urbason (got: '${td}')`,
+    td,
+  );
+});
+
+runTest("PELLICONI-2 · allergie = 'Nega allergie' estratta dal testo terapia", () => {
+  assert(
+    !!_pgP.allergie,
+    `allergie non deve essere null (got: ${JSON.stringify(_pgP.allergie)})`,
+    _pgP.allergie,
+  );
+  assert(
+    /nega|nessuna/i.test(_pgP.allergie ?? ""),
+    `allergie deve riflettere la negazione (got: '${_pgP.allergie}')`,
+    _pgP.allergie,
+  );
+});
+
+runTest("PELLICONI-3 · Urbason/Metilprednisolone presente come terapia ACTIVE", () => {
+  const urbason = _thP.find(t => /metilprednisolone|urbason/i.test(t.drug_name ?? ""));
+  assert(
+    urbason != null,
+    `Metilprednisolone deve essere nella lista terapie (trovati: ${_thP.map(t => t.drug_name).join(", ")})`,
+    _thP.map(t => ({ name: t.drug_name, status: t.status })),
+  );
+  assert(
+    urbason?.status === "active",
+    `Metilprednisolone deve essere ACTIVE (got: '${urbason?.status}')`,
+    urbason,
+  );
+});
+
+runTest("PELLICONI-4 · nessun falso therapy_stop per Medrol/Urbason nel raccordoParser", () => {
+  const falsoStop = _raccordoEventsP.find(
+    e => e.event_type === "therapy_stop" && /metilprednisolone|medrol|urbason/i.test(e.drug_name ?? ""),
+  );
+  assert(
+    falsoStop == null,
+    `Non devono esserci therapy_stop per Medrol/Urbason (trovato: ${JSON.stringify(falsoStop)})`,
+    _raccordoEventsP.map(e => ({ type: e.event_type, drug: e.drug_name })),
+  );
+});
+
+runTest("PELLICONI-5 · MTX presente come terapia discontinued con motivo 'intolleranza GI'", () => {
+  const mtx = _thP.find(t => /methotrexate/i.test(t.drug_name ?? ""));
+  assert(
+    mtx != null,
+    `Methotrexate deve essere nella lista terapie (trovati: ${_thP.map(t => t.drug_name).join(", ")})`,
+    _thP.map(t => t.drug_name),
+  );
+  assert(
+    mtx?.status !== "active",
+    `Methotrexate deve essere discontinued/historical (got: '${mtx?.status}')`,
+    mtx,
+  );
+  assert(
+    /intolleranz/i.test(mtx?.discontinuation_reason ?? ""),
+    `discontinuation_reason MTX deve contenere 'intolleranza' (got: '${mtx?.discontinuation_reason}')`,
+    mtx?.discontinuation_reason,
+  );
+});
+
+runTest("PELLICONI-6 · EE 28/12/2024 estratto con data corretta (parentesi nel testo)", () => {
+  const grp = _allLabsP.find(l => l.date === "2024-12-28");
+  assert(
+    grp != null,
+    "EE 28/12/24 deve essere estratto con date='2024-12-28'",
+    _allLabsP.map(l => l.date),
+  );
+  const items = grp?.results ?? grp?.items ?? [];
+  const keys = items.map(i => i.param_key ?? i.key ?? i.name ?? "");
+  assert(
+    keys.some(k => /^ast$|^alt$|^ggt$/i.test(k)),
+    `EE 28/12 deve contenere almeno uno tra ast/alt/ggt (estratti alta-confidenza, keys: ${keys.join(", ")})`,
+    keys,
+  );
+  assert(
+    keys.some(k => /^acpa_anti_ccp$|^ana_titolo$|^hcv$/i.test(k)),
+    `EE 28/12 deve contenere parametri autoimmuni (acpa/ana/hcv, keys: ${keys.join(", ")})`,
+    keys,
+  );
+});
+
+runTest("PELLICONI-7 · EE agosto 2025 estratto (mese italiano nel testo)", () => {
+  const grp = _allLabsP.find(l => l.date === "2025-08-01");
+  assert(
+    grp != null,
+    "EE agosto 2025 deve essere estratto con date='2025-08-01'",
+    _allLabsP.map(l => l.date),
+  );
+});
+
+runTest("PELLICONI-8 · visit_sections.anamnesi = VISITA ODIERNA (no raccordo troncato, no header duplicato)", () => {
+  const anamnesi = _vsP.anamnesi ?? "";
+  assert(
+    !anamnesi.toLowerCase().startsWith("anamnesi intervallare"),
+    `anamnesi non deve iniziare con l'header ridondante (inizio: '${anamnesi.slice(0, 60)}')`,
+    anamnesi.slice(0, 80),
+  );
+  assert(
+    !anamnesi.toLowerCase().includes("anamnesi intervallare"),
+    `anamnesi non deve contenere il testo 'ANAMNESI INTERVALLARE' al suo interno`,
+    anamnesi.slice(0, 200),
+  );
+  assert(
+    /peggioramento delle artralgie/i.test(anamnesi),
+    `anamnesi deve contenere il contenuto VISITA ODIERNA ('Peggioramento delle artralgie', inizio: '${anamnesi.slice(0, 80)}')`,
+    anamnesi.slice(0, 120),
+  );
+});
+
+runTest("PELLICONI-10 · visit_sections.raccordo completo (non troncato a 'ultima visita di controllo')", () => {
+  const raccordo = _vsP.raccordo ?? "";
+  assert(
+    /effettuata nel mese di.*giugno 2021/i.test(raccordo),
+    `raccordo deve contenere la continuazione dopo 'controllo' (inizio: '${raccordo.slice(0, 80)}')`,
+    raccordo.slice(0, 200),
+  );
+  assert(
+    /sospendeva steroide/i.test(raccordo),
+    `raccordo deve contenere la fine del testo clinico ('si sospendeva steroide')`,
+    raccordo.slice(-150),
+  );
+});
+
+runTest("PELLICONI-9 · MTX discontinuation_reason non è l'intera frase trigger PAST_AFTER_RE", () => {
+  const mtx = _thP.find(t => /methotrexate/i.test(t.drug_name ?? ""));
+  const reason = mtx?.discontinuation_reason ?? "";
+  assert(
+    !reason.startsWith("sospeso a"),
+    `discontinuation_reason non deve essere la frase trigger ('sospeso a …') ma solo il motivo (got: '${reason}')`,
+    reason,
+  );
+  assert(
+    reason.length < 40,
+    `discontinuation_reason deve essere conciso (< 40 char), got: '${reason}'`,
+    reason,
+  );
+});
+
+// ── Report finale ─────────────────────────────────────────────────────────────
+console.log(`\n${"─".repeat(60)}`);
+console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
+if (failed > 0) {
+  console.error("REGRESSIONE RILEVATA — correggere i test falliti prima del deploy.");
+  process.exit(1);
+} else {
+  console.log("Tutti i test passati.");
+  process.exit(0);
+}

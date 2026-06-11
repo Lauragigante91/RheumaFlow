@@ -1,0 +1,50 @@
+{
+  "tc_id": "TC15",
+  "events": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_text": null,
+      "date_value": null,
+      "date_year": null,
+      "date_precision": "year",
+      "reason": "mal di stomaco",
+      "confidence": 0.7,
+      "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_stop",
+      "date_text": null,
+      "date_value": null,
+      "date_year": null,
+      "date_precision": "year",
+      "reason": "mal di stomaco",
+      "confidence": 0.7,
+      "source_fragment": "Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+    },
+    {
+      "drug_canonical": "Infliximab",
+      "event_type": "therapy_stop",
+      "date_text": null,
+      "date_value": null,
+      "date_year": null,
+      "date_precision": "year",
+      "reason": "un periodo",
+      "confidence": 0.7,
+      "source_fragment": "Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+    }
+  ],
+  "metrics": {
+    "tp": 2,
+    "fp": 1,
+    "fn": 4,
+    "precision": 0.6666666666666666,
+    "recall": 0.3333333333333333,
+    "f1": 0.4444444444444444,
+    "false_drug_count": 0,
+    "reason_recall": 1.0,
+    "est_correction_s": 225
+  },
+  "dup_removed": 0
+}

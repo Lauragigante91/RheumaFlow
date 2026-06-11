@@ -1,0 +1,16 @@
+{
+  "tc_id": "TC13",
+  "events": [],
+  "metrics": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "false_drug_count": 0,
+    "reason_recall": 0.0,
+    "est_correction_s": 225
+  },
+  "dup_removed": 0
+}

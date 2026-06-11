@@ -1,0 +1,50 @@
+{
+  "tc_id": "TC02",
+  "events": [
+    {
+      "drug_canonical": "Sulfasalazina",
+      "event_type": "therapy_start",
+      "date_text": "dal 2009",
+      "date_value": "2009-01-01",
+      "date_year": 2009,
+      "date_precision": "year",
+      "reason": null,
+      "confidence": 0.9,
+      "source_fragment": "Dal 2009 Sulfasalazina 2g/die."
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_start",
+      "date_text": "dal 2013",
+      "date_value": "2013-01-01",
+      "date_year": 2013,
+      "date_precision": "year",
+      "reason": null,
+      "confidence": 0.9,
+      "source_fragment": "Dal 2013 aggiunto Adalimumab 40 mg ogni 2 settimane."
+    },
+    {
+      "drug_canonical": "Secukinumab",
+      "event_type": "dose_spacing",
+      "date_text": "Nel 2021",
+      "date_value": "2021-01-01",
+      "date_year": 2021,
+      "date_precision": "year",
+      "reason": null,
+      "confidence": 0.9,
+      "source_fragment": "Nel 2021 spacing a 10 settimane per remissione prolungata."
+    }
+  ],
+  "metrics": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 2,
+    "precision": 1.0,
+    "recall": 0.6,
+    "f1": 0.7499999999999999,
+    "false_drug_count": 1,
+    "reason_recall": 0.0,
+    "est_correction_s": 90
+  },
+  "dup_removed": 0
+}

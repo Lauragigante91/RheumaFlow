@@ -1,0 +1,43 @@
+{
+  "id": "TC15",
+  "description": "AR — raccordo vago con farmaci citati senza struttura di inizio/fine",
+  "raccordo": "La paziente ci viene riferita per AR FR+/CCP+ di lunga data. Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco. Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene. Attualmente riferisce di assumere solo Prednisone 5 mg e di stare aspettando l'appuntamento per una nuova terapia biologica. Non ricorda le date precise.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_stop",
+      "date_year": null,
+      "reason": "intolleranza gastrica"
+    },
+    {
+      "drug_canonical": "Infliximab",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Infliximab",
+      "event_type": "therapy_stop",
+      "date_year": null,
+      "reason": "intolleranza"
+    },
+    {
+      "drug_canonical": "Prednisone",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    }
+  ]
+}

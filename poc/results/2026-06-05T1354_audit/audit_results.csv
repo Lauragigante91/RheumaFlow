@@ -1,0 +1,31 @@
+tc_id,description,match_status,error_category,drug_canonical,event_type,gt_date_year,parser_date_year,gt_reason,parser_reason,source_fragment
+TC01,Stop+ripresa con date esplicite,FN,MISSING_STOP,Methotrexate,therapy_stop,2022,,intolleranza gastrica severa,,
+TC01,Stop+ripresa con date esplicite,FN,MISSING_START,Methotrexate,therapy_start,2022,,,,
+TC01,Stop+ripresa con date esplicite,FN,MISSING_STOP,Methotrexate,therapy_stop,2023,,persistente intolleranza GI,,
+TC02,Switch biologico con spacing e anafora,FN,MISSING_STOP,Adalimumab,therapy_stop,2018,,inefficacia,,
+TC03,Negazione sospensione + terapia mai interrotta,FN,MISSING_START,Micofenolato Mofetil,therapy_start,2017,,,,
+TC04,Narrativo senza date (solo sequenza temporale relativa),FN,MISSING_START,Methotrexate,therapy_start,,,,,
+TC05,Multiple sospensioni con ragioni diverse + switch,FN,MISSING_START,Methotrexate,therapy_start,2008,,,,
+TC06,AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX),TP_WITH_ERROR,DATE_MISMATCH,Leflunomide,therapy_stop,2011,2010,rash cutaneo diffuso,rash cutaneo diffuso,"Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso."
+TC06,AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX),TP_WITH_ERROR,DATE_MISMATCH,Adalimumab,therapy_stop,2015,2011,perdita di risposta secondaria,perdita di risposta secondaria,"Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria."
+TC06,AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX),TP_WITH_ERROR,DATE_MISMATCH,Rituximab,therapy_stop,2020,2015,polmonite batterica ricorrente,polmonite batterica ricorrente,"RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+TC07,SpA — raccordo con ragionamento clinico esplicitato,FN,MISSING_STOP,Certolizumab pegol,therapy_stop,2019,,progressivo peggioramento,,
+TC07,SpA — raccordo con ragionamento clinico esplicitato,FN,MISSING_START,Secukinumab,therapy_start,2019,,,,
+TC08,"LES — immunosoppressori, gravidanza, switch in corso",TP_WITH_ERROR,DATE_MISMATCH,Azatioprina,therapy_stop,2018,2015,leucopenia,leucopenia (GB 2,"Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+TC08,"LES — immunosoppressori, gravidanza, switch in corso",FN,MISSING_START,Prednisone,therapy_start,2014,,,,
+TC08,"LES — immunosoppressori, gravidanza, switch in corso",FN,MISSING_START,Micofenolato Mofetil,therapy_start,2021,,,,
+TC09,AR — formato elenco puntato (stile lettera strutturata),ALL_OK,,,,,,,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_STOP,Adalimumab,therapy_stop,2017,,perdita di risposta,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_START,Golimumab,therapy_start,2017,,,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_STOP,Golimumab,therapy_stop,2020,,inefficacia,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_START,Ixekizumab,therapy_start,2020,,,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_SPACING,Ixekizumab,dose_spacing,2024,,,,
+TC11,Vasculite ANCA — ciclofosfamide + rituximab + mantenimento,FN,MISSING_STOP,Ciclofosfamide,therapy_stop,2019,,,,
+TC12,"AR — storia lunga con 3 biologici, reason sempre presenti",FN,MISSING_START,Idrossiclorochina,therapy_start,2003,,,,
+TC12,"AR — storia lunga con 3 biologici, reason sempre presenti",FN,MISSING_STOP,Infliximab,therapy_stop,2010,,anticorpi anti-farmaco,,
+TC13,AR — biosimilare e switch brand per motivi non clinici,FN,MISSING_DOSE_CHANGE,Tofacitinib,dose_change,,,incremento transaminasi,,
+TC14,SSc — terapia vascolare e immunosoppressiva complessa,FN,MISSING_START,Nifedipina,therapy_start,2016,,,,
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,TP_WITH_ERROR,REASON_PARTIAL,Leflunomide,therapy_stop,,,intolleranza gastrica,mal di stomaco,"Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,TP_WITH_ERROR,REASON_PARTIAL,Infliximab,therapy_stop,,,intolleranza,un periodo,"Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,FN,MISSING_START,Infliximab,therapy_start,,,,,
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,FN,MISSING_START,Prednisone,therapy_start,,,,,

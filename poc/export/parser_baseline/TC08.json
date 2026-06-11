@@ -1,0 +1,28 @@
+{
+  "tc_id": "TC08",
+  "events": [
+    {
+      "drug_canonical": "Azatioprina",
+      "event_type": "therapy_stop",
+      "date_text": "nel 2015",
+      "date_value": "2015-01-01",
+      "date_year": 2015,
+      "date_precision": "year",
+      "reason": "leucopenia (GB 2",
+      "confidence": 0.9,
+      "source_fragment": "Azatioprina 100 mg/die avviata nel 2015, sospesa nel 2018 per leucopenia (GB 2.1x10³)."
+    }
+  ],
+  "metrics": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 7,
+    "precision": 1.0,
+    "recall": 0.125,
+    "f1": 0.2222222222222222,
+    "false_drug_count": 0,
+    "reason_recall": 0.5,
+    "est_correction_s": 315
+  },
+  "dup_removed": 0
+}

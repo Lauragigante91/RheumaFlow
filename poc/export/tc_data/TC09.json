@@ -1,0 +1,55 @@
+{
+  "id": "TC09",
+  "description": "AR — formato elenco puntato (stile lettera strutturata)",
+  "raccordo": "STORIA TERAPEUTICA:\n- 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia)\n- 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die\n- 2016: sospensione Leflunomide per epatotossicità, proseguita HCQ\n- 2016-2019: Etanercept 50 mg/settimana (sospeso per infezione cutanea grave)\n- 2019-oggi: Upadacitinib 15 mg/die, buon controllo",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2010,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_year": 2012,
+      "reason": "citopenia"
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_start",
+      "date_year": 2012,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Idrossiclorochina",
+      "event_type": "therapy_start",
+      "date_year": 2012,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_stop",
+      "date_year": 2016,
+      "reason": "epatotossicità"
+    },
+    {
+      "drug_canonical": "Etanercept",
+      "event_type": "therapy_start",
+      "date_year": 2016,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Etanercept",
+      "event_type": "therapy_stop",
+      "date_year": 2019,
+      "reason": "infezione cutanea grave"
+    },
+    {
+      "drug_canonical": "Upadacitinib",
+      "event_type": "therapy_start",
+      "date_year": 2019,
+      "reason": null
+    }
+  ]
+}

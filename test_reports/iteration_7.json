@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 7 (RheumaFlow rebrand + recall flag system + new dashboard KPIs) testing complete. Backend: 10/11 pytest passed in /app/backend/tests/test_iter7_recall_recent.py — all endpoints work correctly (PUT /api/patients/{id}/recall with shared/private/null/invalid; GET /api/patients-recall with admin↔second-user visibility rules; GET /api/patients-recent-mine with per-user isolation, days clamping, and enrichment fields last_assessment_at/last_index_type/last_score/assessments_in_window; regression /api/auth/me still returns is_demo). 1 test fails — it documents a real CRITICAL BUG: GET /api/patients/{id} (and GET /api/patients) strip the persisted `recall` field because Patient pydantic model has extra='ignore'. Frontend: rebrand fully verified end-to-end — login page, sidebar, HTML title, manifest.json all show 'RHEUMAFLOW' / 'RheumaFlow'. Dashboard renders all 3 new widgets (Pazienti recenti / To-do list / Da ricontrollare) correctly side-by-side; the 'TO-DO LIST' StatCard is properly renamed from 'RICHIESTE URGENTI'. End-to-end recall integration verified: a patient flagged 'private' via backend appears in the dashboard 'Da ricontrollare' widget with note ('private nota admin'), author ('Da Admin'), and date — with proper RecallBadge styling. Pazienti recenti widget correctly shows 'Delta Una · DAS28-CRP 2.5 · Oggi' (the assessment created during the test) and the 7-day window indicator.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/patients/{patient_id} (and GET /api/patients list)",
+        "issue": "Strips the persisted `recall` field on response. Root cause: the endpoint declares `response_model=Patient` and Patient(BaseModel) has model_config = ConfigDict(extra='ignore'), so even though `recall` is correctly persisted in MongoDB by PUT /api/patients/{id}/recall, FastAPI removes it from the JSON output. Impact: PatientHeader.jsx → RecallFlagControl.jsx reads `patient.recall` to display the current flag state (button color + 'Da {name}' metadata) on page reload — that view will always render 'no flag set' until the user re-clicks/re-fetches via the popover. The Dashboard widget works only because /api/patients-recall does NOT use response_model and returns the raw doc.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_recall_recent.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [
+    "FIX (HIGH): make GET /api/patients/{id} and GET /api/patients return the persisted `recall` field. Two options: (a) add `recall: Optional[Dict[str, Any]] = None` to the Patient pydantic model (cleanest, keeps response_model validation); or (b) drop response_model from get_patient/list_patients and return the raw mongo doc (matches /patients-recall pattern). Without this fix, PatientHeader RecallFlagControl will not show the current flag state on initial page render."
+  ],
+  "critical_code_review_comments": [
+    "Backend recall flag implementation (server.py:733-786) is clean: 3-state validation (private/shared/None), proper org scoping in /patients-recall query (`{'$or': [{'recall.flag':'shared'}, {'recall.flag':'private', 'recall.set_by': user['id']}]}`), and correct desc sort by recall.set_at. Verified visibility multi-user: admin's private flag is invisible to other org members, shared is visible — no leak.",
+    "/api/patients-recent-mine (server.py:789-838) correctly filters by created_by=user['id'] in the $match stage, ensuring per-user isolation. days param is clamped to [1, 365]. Enrichment fields are returned alongside the full patient doc. Limit 20 enforced.",
+    "BUG (HIGH, see backend_issues): mismatch between persistence and retrieval. The recall data is written to mongo by PUT but stripped on GET because Patient model has extra='ignore'. Either include `recall` in the model or skip response_model on the read endpoints.",
+    "Frontend rebrand is consistent: HTML title, manifest (name + short_name), Login/Register pages, Layout sidebar, sw.js CACHE_NAME — all 'RheumaFlow'/'RHEUMAFLOW'. No leftover 'CLINIMETRIA' branding visible in the active code paths exercised.",
+    "Dashboard.jsx 3-widget grid (Pazienti recenti / To-do list / Da ricontrollare) renders correctly with empty-state handling (`recallList.length === 0` branch). Verified on live admin org: all three widgets populated, RecallBadge color matches flag, 'Da {name} · {date}' meta line correct, and note text rendered in highlighted yellow box."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_recall_recent.py (new — 11 tests, 10 pass + 1 documenting the GET /patients/{id} bug)"
+  ],
+  "success_rate": {
+    "backend": "91% (10/11). The 1 failure is a real bug, not a test issue — see action_items.",
+    "frontend": "100% on the verified surface: login rebrand, sidebar, manifest, HTML title, dashboard 3-widget layout, recall widget rendering with note + author + date, StatCard rename TO-DO LIST. Recall popover UI on the patient-detail page was not exercised via Playwright in this run because /patients page selectors didn't expose patient links via my generic query, but: (a) all required data-testids are present in source (recall-flag-btn, recall-flag-popover, recall-state-{none|private|shared}, recall-note-textarea, recall-save-btn, recall-cancel-btn), and (b) end-to-end backend→frontend integration is already proven by the 'Da ricontrollare' widget rendering the previously-flagged patient with the expected metadata."
+  },
+  "test_credentials": "admin@clinimetria.it / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Module-scoped fixture `second_user_session` registers TEST_iter7_user2_<hex>@example.com via POST /api/auth/register with admin's invite_code so it joins admin's org. These users persist after the run (same pattern as demo orgs in prior iterations). Cleanup of recall flags is performed in tests and post-run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter7 test file: /app/backend/tests/test_iter7_recall_recent.py (11 cases). Re-run all iter regression: `pytest backend/tests/test_iter7_recall_recent.py backend/tests/test_iter6_refactor.py backend/tests/test_iter5_features.py backend/tests/test_refactor_regression.py backend/tests/test_pro_basdai_basfi_regression.py -v`. The single failing test `test_BUG_get_patient_strips_recall_field` will turn green once main agent fixes the Patient model (add `recall: Optional[Dict[str, Any]] = None`) or drops response_model from get_patient. The visibility test (`TestPatientsRecallVisibility::test_list_recall_returns_shared_and_my_private` and `test_second_user_private_invisible_to_admin`) is the critical one for any future change to /patients-recall — it covers org scoping + user-private isolation. For the patient-detail recall popover Playwright walk: navigate to /patients then look for `a[href*='/patients/']` ROW links inside the table (not anywhere on the page); the patient list uses table rows, the test in this iteration used too generic a selector.",
+  "rca of the issue": "Bug: GET /patients/{id} returns no `recall` field even after a successful PUT /patients/{id}/recall.\n\nReproduction:\n1) admin login → POST /api/auth/login\n2) PUT /api/patients/{id}/recall with {flag:'shared', note:'x'} → 200 OK, response.recall populated correctly\n3) GET /api/patients/{id} → response has NO `recall` key (key absent, not null)\n4) GET /api/patients-recall → DOES contain the patient with full recall sub-doc → confirms the data is persisted\n\nRoot cause: server.py:149 `class Patient(PatientBase)` has `model_config = ConfigDict(extra='ignore')` and does not declare a `recall` field. The endpoint at server.py:689 returns the raw doc through `response_model=Patient`, which silently drops unknown keys including `recall`.\n\nMitigation (fix one):\n- Option A (recommended): in server.py, add to class Patient: `recall: Optional[Dict[str, Any]] = None` (keeps validation, exposes the field).\n- Option B: change get_patient/list_patients to return the raw doc without response_model, mirroring the pattern used by /patients-recall.\n\nBlast radius: low. Patient pydantic model already has extra='ignore' so adding an Optional field is non-breaking. Frontend RecallFlagControl already handles `patient?.recall || null` so the field appearing will just start populating the popover state correctly on page reload."
+}

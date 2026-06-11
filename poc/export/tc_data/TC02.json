@@ -1,0 +1,37 @@
+{
+  "id": "TC02",
+  "description": "Switch biologico con spacing e anafora",
+  "raccordo": "Spondilite anchilosante accertata nel 2009. Dal 2009 Sulfasalazina 2g/die. Dal 2013 aggiunto Adalimumab 40 mg ogni 2 settimane. Nel 2018 perdita di efficacia primaria; sospeso per inefficacia e avviato Secukinumab 150 mg mensile. Nel 2021 spacing a 10 settimane per remissione prolungata. Nel 2022 riacutizzazione con ripresa della dose standard.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Sulfasalazina",
+      "event_type": "therapy_start",
+      "date_year": 2009,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_start",
+      "date_year": 2013,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_stop",
+      "date_year": 2018,
+      "reason": "inefficacia"
+    },
+    {
+      "drug_canonical": "Secukinumab",
+      "event_type": "therapy_start",
+      "date_year": 2018,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Secukinumab",
+      "event_type": "dose_spacing",
+      "date_year": 2021,
+      "reason": null
+    }
+  ]
+}

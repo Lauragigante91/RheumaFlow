@@ -1,0 +1,28 @@
+{
+  "tc_id": "TC09",
+  "events": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_text": null,
+      "date_value": null,
+      "date_year": null,
+      "date_precision": "year",
+      "reason": "citopenia)",
+      "confidence": 0.7,
+      "source_fragment": "STORIA TERAPEUTICA: - 2010-2012: Metotressato 10 mg/settimana (sospeso per citopenia) - 2012-2016: Leflunomide 20 mg/die + Idrossiclorochina 200 mg/die - 2016: sospensione Leflunomide per epatotossici"
+    }
+  ],
+  "metrics": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 7,
+    "precision": 1.0,
+    "recall": 0.125,
+    "f1": 0.2222222222222222,
+    "false_drug_count": 0,
+    "reason_recall": 0.3333333333333333,
+    "est_correction_s": 315
+  },
+  "dup_removed": 0
+}

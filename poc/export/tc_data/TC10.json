@@ -1,0 +1,49 @@
+{
+  "id": "TC10",
+  "description": "SpA — sospensione implicita con verbo 'passato a' e 'sostituito'",
+  "raccordo": "Artrite psoriasica con interessamento poliarticolare e assiale, diagnosi 2012. Methotrexate 15 mg/settimana dal 2012, senza beneficio sulla componente assiale. Nel 2014 iniziato Adalimumab 40 mg ogni 2 settimane; risposta inizialmente buona. Nel 2017 perdita di risposta; passato a Golimumab 50 mg mensile. Nel 2020 inefficacia Golimumab; sostituito con Ixekizumab 80 mg ogni 4 settimane. Ottima risposta cutanea e articolare. Nel 2024 spacing a ogni 8 settimane per remissione sostenuta.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2012,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_start",
+      "date_year": 2014,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_stop",
+      "date_year": 2017,
+      "reason": "perdita di risposta"
+    },
+    {
+      "drug_canonical": "Golimumab",
+      "event_type": "therapy_start",
+      "date_year": 2017,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Golimumab",
+      "event_type": "therapy_stop",
+      "date_year": 2020,
+      "reason": "inefficacia"
+    },
+    {
+      "drug_canonical": "Ixekizumab",
+      "event_type": "therapy_start",
+      "date_year": 2020,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Ixekizumab",
+      "event_type": "dose_spacing",
+      "date_year": 2024,
+      "reason": null
+    }
+  ]
+}

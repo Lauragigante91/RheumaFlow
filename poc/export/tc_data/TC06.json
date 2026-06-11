@@ -1,0 +1,61 @@
+{
+  "id": "TC06",
+  "description": "AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX)",
+  "raccordo": "AR sieropositiva FR+/CCP+ dal 2006. MTX 15 mg/sett. dal 2006, sospeso 12/2009 per ipertransaminasemia (ALT 4xULN). Leflunomide 20 mg dal 01/2010, sospesa 06/2011 per rash cutaneo diffuso. Adalimumab 40 mg ogni 2 sett. dal 07/2011, sospeso 05/2015 per perdita di risposta secondaria. RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente. Dal 2021 Baricitinib 4 mg con risposta parziale.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2006,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_year": 2009,
+      "reason": "ipertransaminasemia"
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_start",
+      "date_year": 2010,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_stop",
+      "date_year": 2011,
+      "reason": "rash cutaneo diffuso"
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_start",
+      "date_year": 2011,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Adalimumab",
+      "event_type": "therapy_stop",
+      "date_year": 2015,
+      "reason": "perdita di risposta secondaria"
+    },
+    {
+      "drug_canonical": "Rituximab",
+      "event_type": "therapy_start",
+      "date_year": 2015,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Rituximab",
+      "event_type": "therapy_stop",
+      "date_year": 2020,
+      "reason": "polmonite batterica ricorrente"
+    },
+    {
+      "drug_canonical": "Baricitinib",
+      "event_type": "therapy_start",
+      "date_year": 2021,
+      "reason": null
+    }
+  ]
+}

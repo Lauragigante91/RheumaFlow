@@ -1,0 +1,16 @@
+tc_id,description,gt_events,parser_events,tp,fp,fn,precision,recall,f1,false_drug,reason_recall,est_correction_s
+TC01,Stop+ripresa con date esplicite,5,1,1,0,3,1.0,0.25,0.4,0,0.0,135
+TC02,Switch biologico con spacing e anafora,5,3,3,0,2,1.0,0.6,0.75,1,0.0,90
+TC03,Negazione sospensione + terapia mai interrotta,4,1,1,0,3,1.0,0.25,0.4,0,0.0,135
+TC04,Narrativo senza date (solo sequenza temporale relativa),4,0,0,0,4,0.0,0.0,0.0,0,0.0,180
+TC05,Multiple sospensioni con ragioni diverse + switch,6,1,1,0,5,1.0,0.167,0.286,0,0.0,225
+TC06,AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX),9,2,2,0,7,1.0,0.222,0.364,0,0.25,315
+TC07,SpA — raccordo con ragionamento clinico esplicitato,5,1,1,0,4,1.0,0.2,0.333,0,0.5,180
+TC08,"LES — immunosoppressori, gravidanza, switch in corso",8,1,1,0,7,1.0,0.125,0.222,0,0.5,315
+TC09,AR — formato elenco puntato (stile lettera strutturata),8,1,1,0,7,1.0,0.125,0.222,0,0.333,315
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',7,0,0,0,7,0.0,0.0,0.0,0,0.0,315
+TC11,Vasculite ANCA — ciclofosfamide + rituximab + mantenimento,5,0,0,0,5,0.0,0.0,0.0,0,1.0,225
+TC12,"AR — storia lunga con 3 biologici, reason sempre presenti",7,4,4,0,3,1.0,0.571,0.727,0,0.5,135
+TC13,AR — biosimilare e switch brand per motivi non clinici,5,0,0,0,5,0.0,0.0,0.0,0,0.0,225
+TC14,SSc — terapia vascolare e immunosoppressiva complessa,7,0,0,0,7,0.0,0.0,0.0,0,0.0,315
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,6,3,2,1,4,0.667,0.333,0.444,0,1.0,225

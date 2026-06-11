@@ -1,0 +1,31 @@
+{
+  "id": "TC04",
+  "description": "Narrativo senza date (solo sequenza temporale relativa)",
+  "raccordo": "Artrite psoriasica con interessamento assiale e periferico, diagnosi posta circa tre anni fa. Inizialmente trattata con FANS e Methotrexate a basse dosi. Dopo circa un anno di terapia, aggiunto Etanercept per scarso controllo della componente assiale. Dopo sei mesi di trattamento, sospeso Etanercept per reazione cutanea al sito di iniezione. Avviato quindi Ixekizumab, ancora in corso.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Etanercept",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Etanercept",
+      "event_type": "therapy_stop",
+      "date_year": null,
+      "reason": "reazione cutanea al sito di iniezione"
+    },
+    {
+      "drug_canonical": "Ixekizumab",
+      "event_type": "therapy_start",
+      "date_year": null,
+      "reason": null
+    }
+  ]
+}

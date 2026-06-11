@@ -1,0 +1,65 @@
+modules = ["nodejs-20", "python-3.11", "web"]
+
+[agent]
+expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash /home/runner/workspace/start.sh"
+waitForPort = 5000
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 5001
+externalPort = 3002
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 23636
+externalPort = 3000
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "mkdir -p /tmp/mongodb-data && mongod --dbpath /tmp/mongodb-data --port 27017 --bind_ip 127.0.0.1 --logpath /tmp/mongodb.log --fork && cd /home/runner/workspace/backend && uvicorn server:app --host 0.0.0.0 --port 5000"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 300000
+
+[userenv]
+
+[userenv.shared]
+DB_NAME = "rheumaflow"

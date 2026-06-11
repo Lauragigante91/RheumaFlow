@@ -1,0 +1,43 @@
+{
+  "id": "TC05",
+  "description": "Multiple sospensioni con ragioni diverse + switch",
+  "raccordo": "Artrite reumatoide FR+ esordita nel 2008. Trattata inizialmente con Methotrexate 10 mg poi aumentato a 15 mg/settimana. Nel 2010 aggiunta Idrossiclorochina 200 mg. Nel 2012 sospeso MTX per tossicità epatica (ALT 3x ULN); avviato Leflunomide 20 mg. Nel 2014 sospeso LEF per scarsa tolleranza (nausea persistente). Dal 2014 monoterapia con Abatacept ev. Nel 2019 switch a formulazione sottocutanea per comodità del paziente. Ancora in corso.",
+  "ground_truth": [
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_start",
+      "date_year": 2008,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Idrossiclorochina",
+      "event_type": "therapy_start",
+      "date_year": 2010,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Methotrexate",
+      "event_type": "therapy_stop",
+      "date_year": 2012,
+      "reason": "tossicità epatica"
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_start",
+      "date_year": 2012,
+      "reason": null
+    },
+    {
+      "drug_canonical": "Leflunomide",
+      "event_type": "therapy_stop",
+      "date_year": 2014,
+      "reason": "nausea persistente"
+    },
+    {
+      "drug_canonical": "Abatacept",
+      "event_type": "therapy_start",
+      "date_year": 2014,
+      "reason": null
+    }
+  ]
+}
