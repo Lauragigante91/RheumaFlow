@@ -1475,6 +1475,35 @@ runTest("RACC-START-NOSTOPDATE-3 · guardia: start semplice senza stop resta inv
   assert(start?.confidence === "high", `start confidence high (got '${start?.confidence}')`, start);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// FASE1 — emissione eventi diagnosis + disease_status (Rule 7 / Rule 8).
+// La diagnosi senza data resta date null (nessun anno inventato); lo stato
+// "buon controllo" è ancorato e non deve scattare su "visita di controllo".
+// ════════════════════════════════════════════════════════════════════
+
+runTest("FASE1-DX-1 · 'posta diagnosi di artrite psoriasica' → diagnosis, date null", () => {
+  const list = _my2Events("Posta diagnosi di artrite psoriasica.");
+  const ev = list.find((e) => e.event_type === "diagnosis");
+  assert(ev != null, "deve esistere un evento diagnosis", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null (data ignota), got '${ev?.date_value}'`, ev);
+  assert(ev?.confidence === "low", `confidence deve essere 'low' senza data (got '${ev?.confidence}')`, ev);
+  assert(/artrite psoriasica/i.test(ev?.detail ?? ""), "detail deve conservare la frase di diagnosi", ev);
+});
+
+runTest("FASE1-STATUS-1 · 'malattia giudicata in buon controllo' → disease_status", () => {
+  const list = _my2Events("Ultimo controllo a settembre 2025, malattia giudicata in buon controllo.");
+  const ev = list.find((e) => e.event_type === "disease_status");
+  assert(ev != null, "deve esistere un evento disease_status", list.map((e) => e.event_type));
+  assert(ev?.date_value === "2025-09-01", `date_value 2025-09-01 (got '${ev?.date_value}')`, ev);
+  assert(ev?.confidence === "high", `confidence 'high' con data (got '${ev?.confidence}')`, ev);
+});
+
+runTest("FASE1-STATUS-2 · negativo: 'visita di controllo' NON genera disease_status", () => {
+  const list = _my2Events("Eseguita ultima visita di controllo a giugno 2021.");
+  const ev = list.find((e) => e.event_type === "disease_status");
+  assert(ev == null, "'visita di controllo' non deve creare un disease_status", list.map((e) => e.event_type));
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

@@ -149,6 +149,8 @@ const DAL_YEAR_EXT_SRC = String.raw`\bdal?\s+(?:(0?\d|1[012])\/|(gennaio|febbrai
 
 const REMISSION_RE = /\bremission[ei](?:\s+clinica)?\b/i;
 const FLARE_RE = /\briacutizzazion[ei]\b/i;
+const DIAGNOSIS_RE = /\bdiagnosticat[oa]\b|\bdiagnosi\s+(?:di|nel)\b|\bprima\s+diagnosi\b/i;
+const CONTROL_RE = /\bbuon\s+controllo\b|\bben\s+controllat[ao]\b|\bmalattia\s+(?:ben\s+)?controllat[ao]\b/i;
 
 const REASON_RE = /\bper\s+([^.,;:\n]{3,60})/i;
 const APPROX_RE = /\bcirca\b|\bincirca\b|\bapprossimativament\b/i;
@@ -846,6 +848,31 @@ export function parseRaccordoTimeline(text) {
         ...(date ? { ...date, date_approximate: date.date_approximate || approx } : { date_approximate: approx }),
         detail: sentence.slice(0, 100),
         confidence: date ? "medium" : "low",
+        source_text: src(sentence),
+      }));
+    }
+
+    // ── 7. Diagnosi (data spesso ignota; finestra ristretta sulla keyword) ────
+    if (DIAGNOSIS_RE.test(sentence)) {
+      const dm = DIAGNOSIS_RE.exec(sentence);
+      const date = extractDate(sentence.slice(Math.max(0, dm.index - 30), dm.index + 50));
+      events.push(makeEvent({
+        event_type: "diagnosis",
+        ...(date || {}),
+        detail: sentence.replace(/\s+/g, " ").trim().slice(0, 100),
+        confidence: date ? "medium" : "low",
+        source_text: src(sentence),
+      }));
+    }
+
+    // ── 8. Stato malattia / controllo clinico ────────────────────────────────
+    if (CONTROL_RE.test(sentence)) {
+      const date = extractDate(sentence);
+      events.push(makeEvent({
+        event_type: "disease_status",
+        ...(date || {}),
+        detail: sentence.replace(/\s+/g, " ").trim().slice(0, 100),
+        confidence: date ? "high" : "medium",
         source_text: src(sentence),
       }));
     }
