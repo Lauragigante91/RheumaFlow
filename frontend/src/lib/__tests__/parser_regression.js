@@ -1439,6 +1439,42 @@ runTest("RACC-DATE-MY2-4 · guardia: numero non-data ('25 mg') NON diventa un an
   assert(ev?.date_value == null, `date_value deve essere null (no anno inventato da '25'), got '${ev?.date_value}'`, ev);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// RACC-START-NOSTOPDATE (Patch 2) — lo start non eredita la data dello
+// stop nella stessa frase. "sospeso a <data>" appartiene allo stop.
+// ════════════════════════════════════════════════════════════════════
+
+const _my2Stop = (list, re) =>
+  (list ?? []).find(
+    (e) => e.event_type === "therapy_stop" && re.test(e.drug_canonical ?? e.drug_name ?? ""),
+  );
+
+runTest("RACC-START-NOSTOPDATE-1 · MTX 'assunto ... poi sospeso a gennaio 2022' → stop datato, start senza data", () => {
+  const list = _my2Events("Già proposta in altre sede terapia con MTX che la paziente ha assunto per circa un anno poi sospeso a gennaio 2022.");
+  const start = _my2Start(list, /methotrexate/i);
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(stop?.date_value === "2022-01-01", `therapy_stop MTX 2022-01-01 (got '${stop?.date_value}')`, stop);
+  assert(start != null, "deve esistere therapy_start MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(start?.date_value !== "2022-01-01", `start NON deve ereditare 2022-01-01 (got '${start?.date_value}')`, start);
+  assert(start?.date_value == null, `start date_value deve essere null (got '${start?.date_value}')`, start);
+  assert(start?.confidence === "medium", `start confidence medium (got '${start?.confidence}')`, start);
+});
+
+runTest("RACC-START-NOSTOPDATE-2 · guardia: 'iniziato MTX a marzo 2020, sospeso a gennaio 2022' → start marzo 2020 + stop gennaio 2022", () => {
+  const list = _my2Events("Iniziato MTX a marzo 2020, sospeso a gennaio 2022.");
+  const start = _my2Start(list, /methotrexate/i);
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(start?.date_value === "2020-03-01", `start MTX 2020-03-01 (got '${start?.date_value}')`, start);
+  assert(stop?.date_value === "2022-01-01", `stop MTX 2022-01-01 (got '${stop?.date_value}')`, stop);
+});
+
+runTest("RACC-START-NOSTOPDATE-3 · guardia: start semplice senza stop resta invariato (marzo 2020 high)", () => {
+  const list = _my2Events("Iniziato MTX a marzo 2020.");
+  const start = _my2Start(list, /methotrexate/i);
+  assert(start?.date_value === "2020-03-01", `start MTX 2020-03-01 (got '${start?.date_value}')`, start);
+  assert(start?.confidence === "high", `start confidence high (got '${start?.confidence}')`, start);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

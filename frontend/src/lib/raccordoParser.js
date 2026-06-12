@@ -207,31 +207,37 @@ function extractReason(sentence) {
 
 // ── Stop-specific date extraction (excludes "dal YEAR" which signals a START) ──
 function extractStopDate(sentence, stopPos) {
-  // Look only at text near or before the stop keyword (±60 chars)
-  const window = sentence.slice(Math.max(0, stopPos - 30), stopPos + 60);
-  let m;
+  // La data della sospensione segue la keyword ("sospeso a gennaio 2022"); solo
+  // se assente si guarda subito prima ("a luglio 2025 sospeso"). L'ordine evita
+  // che lo stop erediti la data di uno start nella stessa frase.
+  const matchIn = (window) => {
+    let m;
 
-  // Month/year compact: "(09/22)" | "09/2022"
-  m = /\(?(0?\d|1[012])\/((?:20)?\d{2})\)?/.exec(window);
-  if (m) {
-    const month = m[1].padStart(2, "0");
-    const yr = m[2].length === 2 ? `20${m[2]}` : m[2];
-    return { date_value: `${yr}-${month}-01`, date_text: m[0].replace(/[()]/g, "").trim(), date_precision: "month_year", date_approximate: false };
-  }
+    // Month/year compact: "(09/22)" | "09/2022"
+    m = /\(?(0?\d|1[012])\/((?:20)?\d{2})\)?/.exec(window);
+    if (m) {
+      const month = m[1].padStart(2, "0");
+      const yr = m[2].length === 2 ? `20${m[2]}` : m[2];
+      return { date_value: `${yr}-${month}-01`, date_text: m[0].replace(/[()]/g, "").trim(), date_precision: "month_year", date_approximate: false };
+    }
 
-  // Month name + year: "luglio 2025" — data esplicita di sospensione
-  m = new RegExp(`\\b(${MONTH_NAMES_RE_STR})\\s+((19|20)\\d{2})\\b`, "i").exec(window);
-  if (m) {
-    const month = MONTH_NAMES_MAP[m[1].toLowerCase()];
-    return { date_value: `${m[2]}-${month}-01`, date_text: m[0], date_precision: "month_year", date_approximate: false };
-  }
+    // Month name + year: "luglio 2025" — data esplicita di sospensione
+    m = new RegExp(`\\b(${MONTH_NAMES_RE_STR})\\s+((19|20)\\d{2})\\b`, "i").exec(window);
+    if (m) {
+      const month = MONTH_NAMES_MAP[m[1].toLowerCase()];
+      return { date_value: `${m[2]}-${month}-01`, date_text: m[0], date_precision: "month_year", date_approximate: false };
+    }
 
-  // "nel YEAR" / "del YEAR" — unambiguously for the stop event
-  m = /\b(?:nel|del)\s+((19|20)\d{2})\b/i.exec(window);
-  if (m) return { date_value: `${m[1]}-01-01`, date_text: m[0], date_precision: "year", date_approximate: false };
+    // "nel YEAR" / "del YEAR" — unambiguously for the stop event
+    m = /\b(?:nel|del)\s+((19|20)\d{2})\b/i.exec(window);
+    if (m) return { date_value: `${m[1]}-01-01`, date_text: m[0], date_precision: "year", date_approximate: false };
 
-  // No reliable stop date found — leave null (better than picking up a start date)
-  return null;
+    return null;
+  };
+
+  // Forward (dopo la keyword) prima, poi fallback alla finestra precedente.
+  return matchIn(sentence.slice(stopPos, stopPos + 60))
+      || matchIn(sentence.slice(Math.max(0, stopPos - 30), stopPos));
 }
 
 // ── Event builder ─────────────────────────────────────────────────────────────
@@ -538,7 +544,13 @@ export function parseRaccordoTimeline(text) {
           const wStart  = Math.max(0, verbPos - 30);
           const wEnd    = Math.min(sentence.length, verbPos + 130);
           const wDrugs  = findDrugsInText(sentence.slice(wStart, wEnd));
-          const dateCtx = sentence.slice(Math.max(0, verbPos - 60), verbPos + 80);
+          // P-DATE: lo start non eredita la data dello stop. Se dopo il verbo
+          // compare una keyword di sospensione, la finestra data si ferma lì.
+          const svStopRe = new RegExp(STOP_RE.source, "gi");
+          svStopRe.lastIndex = verbPos;
+          const svStopM = svStopRe.exec(sentence);
+          const svFwdCap = svStopM ? Math.min(verbPos + 80, svStopM.index) : verbPos + 80;
+          const dateCtx = sentence.slice(Math.max(0, verbPos - 60), svFwdCap);
           const date    = extractDate(dateCtx);
 
           // Pre-compute positions of "nonostante" in the sentence (concessive context).
