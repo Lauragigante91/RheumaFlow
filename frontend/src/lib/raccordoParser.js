@@ -69,11 +69,13 @@ function extractDate(text) {
     return { date_value: `${year}-${month}-01`, date_text: m[0].replace(/[()]/g, "").trim(), date_precision: "month_year", date_approximate: false };
   }
 
-  // Month name + year: "settembre 2022" | "dicembre 2024"
-  m = new RegExp(`\\b(${MONTH_NAMES_RE_STR})\\s+((19|20)\\d{2})\\b`, "i").exec(text);
+  // Month name + year (4 cifre o 2 cifre): "settembre 2022" | "settembre 23"
+  m = new RegExp(`\\b(${MONTH_NAMES_RE_STR})\\s+((?:19|20)?\\d{2})\\b`, "i").exec(text);
   if (m) {
     const month = MONTH_NAMES_MAP[m[1].toLowerCase()];
-    return { date_value: `${m[2]}-${month}-01`, date_text: m[0], date_precision: "month_year", date_approximate: false };
+    const rawY = m[2];
+    const year = rawY.length === 2 ? `20${rawY}` : rawY;
+    return { date_value: `${year}-${month}-01`, date_text: m[0], date_precision: "month_year", date_approximate: false };
   }
 
   // "nel 2021" | "del 2021" | "agli inizi del 2009"

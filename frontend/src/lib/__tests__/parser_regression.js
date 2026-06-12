@@ -1394,6 +1394,51 @@ runTest("ONSET-ETA-5 · negativo 'Paziente di 60 anni, esordita all'età di 10 a
   assert(!list.some((e) => /^\d{4}/.test(String(e.date_value ?? ""))), "nessun evento deve avere una data inventata (es. 2010/2016)", list.map((e) => e.date_value));
 });
 
+// ════════════════════════════════════════════════════════════════════
+// RACC-DATE-MY2 (Patch 1) — nome mese completo + anno a 2 cifre.
+// "settembre 23" → 2023-09-01 (month_year, confidence high via Rule 2b).
+// Guardia: numeri non-data (2 cifre senza mese) non diventano anni.
+// ════════════════════════════════════════════════════════════════════
+
+const _my2Events = (txt) => {
+  const r = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\n" + txt);
+  return r?.events ?? r ?? [];
+};
+const _my2Start = (list, re) =>
+  (list ?? []).find(
+    (e) => e.event_type === "therapy_start" && re.test(e.drug_canonical ?? e.drug_name ?? ""),
+  );
+
+runTest("RACC-DATE-MY2-1 · 'settembre 23' → Sulfasalazina start 2023-09-01 month_year high", () => {
+  const list = _my2Events("Iniziata SSZ a settembre 23, con miglioramento clinico.");
+  const ev = _my2Start(list, /sulfasalazina/i);
+  assert(ev != null, "deve esistere therapy_start Sulfasalazina", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(ev?.date_value === "2023-09-01", `date_value 2023-09-01 (got '${ev?.date_value}')`, ev);
+  assert(ev?.date_precision === "month_year", `date_precision month_year (got '${ev?.date_precision}')`, ev);
+  assert(ev?.confidence === "high", `confidence high (got '${ev?.confidence}')`, ev);
+});
+
+runTest("RACC-DATE-MY2-2 · 'marzo 25' → Methotrexate start 2025-03-01 month_year", () => {
+  const list = _my2Events("Iniziato MTX a marzo 25.");
+  const ev = _my2Start(list, /methotrexate/i);
+  assert(ev != null, "deve esistere therapy_start Methotrexate", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(ev?.date_value === "2025-03-01", `date_value 2025-03-01 (got '${ev?.date_value}')`, ev);
+  assert(ev?.date_precision === "month_year", `date_precision month_year (got '${ev?.date_precision}')`, ev);
+});
+
+runTest("RACC-DATE-MY2-3 · 4-cifre invariato 'settembre 2023' → 2023-09-01 (no regressione)", () => {
+  const list = _my2Events("Iniziata Sulfasalazina a settembre 2023.");
+  const ev = _my2Start(list, /sulfasalazina/i);
+  assert(ev?.date_value === "2023-09-01", `date_value 2023-09-01 (got '${ev?.date_value}')`, ev);
+});
+
+runTest("RACC-DATE-MY2-4 · guardia: numero non-data ('25 mg') NON diventa un anno", () => {
+  const list = _my2Events("Iniziato Methotrexate a 25 mg a settimane alterne.");
+  const ev = _my2Start(list, /methotrexate/i);
+  assert(ev != null, "deve esistere therapy_start Methotrexate", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(ev?.date_value == null, `date_value deve essere null (no anno inventato da '25'), got '${ev?.date_value}'`, ev);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
