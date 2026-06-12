@@ -1161,24 +1161,24 @@ export const DRUG_ALIAS_MAP = {
 
   // ── Raynaud / vasospasmo ──────────────────────────────────────────────────
   "nifedipine":         { canonical: "Nifedipina",           category: "ca_channel_blocker",   therapy_type: "cardiovascular", relevance: "low" },
-  "plendil":            { canonical: "Felodipina",           category: "other" },
-  "felodipina":         { canonical: "Felodipina",           category: "other" },
-  "felodipine":         { canonical: "Felodipina",           category: "other" },
+  "plendil":            { canonical: "Felodipina",           category: "ca_channel_blocker",   therapy_type: "cardiovascular", relevance: "low" },
+  "felodipina":         { canonical: "Felodipina",           category: "ca_channel_blocker",   therapy_type: "cardiovascular", relevance: "low" },
+  "felodipine":         { canonical: "Felodipina",           category: "ca_channel_blocker",   therapy_type: "cardiovascular", relevance: "low" },
   "nifedicor":          { canonical: "Nifedipina",           category: "ca_channel_blocker",   therapy_type: "cardiovascular", relevance: "low" },
   "lortaan":            { canonical: "Losartan",             category: "arb",                  therapy_type: "cardiovascular", relevance: "low" },
   "hyzaar":             { canonical: "Losartan",             category: "arb",                  therapy_type: "cardiovascular", relevance: "low" },
-  "fluoxetina":         { canonical: "Fluoxetina",           category: "other" },
-  "fluoxetine":         { canonical: "Fluoxetina",           category: "other" },
-  "prozac":             { canonical: "Fluoxetina",           category: "other" },
+  "fluoxetina":         { canonical: "Fluoxetina",           category: "other",                therapy_type: "supportive",     relevance: "low" },
+  "fluoxetine":         { canonical: "Fluoxetina",           category: "other",                therapy_type: "supportive",     relevance: "low" },
+  "prozac":             { canonical: "Fluoxetina",           category: "other",                therapy_type: "supportive",     relevance: "low" },
 
   // ── Analgesici / neuromodulatori ──────────────────────────────────────────
   "acetaminofene":      { canonical: "Paracetamolo",         category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
   "tachidol":           { canonical: "Tramadolo",            category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
-  "duloxetina":         { canonical: "Duloxetina",           category: "analgesic" },
-  "duloxetine":         { canonical: "Duloxetina",           category: "analgesic" },
-  "cymbalta":           { canonical: "Duloxetina",           category: "analgesic" },
-  "amitriptilina":      { canonical: "Amitriptilina",        category: "analgesic" },
-  "amitriptyline":      { canonical: "Amitriptilina",        category: "analgesic" },
+  "duloxetina":         { canonical: "Duloxetina",           category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
+  "duloxetine":         { canonical: "Duloxetina",           category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
+  "cymbalta":           { canonical: "Duloxetina",           category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
+  "amitriptilina":      { canonical: "Amitriptilina",        category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
+  "amitriptyline":      { canonical: "Amitriptilina",        category: "analgesic",            therapy_type: "supportive",     relevance: "low" },
 
   // ── Supportivo / integratori / gastroprotezione ───────────────────────────
   "acido folico":       { canonical: "Acido folico",         category: "supportive" },
