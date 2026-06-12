@@ -124,6 +124,7 @@ function extractDate(text) {
 // ── Action patterns ───────────────────────────────────────────────────────────
 const ONSET_RE = /\besordi\w*\b/i;
 const MANIFESTATION_RE = /\b(manifestazion[ei])\b/i;
+const ONSET_AGE_TRIGGER_RE = /\bin\s+et[àa]\s+(?:infantil[ei]|pediatric[ao]|neonatal[ei]|adolescenzial[ei]|giovanil[ei]|evolutiv[ao])\b/i;
 
 const STOP_RE = /\b(sospeso|sospesa|sospesi|sospese|sospension[ei]|interrott[oa]|discontinuat[oa]|cessato|cessata|smesso|smessa|fermato|fermata)\b/i;
 const PRONOUN_DRUG_RE = /\b(?:del|della)\s+(?:farmaco|terapia|biologico|bDMARD|cDMARD|biosimilare|trattamento|molecola)\b/i;
@@ -461,6 +462,18 @@ export function parseRaccordoTimeline(text) {
       }));
 
       continue; // onset sentences don't contain other events
+    }
+
+    // ── 1b. Esordio in età evolutiva senza la parola "esordi" ────────────────
+    // "in età infantile/pediatrica/..." → disease_onset, date null (no continue).
+    if (!ONSET_RE.test(sentence) && ONSET_AGE_TRIGGER_RE.test(sentence)) {
+      const detail = sentence.replace(/\s+/g, " ").trim().slice(0, 100);
+      events.push(makeEvent({
+        event_type: "disease_onset",
+        detail,
+        confidence: "medium",
+        source_text: src(sentence),
+      }));
     }
 
     // ── 2. Therapy starts via "dal YEAR/MM/MONTH" — bidirectional scan ───────

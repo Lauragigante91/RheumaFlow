@@ -1338,6 +1338,62 @@ runTest("RACC-CONT-4 · negativo 'Infliximab sospeso' → nessuna continuazione/
   assert(_contActive(list) == null, "non deve esistere therapy_continue/therapy_start per Infliximab", list.map((e) => ({ t: e.event_type, d: e.drug_canonical })));
 });
 
+// ════════════════════════════════════════════════════════════════════
+// ONSET-ETA (patch età da esordio) — l'età d'esordio NON deve diventare
+// una data anagrafica né inventare un anno. event_type disease_onset,
+// date_value null se non c'è una data assoluta, age phrase conservata.
+// ════════════════════════════════════════════════════════════════════
+
+const _onsetEvents = (txt) => {
+  const r = parseRaccordoTimeline("RACCORDO ANAMNESTICO:\n" + txt);
+  return r?.events ?? r ?? [];
+};
+const _findOnset = (list) => (list ?? []).find((e) => e.event_type === "disease_onset");
+
+runTest("ONSET-ETA-1 · 'esordita all'età di 10 anni' → disease_onset, date null, età conservata", () => {
+  const list = _onsetEvents("Malattia esordita all'età di 10 anni.");
+  const ev = _findOnset(list);
+  assert(ev != null, "deve esistere un evento disease_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null (no anno inventato), got '${ev?.date_value}'`, ev);
+  assert(/10\s*anni/i.test((ev?.detail ?? "") + " " + (ev?.date_text ?? "")), "detail/date_text deve conservare 'all'età di 10 anni'", ev);
+  assert(typeof ev?.source_text === "string" && ev.source_text.length > 0, "source_text preservato", ev?.source_text);
+});
+
+runTest("ONSET-ETA-2 · 'Esordio a 12 anni' → disease_onset, date null, età conservata", () => {
+  const list = _onsetEvents("Esordio a 12 anni.");
+  const ev = _findOnset(list);
+  assert(ev != null, "deve esistere un evento disease_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null, got '${ev?.date_value}'`, ev);
+  assert(/12\s*anni/i.test((ev?.detail ?? "") + " " + (ev?.date_text ?? "")), "detail/date_text deve conservare 'a 12 anni'", ev);
+});
+
+runTest("ONSET-ETA-3 · 'esordita in età infantile' → disease_onset, date null", () => {
+  const list = _onsetEvents("Malattia esordita in età infantile.");
+  const ev = _findOnset(list);
+  assert(ev != null, "deve esistere un evento disease_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null, got '${ev?.date_value}'`, ev);
+  assert(/et[àa]\s+infantile/i.test((ev?.detail ?? "") + " " + (ev?.date_text ?? "")), "detail/date_text deve conservare 'età infantile'", ev);
+});
+
+runTest("ONSET-ETA-4 · standalone 'In età infantile ...' senza 'esordi' → disease_onset (Rule 1b)", () => {
+  const list = _onsetEvents("In età infantile poliartrite a piccole articolazioni.");
+  const ev = _findOnset(list);
+  assert(ev != null, "lo standalone 'in età infantile' deve generare disease_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null (no anno inventato), got '${ev?.date_value}'`, ev);
+  assert(/et[àa]\s+infantile/i.test(ev?.detail ?? ""), "detail deve conservare 'età infantile'", ev);
+});
+
+runTest("ONSET-ETA-5 · negativo 'Paziente di 60 anni, esordita all'età di 10 anni' → età paziente NON diventa onset", () => {
+  const list = _onsetEvents("Paziente di 60 anni, malattia esordita all'età di 10 anni.");
+  const ev = _findOnset(list);
+  assert(ev != null, "deve esistere un evento disease_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null (no anno inventato da '60'/'10'), got '${ev?.date_value}'`, ev);
+  const blob = (ev?.detail ?? "") + " " + (ev?.date_text ?? "");
+  assert(/10\s*anni/i.test(blob), "l'età d'esordio conservata deve essere '10 anni'", ev);
+  assert(!/60/.test(blob), "l'età anagrafica (60) NON deve finire nell'onset", ev);
+  assert(!list.some((e) => /^\d{4}/.test(String(e.date_value ?? ""))), "nessun evento deve avere una data inventata (es. 2010/2016)", list.map((e) => e.date_value));
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
