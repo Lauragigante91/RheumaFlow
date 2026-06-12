@@ -1504,6 +1504,38 @@ runTest("FASE1-STATUS-2 · negativo: 'visita di controllo' NON genera disease_st
   assert(ev == null, "'visita di controllo' non deve creare un disease_status", list.map((e) => e.event_type));
 });
 
+// ════════════════════════════════════════════════════════════════════
+// FASE2 — date stagionali approssimate + manifestazione ricorrente (Rule 9).
+// "primavera 2020" → 2020-04 approssimata; senza anno non si inventa una data.
+// ════════════════════════════════════════════════════════════════════
+
+const FASE2_TARGET = "Da primavera 2020 episodi di tumefazione dolente ginocchio dx recidivanti.";
+
+runTest("FASE2-MANIF-1 · target → manifestation_onset con data approssimata 2020-04", () => {
+  const list = _my2Events(FASE2_TARGET);
+  const ev = list.find((e) => e.event_type === "manifestation_onset");
+  assert(ev != null, "deve esistere un evento manifestation_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value === "2020-04-01", `date_value 2020-04-01 (got '${ev?.date_value}')`, ev);
+  assert(ev?.date_approximate === true, `date_approximate deve essere true (got '${ev?.date_approximate}')`, ev);
+  assert(ev?.confidence === "medium", `confidence 'medium' con data approssimata (got '${ev?.confidence}')`, ev);
+});
+
+runTest("FASE2-MANIF-2 · target → detail conserva 'recidivanti' e ginocchio dx", () => {
+  const list = _my2Events(FASE2_TARGET);
+  const ev = list.find((e) => e.event_type === "manifestation_onset");
+  assert(ev != null, "deve esistere un evento manifestation_onset", list.map((e) => e.event_type));
+  assert(/recidivant/i.test(ev?.detail ?? ""), "detail deve conservare 'episodi recidivanti'", ev);
+  assert(/ginocchio/i.test(ev?.detail ?? ""), "detail deve conservare il contesto ginocchio dx", ev);
+});
+
+runTest("FASE2-SEASON-1 · 'primavera' senza anno NON inventa una data", () => {
+  const list = _my2Events("Episodi di tumefazione recidivanti comparsi in primavera.");
+  const ev = list.find((e) => e.event_type === "manifestation_onset");
+  assert(ev != null, "deve esistere un evento manifestation_onset", list.map((e) => e.event_type));
+  assert(ev?.date_value == null, `date_value deve essere null (nessun anno → nessuna data inventata), got '${ev?.date_value}'`, ev);
+  assert(ev?.confidence === "low", `confidence 'low' senza data (got '${ev?.confidence}')`, ev);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);

@@ -123,6 +123,21 @@ function extractDate(text) {
   return null;
 }
 
+// ── Seasonal approximate dates (Fase 2) — helper separato da extractDate (Patch 1)
+// "primavera/estate/autunno/inverno YYYY" → mese centrale, data approssimata.
+// Senza anno NON restituisce nulla: non si inventa mai un anno.
+const SEASON_RE = /\b(primaver[ae]|estat[ei]|autunn[oi]|invern[oi])\s+((?:19|20)\d{2})\b/i;
+function extractSeasonalDate(text) {
+  const m = SEASON_RE.exec(text);
+  if (!m) return null;
+  const w = m[1].toLowerCase();
+  const month = w.startsWith("primaver") ? "04"
+    : w.startsWith("estat") ? "07"
+    : w.startsWith("autunn") ? "10"
+    : "01";
+  return { date_value: `${m[2]}-${month}-01`, date_text: m[0], date_precision: "month_year", date_approximate: true };
+}
+
 // ── Action patterns ───────────────────────────────────────────────────────────
 const ONSET_RE = /\besordi\w*\b/i;
 const MANIFESTATION_RE = /\b(manifestazion[ei])\b/i;
@@ -151,6 +166,12 @@ const REMISSION_RE = /\bremission[ei](?:\s+clinica)?\b/i;
 const FLARE_RE = /\briacutizzazion[ei]\b/i;
 const DIAGNOSIS_RE = /\bdiagnosticat[oa]\b|\bdiagnosi\s+(?:di|nel)\b|\bprima\s+diagnosi\b/i;
 const CONTROL_RE = /\bbuon\s+controllo\b|\bben\s+controllat[ao]\b|\bmalattia\s+(?:ben\s+)?controllat[ao]\b/i;
+
+// ── Fase 2: manifestazione clinica ricorrente/recidivante ─────────────────────
+// Richiede SIA un sostantivo di episodio/flogosi SIA un qualificatore di ricorrenza,
+// per evitare falsi positivi (es. "artrite reumatoide" senza ricorrenza non scatta).
+const MANIF_NOUN_RE = /\b(?:episod[io]|tumefazion[ei]|tumefatt[oi]|gonartrit[ei]|sinovit[ei]|flogosi|artralgi[ae])\b/i;
+const RECURRENCE_RE = /\b(?:recidivant[ei]|recidiv[ae]|ricorrent[ei]|ripetut[ei])\b/i;
 
 const REASON_RE = /\bper\s+([^.,;:\n]{3,60})/i;
 const APPROX_RE = /\bcirca\b|\bincirca\b|\bapprossimativament\b/i;
@@ -873,6 +894,22 @@ export function parseRaccordoTimeline(text) {
         ...(date || {}),
         detail: sentence.replace(/\s+/g, " ").trim().slice(0, 100),
         confidence: date ? "high" : "medium",
+        source_text: src(sentence),
+      }));
+    }
+
+    // ── 9. Manifestazione clinica ricorrente/recidivante (Fase 2) ─────────────
+    // Data: stagione approssimata prima, poi date esplicite; mai inventare un anno.
+    if (MANIF_NOUN_RE.test(sentence) && RECURRENCE_RE.test(sentence)) {
+      const date = extractSeasonalDate(sentence) || extractDate(sentence);
+      const detail = sentence.replace(/\s+/g, " ").trim().slice(0, 100);
+      events.push(makeEvent({
+        event_type: "manifestation_onset",
+        ...(date || {}),
+        manifestation: detail,
+        body_system: deriveBodySystem(detail),
+        detail,
+        confidence: date ? (date.date_approximate ? "medium" : "high") : "low",
         source_text: src(sentence),
       }));
     }
