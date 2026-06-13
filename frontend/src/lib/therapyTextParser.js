@@ -32,6 +32,80 @@ const ROUTE_PATTERNS = [
 ];
 
 const DOSE_RE = /(\d+(?:[.,]\d+)?)\s*(mg|mcg|µg|g\b|UI|IU|mL?|µg|mg\/kg|mg\/m²)/i;
+const FREQ_PRN_RE = /\b(?:al\s+bisogno|se\s+necessario|secondo\s+necessit[àa]|prn)\b/i;
+
+function parseDoseQuantity(raw) {
+  const s = String(raw || "").toLowerCase().replace(",", ".").trim();
+  if (!s) return null;
+  if (s === "mezza" || s === "mezzo" || s === "½") return 0.5;
+  if (s === "¼") return 0.25;
+  const frac = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(s);
+  if (frac) {
+    const n = Number(frac[1]);
+    const d = Number(frac[2]);
+    return d ? n / d : null;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatDoseNumber(value) {
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.round(value * 1000) / 1000;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+function extractDoseAndFrequency(text) {
+  const doseM = text.match(DOSE_RE);
+  if (!doseM) {
+    const prnM = text.match(FREQ_PRN_RE);
+    if (prnM) return { dose: null, frequency: "Al bisogno" };
+    for (const [re, label] of FREQ_PATTERNS) {
+      if (re.test(text)) return { dose: null, frequency: label };
+    }
+    return { dose: null, frequency: null };
+  }
+
+  const unitDose = Number(doseM[1].replace(",", "."));
+  const unit = doseM[2];
+  let multiplier = 1;
+  const afterDose = text.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 80);
+
+  const dayPartsM = afterDose.match(/^\s*:?\s*(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\s+(?:la\s+)?mattina\s+e\s+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)?\s+(?:la\s+)?sera\b/i);
+  if (dayPartsM) {
+    multiplier *= (parseDoseQuantity(dayPartsM[1]) || 0) + (parseDoseQuantity(dayPartsM[2]) || 0);
+  } else {
+    const tabletM = afterDose.match(/^\s*:?\s*(?:(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*)?(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\b/i);
+    if (tabletM) {
+      multiplier *= parseDoseQuantity(tabletM[1] || "1") || 1;
+      const afterTablet = afterDose.slice(tabletM[0].length);
+      const timesM = afterTablet.match(/^\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)(?!\s+(?:mes[ei]|settiman[ae]|giorni|ann[oi]|gg)\b)(?:\s*(?:\/\s*)?(?:die|giorno|dì|di|day)|\s+al\s+(?:giorno|dì|di))?\b/i);
+      if (timesM) multiplier *= parseDoseQuantity(timesM[1]) || 1;
+    } else {
+      const timesM = afterDose.match(/^\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)(?!\s+(?:mes[ei]|settiman[ae]|giorni|ann[oi]|gg)\b)(?:\s*(?:\/\s*)?(?:die|giorno|dì|di|day)|\s+al\s+(?:giorno|dì|di))?\b/i);
+      if (timesM) multiplier *= parseDoseQuantity(timesM[1]) || 1;
+    }
+  }
+
+  const total = multiplier !== 1 ? formatDoseNumber(unitDose * multiplier) : null;
+  const dose = total ? `${total} ${unit}` : `${doseM[1].replace(",", ".")} ${unit}`;
+
+  let frequency = null;
+  if (/\b(?:2|due)\s+giorni\s+(?:a|alla)\s+settimana\b/i.test(text)) {
+    frequency = "2 giorni/settimana";
+  } else if (FREQ_PRN_RE.test(text)) {
+    frequency = "Al bisogno";
+  } else {
+    for (const [re, label] of FREQ_PATTERNS) {
+      if (re.test(text)) { frequency = label; break; }
+    }
+    if (!frequency && /(?:^|[\s/])(?:al\s+(?:di|dì|giorno|day)|die|dì|giorno|day|qd)(?=$|[\s,.;)])/i.test(afterDose)) {
+      frequency = "Giornaliera";
+    }
+  }
+
+  return { dose, frequency };
+}
 
 // ── Italian month abbreviations for date parsing ─────────────────────────────
 const MONTHS_IT = {
@@ -175,15 +249,8 @@ export function parseTherapyText(rawText) {
     }
   }
 
-  // 2 — dose
-  const doseM = text.match(DOSE_RE);
-  const dose  = doseM ? `${doseM[1].replace(",", ".")} ${doseM[2]}` : null;
-
-  // 3 — frequency
-  let frequency = null;
-  for (const [re, label] of FREQ_PATTERNS) {
-    if (re.test(text)) { frequency = label; break; }
-  }
+  // 2-3 — dose and frequency
+  const { dose, frequency } = extractDoseAndFrequency(text);
 
   // 4 — route
   let route = null;

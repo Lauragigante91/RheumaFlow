@@ -15,6 +15,7 @@ import { extractLabValues, extractLabValuesByDate, detectReportDate } from "../l
 import { LAB_PANELS } from "../labPanels.js";
 import { parseInstrumentalFindings } from "../instrumentalParser.js";
 import { parseRaccordoTimeline } from "../raccordoParser.js";
+import { parseTherapyText } from "../therapyTextParser.js";
 
 // ── Lettera reale (vasculite/porpora, paziente 21 anni, visita 11/05/2026) ────
 // Formato "inline header": ANAMNESI FISIOLOGICA: testo sullo stesso rigo,
@@ -1739,6 +1740,78 @@ CONCLUSIONI: stabile.`).extracted;
   assert(a.includes("discreto benessere clinico"), "anamnesi deve contenere il decorso reale", a);
   assert(!/in paziente con/i.test(a), "anamnesi NON deve contenere l'incipit/diagnosi", a);
   assert(!/alla visita odierna/i.test(a), "il marker 'Alla visita odierna' non deve restare nell'anamnesi", a);
+});
+
+runTest("THERAPY-DOSE-1 · dose totale giornaliera da mg × compresse", () => {
+  const quick = parseTherapyText("Sulfasalazina 500 mg 5 cp die");
+  assert(quick.dose === "2500 mg", `Quick parser: dose SSZ deve essere 2500 mg (got: ${quick.dose})`, quick);
+  assert(/giornaliera/i.test(quick.frequency ?? ""), `Quick parser: frequenza SSZ deve essere giornaliera (got: ${quick.frequency})`, quick);
+
+  const parsed = parseVisitText("INDICAZIONI:\n- Sulfasalazina 500 mg 5 cp die").extracted.therapies ?? [];
+  const ssz = parsed.find(t => t.drug_name === "Sulfasalazina");
+  assert(ssz?.dose === "2500 mg", `Visit parser: dose SSZ deve essere 2500 mg (got: ${ssz?.dose})`, parsed);
+  assert(ssz?.frequency === "die", `Visit parser: frequenza SSZ deve essere die (got: ${ssz?.frequency})`, ssz);
+});
+
+runTest("THERAPY-DOSE-2 · dose totale da frazioni di compressa", () => {
+  const medrol = parseVisitText("INDICAZIONI:\n- Medrol 16 mg 1/4 cp al die").extracted.therapies?.find(t => t.drug_name === "Metilprednisolone");
+  assert(medrol?.dose === "4 mg", `Medrol 16 mg 1/4 cp deve diventare 4 mg (got: ${medrol?.dose})`, medrol);
+
+  const colch = parseVisitText("INDICAZIONI:\n- Colchicina 1 mg 1/2 cp die").extracted.therapies?.find(t => t.drug_name === "Colchicina");
+  assert(colch?.dose === "0.5 mg", `Colchicina 1 mg 1/2 cp deve diventare 0.5 mg (got: ${colch?.dose})`, colch);
+});
+
+runTest("THERAPY-DOSE-3 · quantità compresse per somministrazione × volte/die", () => {
+  const parsed = parseVisitText("INDICAZIONI:\n- Salazopirina 500 mg 2 cp x 2/die").extracted.therapies ?? [];
+  const ssz = parsed.find(t => t.drug_name === "Sulfasalazina");
+  assert(ssz?.dose === "2000 mg", `Salazopirina 500 mg 2 cp x 2/die deve diventare 2000 mg (got: ${ssz?.dose})`, ssz);
+  assert(ssz?.frequency === "die", `Frequenza deve restare die (got: ${ssz?.frequency})`, ssz);
+
+  const morningEvening = parseVisitText("INDICAZIONI:\n- Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera").extracted.therapies ?? [];
+  const sszMe = morningEvening.find(t => t.drug_name === "Sulfasalazina");
+  assert(sszMe?.dose === "2000 mg", `Salazopirina 500 mg 2 cp mattina + 2 cp sera deve diventare 2000 mg (got: ${sszMe?.dose})`, sszMe);
+
+  const quickMe = parseTherapyText("Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera");
+  assert(quickMe.dose === "2000 mg", `Quick parser: mattina/sera deve diventare 2000 mg (got: ${quickMe.dose})`, quickMe);
+
+  const accented = parseVisitText("INDICAZIONI:\n- Salazopirina 1 g x 2 al dì").extracted.therapies ?? [];
+  const sszAccented = accented.find(t => t.drug_name === "Sulfasalazina");
+  assert(sszAccented?.dose === "2 g", `Salazopirina 1 g x 2 al dì deve diventare 2 g (got: ${sszAccented?.dose})`, sszAccented);
+  assert(sszAccented?.frequency === "die", `Salazopirina 1 g x 2 al dì deve avere frequenza die (got: ${sszAccented?.frequency})`, sszAccented);
+});
+
+runTest("THERAPY-DOSE-4 · frequenza al bisogno preservata anche senza dose", () => {
+  const quick = parseTherapyText("FANS al bisogno");
+  assert(quick.frequency === "Al bisogno", `Quick parser: FANS al bisogno deve preservare frequenza (got: ${quick.frequency})`, quick);
+
+  const parsed = parseVisitText("INDICAZIONI:\n- FANS al bisogno").extracted.therapies ?? [];
+  const fans = parsed.find(t => t.drug_name === "FANS");
+  assert(fans?.frequency === "al bisogno", `Visit parser: FANS al bisogno deve preservare frequenza (got: ${fans?.frequency})`, fans);
+});
+
+runTest("THERAPY-DOSE-5 · la dose non deve spillare sul farmaco successivo", () => {
+  const parsed = parseVisitText("INDICAZIONI:\n- prosegue Methotrexate - prosegue Colecalciferolo 10.000 UI 6 gocce al dì").extracted.therapies ?? [];
+  const mtx = parsed.find(t => t.drug_name === "Methotrexate");
+  assert(mtx?.dose == null, `Methotrexate senza dose non deve ereditare 10.000 UI dal farmaco successivo (got: ${mtx?.dose})`, parsed);
+});
+
+runTest("THERAPY-DOSE-6 · la preposizione 'di' non genera frequenza giornaliera (FP=0)", () => {
+  const quick = parseTherapyText("Prednisone 5 mg di mantenimento");
+  assert(quick.frequency == null, `Quick parser: 'mg di mantenimento' non deve diventare giornaliera (got: ${quick.frequency})`, quick);
+
+  const parsed = parseVisitText("INDICAZIONI:\n- Prednisone 5 mg di mantenimento").extracted.therapies ?? [];
+  const pdn = parsed.find(t => t.drug_name === "Prednisone");
+  assert(pdn != null, `Prednisone deve essere estratto (got: ${parsed.map(t => t.drug_name).join(", ")})`, parsed);
+  assert(pdn?.frequency == null, `Visit parser: 'di mantenimento' non deve generare frequenza (got: ${pdn?.frequency})`, pdn);
+});
+
+runTest("THERAPY-DOSE-7 · 'x N mesi/giorni' è durata, non moltiplica la dose (FP=0)", () => {
+  const months = parseVisitText("INDICAZIONI:\n- Sulfasalazina 1 g x 2 mesi").extracted.therapies ?? [];
+  const ssz = months.find(t => t.drug_name === "Sulfasalazina");
+  assert(ssz?.dose === "1 g", `'1 g x 2 mesi' (durata) non deve diventare 2 g (got: ${ssz?.dose})`, ssz);
+
+  const days = parseTherapyText("Sulfasalazina 500 mg 2 cp x 5 giorni");
+  assert(days.dose === "1000 mg", `'2 cp x 5 giorni' moltiplica solo per le cp (2), non per la durata (got: ${days.dose})`, days);
 });
 
 // ── Report finale ─────────────────────────────────────────────────────────────

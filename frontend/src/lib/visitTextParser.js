@@ -249,8 +249,92 @@ const FREQ_INTERVAL =
   /\bspacing\s+a\s+\d+\s+settiman[ae]\b|\bogni\s+\d+\s+(?:settiman[ae]|giorni?|mes[ei]|weeks?|months?|days?)\b|\/\s*(\d+)\s+settiman[ae]\b/i;
 const FREQ_GENERAL =
   /\b(\d+)\s*(?:volta|volte|times?)\s*(?:al\s*(?:giorno|day)|a\s*settimana|weekly)|\b(?:die|bid|tid|qid|once\s+(?:daily|weekly)|biweekly|mensile)\b|\bevery\s+\d+\s+(?:day|week)|\bogni\s+\d+\s+(?:settiman[ae]|giorni?|mes[ei]|weeks?|months?|days?)\b|\bspacing\s+a\s+\d+\s+settiman[ae]\b|\b(?:una|un['’])\s+volta\s+a\s+settimana\b|\bsettimanale\b/i;
+const FREQ_PRN_RE = /\b(?:al\s+bisogno|se\s+necessario|secondo\s+necessit[àa]|prn)\b/i;
 const ROUTE_RE =
   /(?:^|[\s,;(])(?:(?:per\s+)?(?:os|orale(?:\s+per\s+os)?|bocca)|s\.c\.?|sottocut(?:e|ane[ao])|i\.m\.?|intramuscol[oe]|e\.v\.?|endovenosa?|i\.v\.?|sublinguale?|s\.l\.?|topica?|cutane[ao]|inalatori[ao])(?=[\s,;).\n]|$)/i;
+
+function parseDoseQuantity(raw) {
+  const s = String(raw || "").toLowerCase().replace(",", ".").trim();
+  if (!s) return null;
+  if (s === "mezza" || s === "mezzo" || s === "½") return 0.5;
+  if (s === "¼") return 0.25;
+  const frac = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(s);
+  if (frac) {
+    const n = Number(frac[1]);
+    const d = Number(frac[2]);
+    return d ? n / d : null;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatDoseNumber(value) {
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.round(value * 1000) / 1000;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+function extractDoseAndFrequency(context) {
+  const weekly = context.match(FREQ_PER_WEEK);
+  if (weekly) return { dose: weekly[0].trim(), frequency: weekly[0].trim() };
+
+  const doseM = context.match(DOSE_RE);
+  let dose = null;
+  let afterDose = "";
+
+  if (doseM) {
+    const unitDose = Number(doseM[1].replace(",", "."));
+    const unit = doseM[0].match(/(mg|mcg|µg|μg|g\b|ml\b|mL\b|UI\b|IU\b)/i)?.[1] || "";
+    let multiplier = 1;
+    afterDose = context.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 80);
+
+    const dayPartsM = afterDose.match(/^\s*:?\s*(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\s+(?:la\s+)?mattina\s+e\s+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)?\s+(?:la\s+)?sera\b/i);
+    if (dayPartsM) {
+      multiplier *= (parseDoseQuantity(dayPartsM[1]) || 0) + (parseDoseQuantity(dayPartsM[2]) || 0);
+    } else {
+      const tabletM = afterDose.match(/^\s*:?\s*(?:(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*)?(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\b/i);
+      if (tabletM) {
+        multiplier *= parseDoseQuantity(tabletM[1] || "1") || 1;
+        const afterTablet = afterDose.slice(tabletM[0].length);
+        const timesM = afterTablet.match(/^\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)(?!\s+(?:mes[ei]|settiman[ae]|giorni|ann[oi]|gg)\b)(?:\s*(?:\/\s*)?(?:die|giorno|dì|di|day)|\s+al\s+(?:giorno|dì|di))?\b/i);
+        if (timesM) multiplier *= parseDoseQuantity(timesM[1]) || 1;
+      } else {
+        const timesM = afterDose.match(/^\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)(?!\s+(?:mes[ei]|settiman[ae]|giorni|ann[oi]|gg)\b)(?:\s*(?:\/\s*)?(?:die|giorno|dì|di|day)|\s+al\s+(?:giorno|dì|di))?\b/i);
+        if (timesM) multiplier *= parseDoseQuantity(timesM[1]) || 1;
+      }
+    }
+
+    const total = multiplier !== 1 ? formatDoseNumber(unitDose * multiplier) : null;
+    dose = total ? `${total} ${unit}` : doseM[0].trim();
+  }
+
+  const freqPwM = weekly;
+  const freqIntM = context.match(FREQ_INTERVAL);
+  const freqGenM = context.match(FREQ_GENERAL);
+  const dailyM = afterDose.match(/(?:^|[\s/])(?:al\s+(?:di|dì|giorno|day)|die|dì|giorno|day|qd)(?=$|[\s,.;)])/i);
+  const twoDaysWeekM = context.match(/\b(?:2|due)\s+giorni\s+(?:a|alla)\s+settimana\b/i);
+
+  let frequency = null;
+  if (twoDaysWeekM) {
+    frequency = "2 giorni/settimana";
+  } else if (/\b(?:un\s+)?(?:unico\s+)?giorno\s+(?:a|alla)\s+settimana\b/i.test(context)) {
+    frequency = "settimanale";
+  } else if (FREQ_PRN_RE.test(context)) {
+    frequency = context.match(FREQ_PRN_RE)[0].trim();
+  } else {
+    const freqM = [freqPwM, freqIntM, freqGenM]
+      .filter(Boolean)
+      .sort((a, b) => a.index - b.index)[0] ?? null;
+    frequency = freqM ? freqM[0].trim() : (dailyM ? "die" : null);
+  }
+
+  if (frequency) {
+    const slashIntM = frequency.match(/^\/\s*(\d+)\s+settiman[ae]$/i);
+    if (slashIntM) frequency = `ogni ${slashIntM[1]} settimane`;
+  }
+
+  return { dose, frequency };
+}
 
 function normalizeRoute(raw) {
   if (!raw) return null;
@@ -336,30 +420,8 @@ function extractTherapies(text, today) {
         if (nextDrugRel !== Infinity) doseScope = context.slice(0, match[0].length + nextDrugRel);
       }
 
-      const doseM  = doseScope.match(FREQ_PER_WEEK) || doseScope.match(DOSE_RE);
-      const dose   = doseM ? doseM[0].trim() : null;
-
-      const freqPwM    = doseScope.match(FREQ_PER_WEEK);
-      // Priority: specific interval patterns (ogni N settimane / spacing a N settimane)
-      // beat generic abbreviations (die/bid/tid) even when both appear in the context.
-      const freqIntM   = doseScope.match(FREQ_INTERVAL);
-      const freqGenM   = doseScope.match(FREQ_GENERAL);
-      // Prefer the match that appears EARLIEST in context (closest to drug name).
-      // Fixed-priority FREQ_PER_WEEK > FREQ_INTERVAL > FREQ_GENERAL is the tiebreaker
-      // when two patterns match at the same position, but earliest-in-context prevents
-      // spillover from the next drug's line overriding an interval pattern that appears
-      // immediately after the current drug (e.g. "40 mg/3 settimane" followed by
-      // "Metotrexato 15 mg/settimana" in the 200-char context window).
-      const freqM      = [freqPwM, freqIntM, freqGenM]
-        .filter(Boolean)
-        .sort((a, b) => a.index - b.index)[0] ?? null;
-      let frequency    = freqM ? freqM[0].trim() : null;
-      // Normalize slash-interval format: "/3 settimane" → "ogni 3 settimane"
-      // (common in Italian referti: "Adalimumab 40 mg/3 settimane")
-      if (frequency) {
-        const slashIntM = frequency.match(/^\/\s*(\d+)\s+settiman[ae]$/i);
-        if (slashIntM) frequency = `ogni ${slashIntM[1]} settimane`;
-      }
+      const { dose, frequency: _doseFreq } = extractDoseAndFrequency(doseScope);
+      let frequency = _doseFreq;
 
       // ── THERAPY-DIAG logging ──────────────────────────────────────────────
       {
@@ -370,6 +432,9 @@ function extractTherapies(text, today) {
         _T(`  DOSE_RE: ${DOSE_RE.source}`);
         const doseReTry = context.match(DOSE_RE);
         _T(`  DOSE_RE match: ${doseReTry ? "sì" : "no"}`);
+        const freqPwM    = doseScope.match(FREQ_PER_WEEK);
+        const freqIntM   = doseScope.match(FREQ_INTERVAL);
+        const freqGenM   = doseScope.match(FREQ_GENERAL);
         _T(`  FREQ_PER_WEEK match: ${freqPwM ? "sì" : "no"}`);
         _T(`  FREQ_INTERVAL match: ${freqIntM ? "sì ← PRIORITÀ ALTA" : "no"}`);
         if (freqGenM) {
