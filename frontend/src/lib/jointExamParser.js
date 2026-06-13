@@ -95,8 +95,8 @@ function expandAbbreviations(text) {
 // ── Laterality resolver ───────────────────────────────────────────────────────
 function parseSides(fragment) {
   const f = fragment.toLowerCase();
-  const hasDx = /\b(dx|ds|destra|d\.\s|dex)\b/.test(f);
-  const hasSn = /\b(sn|sinistra|sin\.?|s\.\s)\b/.test(f);
+  const hasDx = /\b(dx|ds|destr[aoie]|d\.\s|dex)\b/.test(f);
+  const hasSn = /\b(sx|sn|sinistr[aoie]|sin\.?|s\.\s)\b/.test(f);
   const hasBi = /\b(bilateralmente?|bilat\.?|bilatera\w*|entramb[ei])\b/.test(f);
   if (hasBi || (hasDx && hasSn)) return ["_r", "_l"];
   if (hasDx) return ["_r"];
@@ -174,7 +174,7 @@ function resolveJoints(segment, fallbackSides) {
 }
 
 // ── Marker regexes ────────────────────────────────────────────────────────────
-const TENDER_RE  = /\b(dolorabilità|dolente[/i]?|dolore|doloranti?|dolorosa\s+palpazione|positività\s+(?:algica|dolorosa)|FTP)\b/i;
+const TENDER_RE  = /\b(dolorabilità|dolent[ei]|dolorabil[ei]|dolore|doloranti?|dolorosa\s+palpazione|positività\s+(?:algica|dolorosa)|FTP)\b/i;
 const SWOLLEN_RE = /\b(tumefazion[ei]|tumefatt[oai]|tumefatte?|sinovite|artrit[ei]|(?:ipertrofia|versamento)\s+(?:sinoviale|articolare)?|gonfiore\s+(?:articolare)?)\b/i;
 const NEG_RE     = /\b(non\s+(?:si\s+rileva|si\s+rilevano|present[ei]|evidenz\w+)|assenz[ae]\s+di|senza\s+(?:artrit\w+|sinovit\w+|tumefazion\w+|dolorabilità)|negativo|negativa)\b/i;
 // Segni di artrosi (OA) — scrosci = crepitio articolare → artrosi, NON artrite.
@@ -265,15 +265,21 @@ export function parseJointExam(text) {
     // Carry-forward: a sub-part with status but no joints passes its status onward
     let pendingTender  = false;
     let pendingSwollen = false;
+    let pendingJoints  = null;
 
     for (const part of parts) {
-      if (NEG_RE.test(part)) { pendingTender = pendingSwollen = false; continue; }
+      if (NEG_RE.test(part)) { pendingTender = pendingSwollen = false; pendingJoints = null; continue; }
 
       const isTender  = TENDER_RE.test(part);
       const isSwollen = SWOLLEN_RE.test(part);
       const joints    = resolveJoints(part, null);
 
       if (!joints.size) {
+        if (pendingJoints && (isTender || isSwollen)) {
+          if (isTender)  markTender(pendingJoints);
+          if (isSwollen) markSwollen(pendingJoints);
+          continue;
+        }
         // No joints in this sub-part — accumulate status for next sub-part
         if (isTender)  pendingTender  = true;
         if (isSwollen) pendingSwollen = true;
@@ -296,6 +302,7 @@ export function parseJointExam(text) {
       if (effectiveTender && effectiveSwollen) { markTender(joints); markSwollen(joints); }
       else if (effectiveTender)  markTender(joints);
       else if (effectiveSwollen) markSwollen(joints);
+      else pendingJoints = joints;
     }
   }
 
