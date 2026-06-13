@@ -72,9 +72,12 @@ const SECTION_DEFS = [
   // VISITA DD/MM/YYYY captures dated visit headers (e.g. "VISITA 30/05/2026").
   // RIVALUTAZIONE and CONTROLLO require end-of-line or colon to avoid false positives
   // on sentences like "Rivalutazione clinica tra 3 mesi." that start with the word.
+  // "IN DATA ODIERNA" / "ALLA VISITA ODIERNA" introducono il blocco anamnesi
+  // intervallare quando manca un header esplicito (comune nelle lettere AUSL);
+  // il [.:]? finale consuma il punto del marker ("IN DATA ODIERNA. Discreto...").
   {
     key: "VISITA_ODIERNA",
-    re: /^(?:VISITA\s+(?:ODIERNA|AMBULATORIALE|DI\s+CONTROLLO)(?:\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})?|VISITA\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|AGGIORNAMENTO\s+CLINICO|RIVALUTAZIONE(?=\s*:|\s*$)|CONTROLLO(?=\s*:|\s*$))\b/i,
+    re: /^(?:IN\s+DATA\s+ODIERNA|ALLA\s+VISITA\s+ODIERNA|VISITA\s+(?:ODIERNA|AMBULATORIALE|DI\s+CONTROLLO)(?:\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})?|VISITA\s+\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|AGGIORNAMENTO\s+CLINICO|RIVALUTAZIONE(?=\s*:|\s*$)|CONTROLLO(?=\s*:|\s*$))\b[.:]?/i,
   },
 
   // Physical examination — all common Italian variants

@@ -1694,6 +1694,53 @@ CONCLUSIONI: quadro stabile.`).extracted;
   assert(a.includes("paziente con"), "il prefisso 'Paziente con' di un'anamnesi reale non va rimosso", ex.visit_sections?.anamnesi);
 });
 
+// ── P0-FACCHINI · "IN DATA ODIERNA" / "Alla visita odierna" come header anamnesi
+// Bug reale (PDF Facchini): senza header esplicito "ANAMNESI INTERVALLARE", il
+// blocco introdotto da "IN DATA ODIERNA." veniva unito all'incipit dal
+// normalizzatore e l'anamnesi finiva per contenere "in paziente con <diagnosi>"
+// invece del decorso reale. Fix: "IN DATA ODIERNA"/"ALLA VISITA ODIERNA"
+// riconosciuti come header VISITA_ODIERNA + block-start nel normalizzatore.
+runTest("P0-FACCHINI · 'IN DATA ODIERNA' su riga separata → anamnesi = decorso reale", () => {
+  const ex = parseVisitText(`Gentile Collega,
+Visita ambulatoriale di controllo in paziente con monoartrite sieronegativa di ginocchio di verosimile natura psoriasica.
+
+IN DATA ODIERNA. Discreto benessere. Riferisce un unico episodio di tumefazione indolente. Non episodi infettivi intercorrenti. Mai necessita di assumere FANS.
+
+ESAME OBIETTIVO: articolarita conservata, non sinovite clinicamente apprezzabile.
+
+IN VISIONE: ecografia ginocchio dx: minimo versamento.
+
+CONCLUSIONI: quadro clinico stabile.`).extracted;
+  const a = (ex.visit_sections?.anamnesi ?? "");
+  assert(a.includes("Discreto benessere"), "anamnesi deve contenere il decorso reale", a);
+  assert(a.includes("Mai necessita di assumere FANS"), "anamnesi deve arrivare a fine blocco", a);
+  assert(!/in paziente con/i.test(a), "anamnesi NON deve contenere l'incipit/diagnosi", a);
+  assert(!/in data odierna/i.test(a), "il marker 'IN DATA ODIERNA' non deve restare nell'anamnesi", a);
+});
+
+runTest("P0-FACCHINI · 'IN DATA ODIERNA' dopo MOTIVO inline (no riga vuota)", () => {
+  const ex = parseVisitText(`MOTIVO DELLA VISITA: visita ambulatoriale di controllo in paziente con monoartrite sieronegativa psoriasica.
+IN DATA ODIERNA. Discreto benessere. Mai necessita di assumere FANS.
+ESAME OBIETTIVO: articolarita conservata.
+CONCLUSIONI: quadro clinico stabile.`).extracted;
+  const a = (ex.visit_sections?.anamnesi ?? "");
+  assert(a.includes("Discreto benessere"), "anamnesi deve contenere il decorso reale", a);
+  assert(!/in paziente con/i.test(a), "anamnesi NON deve contenere l'incipit/diagnosi", a);
+  assert(!/in data odierna/i.test(a), "il marker 'IN DATA ODIERNA' non deve restare nell'anamnesi", a);
+});
+
+runTest("P0-FACCHINI · 'Alla visita odierna' inline → header anamnesi", () => {
+  const ex = parseVisitText(`Gentile Collega,
+Visita di controllo in paziente con artrite psoriasica.
+Alla visita odierna riferisce discreto benessere clinico. Non artralgie infiammatorie. Mai necessita di assumere FANS.
+ESAME OBIETTIVO: nella norma.
+CONCLUSIONI: stabile.`).extracted;
+  const a = (ex.visit_sections?.anamnesi ?? "");
+  assert(a.includes("discreto benessere clinico"), "anamnesi deve contenere il decorso reale", a);
+  assert(!/in paziente con/i.test(a), "anamnesi NON deve contenere l'incipit/diagnosi", a);
+  assert(!/alla visita odierna/i.test(a), "il marker 'Alla visita odierna' non deve restare nell'anamnesi", a);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
