@@ -1,0 +1,21 @@
+tc_id,description,match_status,error_category,drug_canonical,event_type,gt_date_year,parser_date_year,gt_reason,parser_reason,source_fragment
+TC01,Stop+ripresa con date esplicite,ALL_OK,,,,,,,,
+TC02,Switch biologico con spacing e anafora,FN,MISSING_STOP,Adalimumab,therapy_stop,2018,,inefficacia,,
+TC03,Negazione sospensione + terapia mai interrotta,FN,MISSING_START,Micofenolato Mofetil,therapy_start,2017,,,,
+TC04,Narrativo senza date (solo sequenza temporale relativa),ALL_OK,,,,,,,,
+TC05,Multiple sospensioni con ragioni diverse + switch,ALL_OK,,,,,,,,
+TC06,AR — stile abbreviato da reumatologo esperto (MTX/ADA/RTX),TP_WITH_ERROR,DATE_MISMATCH,Rituximab,therapy_stop,2020,2015,polmonite batterica ricorrente,polmonite batterica ricorrente,"RTX 1g x2 infusioni dal 06/2015, sospeso 2020 per polmonite batterica ricorrente."
+TC07,SpA — raccordo con ragionamento clinico esplicitato,TP_WITH_ERROR,REASON_MISSING,Certolizumab pegol,therapy_stop,2019,2019,progressivo peggioramento,,Nel 2019 switch a Secukinumab 150 mg mensile con risposta eccellente.
+TC08,"LES — immunosoppressori, gravidanza, switch in corso",FN,MISSING_START,Prednisone,therapy_start,2014,,,,
+TC09,AR — formato elenco puntato (stile lettera strutturata),ALL_OK,,,,,,,,
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',TP_WITH_ERROR,REASON_MISSING,Adalimumab,therapy_stop,2017,2017,perdita di risposta,,passato a Golimumab 50 mg mensile.
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',TP_WITH_ERROR,REASON_MISSING,Golimumab,therapy_stop,2020,2020,inefficacia,,sostituito con Ixekizumab 80 mg ogni 4 settimane.
+TC10,SpA — sospensione implicita con verbo 'passato a' e 'sostituito',FN,MISSING_SPACING,Ixekizumab,dose_spacing,2024,,,,
+TC11,Vasculite ANCA — ciclofosfamide + rituximab + mantenimento,ALL_OK,,,,,,,,
+TC12,"AR — storia lunga con 3 biologici, reason sempre presenti",FN,MISSING_START,Idrossiclorochina,therapy_start,2003,,,,
+TC13,AR — biosimilare e switch brand per motivi non clinici,FN,MISSING_DOSE_CHANGE,Tofacitinib,dose_change,,,incremento transaminasi,,
+TC14,SSc — terapia vascolare e immunosoppressiva complessa,FN,MISSING_START,Nifedipina,therapy_start,2016,,,,
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,TP_WITH_ERROR,REASON_PARTIAL,Leflunomide,therapy_stop,,,intolleranza gastrica,mal di stomaco,"Dall'anamnesi emerge che negli ultimi 15 anni ha assunto vari farmaci: inizialmente Methotrexate, poi aggiunta di Leflunomide che ha poi smesso per mal di stomaco."
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,TP_WITH_ERROR,REASON_MISSING,Infliximab,therapy_stop,,,intolleranza,,"Ha fatto anche la 'flebo' di Infliximab per un periodo, sospesa perché non la tollerava bene."
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,FN,MISSING_START,Infliximab,therapy_start,,,,,
+TC15,AR — raccordo vago con farmaci citati senza struttura di inizio/fine,FN,MISSING_START,Prednisone,therapy_start,,,,,
