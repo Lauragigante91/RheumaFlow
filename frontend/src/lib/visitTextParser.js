@@ -602,21 +602,30 @@ function applyNarrativeDiscontinuations(therapies, narrativeText, rheuCategories
 }
 
 // ── 5. Info paziente ──────────────────────────────────────────────────────────
-function extractPatientInfo(text) {
+function extractPatientInfo(text, diagScope) {
   const info = {};
 
-  // Diagnosi: cerca esplicitamente "diagnosi: X" oppure estrae dalla frase di apertura
-  const diagExplicit = text.match(/(?:diagnosi|diag\.?|Dx)\s*[:\-]\s*([^\n.;]{5,120})/i);
+  // Diagnosi ristretta alle sezioni cliniche (diagScope): evita di catturare
+  // testo di esame obiettivo o referti strumentali (es. ecografia "ginocchio dx: ...").
+  // Demografica (sesso/eta/peso) usa sempre il testo intero.
+  const dScope = diagScope || text;
+
+  // Esplicita "diagnosi:/diag.: X". Rimosso l'alias "Dx" che con flag i collideva
+  // con "dx" (destro); "diag." richiede il punto per evitare match spuri.
+  const diagExplicit = dScope.match(/\b(?:diagnosi|diag\.)\s*[:\-]\s*([^\n.;]{5,120})/i);
   if (diagExplicit) {
     info.diagnosi = diagExplicit[1].trim().replace(/,\s*$/, "");
   } else {
-    // Prima frase: "Paziente ... affetto/a da X" o "paziente con diagnosi di X"
-    const firstSentence = text.slice(0, 400);
-    const openingM = firstSentence.match(
-      /(?:affett[oa]\s+da|con\s+diagnosi\s+di|diagnosi[:\s]+)\s*([^\n.;,]{5,120})/i
+    // Frase di apertura: "affetto/a da X", "con diagnosi di X", "diagnosi: X"
+    // oppure incipit motivo-visita esplicito "visita/(di) controllo ... in paziente
+    // con/affetto da X" (il qualificatore di visita evita di scambiare un sintomo
+    // generico "paziente con dolore..." per diagnosi).
+    const openingScope = dScope.slice(0, 800);
+    const openingM = openingScope.match(
+      /(?:affett[oa]\s+da|con\s+diagnosi\s+di|diagnosi[:\s]+|(?:di\s+)?(?:visita|controllo|ambulatoriale|rivalutazione|follow[\s-]?up)\b[^.\n]*?\bin\s+paziente\s+(?:con|affett[oa]\s+da)\s+)\s*([^\n.;,]{5,120})/i
     );
     if (openingM) {
-      // Tronca dopo "e psoriasi" o "in terapia" per non includere la terapia
+      // Tronca dopo "in terapia"/"per cui" per non includere la terapia
       let diag = openingM[1].trim();
       diag = diag.replace(/\s+(?:in\s+terapia|follow.up|per\s+cui|che\s+|dal\s+\d).*/i, "").trim();
       diag = diag.replace(/,\s*$/, "");
@@ -1153,6 +1162,28 @@ function cleanPreamble(preamble) {
 }
 
 /**
+ * stripVisitIncipit(s) → string
+ *
+ * Rimuove l'incipit boilerplate del motivo-visita che ripete la diagnosi
+ * ("(visita) di controllo in paziente con <diagnosi>.") dall'inizio di un
+ * blocco di anamnesi, preservando l'anamnesi intervallare reale che segue
+ * ("Discreto benessere. ..."). Per sicurezza (FP=0) lo strip scatta SOLO se
+ * la frase inizia con un qualificatore di visita (visita/controllo/...) seguito
+ * da "in paziente con/affetto da": così un'anamnesi reale che inizia con
+ * "Paziente con discreto benessere..." non viene mai tagliata. La diagnosi
+ * viene estratta a parte da extractPatientInfo, qui va solo tolta dall'interval_history.
+ */
+function stripVisitIncipit(s) {
+  if (!s) return s;
+  return s
+    .replace(
+      /^\s*(?:di\s+)?(?:visita|controllo|ambulatoriale|rivalutazione|follow[\s-]?up)\b[^.\n]*?\bin\s+paziente\s+(?:con|affett[oa]\s+da)\b[^.\n]*[.\n]?\s*/i,
+      ""
+    )
+    .trim();
+}
+
+/**
  * computeParseReview(S, raccordoText, visitSections) → object | null
  *
  * Detects clinically significant parser ambiguities and returns a
@@ -1578,9 +1609,9 @@ export function parseVisitText(text) {
         .trim() || null
     : null;
   const _anamnesisText = [
-    _ivMV.cleaned ?? S.MOTIVO_VISITA,
+    stripVisitIncipit(_ivMV.cleaned ?? S.MOTIVO_VISITA),
     _ivAI.cleaned ?? _cleanAI,
-    _ivVO.cleaned ?? S.VISITA_ODIERNA,
+    stripVisitIncipit(_ivVO.cleaned ?? S.VISITA_ODIERNA),
   ].filter(Boolean).join("\n\n") || null;
   const vsScope = [
     raccordoText    ? `RACCORDO ANAMNESTICO\n${raccordoText}`       : null,
@@ -1591,7 +1622,8 @@ export function parseVisitText(text) {
   ].filter(Boolean).join("\n\n");
   const visit_sections = extractVisitSections(vsScope || text);
 
-  const patient = extractPatientInfo(text);
+  const diagScope = join("MOTIVO_VISITA", "CONCLUSIONI", "RACCORDO", "ANAMNESI_INTERVALLARE", "VISITA_ODIERNA", "PREAMBLE") || text;
+  const patient = extractPatientInfo(text, diagScope);
   const summary = buildSummary({ clinItems, labItems, therapies, comorbidita, intolleranze });
 
   const _parse_review = computeParseReview(S, raccordoText, visit_sections, _therapyConflicts);

@@ -1613,6 +1613,87 @@ runTest("RACC-SPACING-OGNI-2 · guardia: 'spacing a 10 settimane' (senza 'ogni')
   assert(/10\s+settiman/i.test(spacing?.detail ?? ""), `detail deve contenere '10 settimane' (got '${spacing?.detail}')`, spacing);
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P0 — Lettera di controllo "incipit motivo-visita" (sintetica, anonimizzata).
+// Riproduce due bug osservati in produzione:
+//   P0-DIAGNOSI: la diagnosi veniva presa da "Ecografia ginocchio dx: ..." perché
+//     l'alias "Dx" (flag i) collideva con "dx" (destro) e la ricerca usava il
+//     testo intero (incluso il referto strumentale).
+//   P0-ANAMNESI: l'incipit "in paziente con <diagnosi>" finiva nell'anamnesi
+//     intervallare, sporcando l'interval_history con la ripetizione della diagnosi.
+// ─────────────────────────────────────────────────────────────────────────────
+const LETTER_INCIPIT_P0 = `MOTIVO DELLA VISITA: visita di controllo in paziente con monoartrite sieronegativa di ginocchio di verosimile natura psoriasica.
+
+ANAMNESI INTERVALLARE: Discreto benessere. Unico episodio di tumefazione indolente al ginocchio destro a settembre, risoltosi spontaneamente. Non ulteriori episodi nè artralgie infiammatorie. Mai necessità di assumere FANS.
+
+ESAME OBIETTIVO: articolarità conservata, non sinovite clinicamente apprezzabile.
+
+Ecografia ginocchio dx: minimo versamento a sede sfondato sottoquadricipitale con lieve ispessimento sinoviale.
+
+CONCLUSIONI: quadro clinico stabile, prosegue follow-up.`;
+
+const _p0 = parseVisitText(LETTER_INCIPIT_P0).extracted;
+const _p0diag = (_p0.patient?.diagnosi ?? "").toLowerCase();
+const _p0anam = (_p0.visit_sections?.anamnesi ?? "").toLowerCase();
+
+runTest("P0-DIAGNOSI · la diagnosi NON viene presa dal referto ecografico ('ginocchio dx: ...')", () => {
+  assert(
+    !_p0diag.includes("versamento") && !_p0diag.includes("sottoquadricipitale"),
+    "diagnosi non deve contenere testo dell'ecografia (versamento/sottoquadricipitale)",
+    _p0.patient?.diagnosi,
+  );
+  assert(
+    _p0diag.includes("psoriasica") || _p0diag.includes("monoartrite"),
+    "diagnosi deve provenire dall'incipit clinico (monoartrite ... natura psoriasica)",
+    _p0.patient?.diagnosi,
+  );
+});
+
+runTest("P0-ANAMNESI · l'incipit motivo-visita NON inquina l'anamnesi intervallare", () => {
+  assert(
+    _p0anam.includes("discreto benessere"),
+    "interval_history deve conservare l'anamnesi reale ('Discreto benessere ...')",
+    _p0.visit_sections?.anamnesi,
+  );
+  assert(
+    !_p0anam.includes("in paziente con") && !_p0anam.includes("natura psoriasica"),
+    "interval_history non deve contenere l'incipit/diagnosi ripetuta",
+    _p0.visit_sections?.anamnesi,
+  );
+  assert(
+    !_p0anam.includes("versamento") && !_p0anam.includes("sottoquadricipitale"),
+    "interval_history non deve contenere testo dell'ecografia",
+    _p0.visit_sections?.anamnesi,
+  );
+});
+
+// Guardie anti-falso-positivo (FP=0): le due fix non devono né inventare una
+// diagnosi da un sintomo generico, né tagliare un'anamnesi reale che inizia con
+// "Paziente con ...".
+runTest("P0-DIAGNOSI-GUARD · sintomo nudo 'paziente con dolore' NON diventa diagnosi", () => {
+  const ex = parseVisitText(`MOTIVO DELLA VISITA: paziente con dolore al ginocchio destro da una settimana.
+
+ESAME OBIETTIVO: dolenzia alla palpazione, non sinovite.
+
+Ecografia ginocchio dx: minimo versamento.
+
+CONCLUSIONI: si consiglia riposo.`).extracted;
+  const d = (ex.patient?.diagnosi ?? "").toLowerCase();
+  assert(!d.includes("dolore"), `diagnosi non deve catturare il sintomo (got '${ex.patient?.diagnosi}')`, ex.patient?.diagnosi);
+  assert(!d.includes("versamento"), `diagnosi non deve catturare l'ecografia (got '${ex.patient?.diagnosi}')`, ex.patient?.diagnosi);
+});
+
+runTest("P0-ANAMNESI-GUARD · anamnesi reale che inizia con 'Paziente con' NON viene tagliata", () => {
+  const ex = parseVisitText(`MOTIVO DELLA VISITA: controllo periodico.
+
+ANAMNESI INTERVALLARE: Paziente con discreto benessere clinico. Nessun nuovo sintomo articolare nell'intervallo.
+
+CONCLUSIONI: quadro stabile.`).extracted;
+  const a = (ex.visit_sections?.anamnesi ?? "").toLowerCase();
+  assert(a.includes("discreto benessere clinico"), "interval_history deve conservare l'anamnesi reale", ex.visit_sections?.anamnesi);
+  assert(a.includes("paziente con"), "il prefisso 'Paziente con' di un'anamnesi reale non va rimosso", ex.visit_sections?.anamnesi);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
