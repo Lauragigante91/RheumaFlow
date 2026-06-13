@@ -252,8 +252,15 @@ runTest("MAP-13 · Therapy — Methotrexate sospeso riconosciuto con motivo", ()
   }
 });
 
-runTest("MAP-14 · Therapy continuity — payload ridotto senza discontinuation_reason", () => {
-  const t = { drug_name: "Methotrexate", category: "dmard_cs", dose: "10 mg", start_date: null };
+runTest("MAP-14 · Therapy continuity — preserva posologia senza discontinuation_reason", () => {
+  const t = {
+    drug_name: "Methotrexate",
+    category: "dmard_cs",
+    dose: "10 mg",
+    frequency: "settimanale",
+    route: "sc",
+    start_date: null,
+  };
   const today = "2026-06-04";
   const payload = buildTherapyContinuityPayload(t, PATIENT_ID, "visit-id", today);
 
@@ -263,8 +270,39 @@ runTest("MAP-14 · Therapy continuity — payload ridotto senza discontinuation_
     "drug_name passato correttamente", payload.drug_name);
   assert(!("discontinuation_reason" in payload),
     "discontinuation_reason NON deve essere nel payload di continuità");
-  assert(!("frequency" in payload),
-    "frequency NON deve essere nel payload di continuità");
+  assert(payload.frequency === "settimanale",
+    "frequency deve essere preservata nel payload di continuità", payload.frequency);
+  assert(payload.route === "sc",
+    "route deve essere preservata nel payload di continuità", payload.route);
+});
+
+runTest("MAP-14b · Therapy continuity — draft corregge frequency sporca preesistente", () => {
+  const dirtyActiveRecord = {
+    drug_name: "Sulfasalazina",
+    dose: "2000 mg",
+    frequency: "al bisogno",
+    status: "active",
+  };
+  const draft = {
+    ...dirtyActiveRecord,
+    category: "dmard_cs",
+    frequency: "die",
+    route: null,
+    start_date: null,
+  };
+  const today = "2026-06-04";
+  const payload = buildTherapyContinuityPayload(draft, PATIENT_ID, "visit-id", today);
+
+  assert(payload.drug_name === "Sulfasalazina",
+    "drug_name passato correttamente", payload.drug_name);
+  assert(payload.dose === "2000 mg",
+    "dose complessiva giornaliera preservata", payload.dose);
+  assert(payload.frequency === "die",
+    "frequency del draft deve sovrascrivere la frequency sporca preesistente", payload.frequency);
+  assert(payload.route === null,
+    "route assente resta null", payload.route);
+  assert(!("discontinuation_reason" in payload),
+    "discontinuation_reason NON deve essere nel payload di continuità");
 });
 
 // ── GRUPPO 3: Assessment payload ─────────────────────────────────────────────
