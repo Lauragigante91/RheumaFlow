@@ -218,7 +218,7 @@ function splitSentences(text) {
 // options, and administrative blocks. Keep only candidate clinical narrative
 // sections when recognizable headings exist; synthetic/plain snippets are left
 // untouched so regression fixtures still exercise the parser directly.
-const CLINICAL_SCOPE_START_RE = /^(?:RACCORDO\s+ANAMNESTICO|ANAMNESI\s+INTERVALLARE|VISITA\s+ODIERNA|CONCLUSIONI(?:\s*\/\s*DIAGNOSI)?|IN\s+TERAPIA|TERAPIE\s+IN\s+ATTO|TERAPIA\s+DOMICILIARE)\b/i;
+const CLINICAL_SCOPE_START_RE = /^(?:RACCORDO\s+ANAMNESTICO|ANAMNESI\s+INTERVALLARE|VISITA\s+ODIERNA|CONCLUSIONI(?:\s*\/\s*DIAGNOSI)?|IN\s+TERAPIA|TERAPIE\s+IN\s+ATTO|TERAPIA\s+DOMICILIARE|STORIA\s+TERAPEUTICA|TERAPIE\s+PREGRESSE|DECORSO\s+CLINICO)\b/i;
 const CLINICAL_SCOPE_STOP_RE = /^(?:ACCERTAMENTI|ACCERTAMENTI\s+PREGRESSI|ESAMI(?:\s|$)|ESAME\s+OBIETTIVO|HO\s+RICHIESTO|NB\b|NOTA\b)/i;
 const CLINICAL_SCOPE_SKIP_RE = /^(?:PRESTAZIONE:|S\.S\.N\.|[0-9.]+\s+\d\^\s+VISITA|REGIME\s+DI\s+EROGAZIONE|DATA\s+E\s+ORA|STRUTTURA\b|STRUTTURA\s+COMPLESSA|AD\s+INDIRIZZO|DIPARTIMENTO|MEDICO$|COMPLESSA\s+DI|MEDICINA\s+INTERNA|INDIRIZZO$|REUMATOLOGICO$|DIRETTORE\b|DR\.?|DR\.SA|EQUIPE\s+MEDICA|MEDICI\s+SPECIALISTI|ASSOCIATI:|EMAIL\s+PER|@|SEGRETERIA:|PRENOTAZIONE|TERAPIA\s+E\s+MEDICAZIONI|ECOGRAFIA|CAPILLAROSCOPIA|OSTEOPOROSI|METABOLISMO|FOSFO-CALCICO|MALATTIE\s+RARE|TERAPIE\s+BIOTECNOLOGICHE|CONNETTIVITI|VASCULITI|PAGINA\s+\d+)/i;
 
@@ -268,7 +268,7 @@ function isExcludedTimelineSentence(sentence) {
     /\b(?:vaccinazion[ei]|vaccino|virus vivi|antinfluenzale|anti-pneumococcica|sars-cov2|shingrix)\b/.test(s) ||
     /\b(?:da valutare tra|andra'? avviat[ao]|andrà avviat[ao]|in programma|secondo necessita|potra' trattare|potrà trattare)\b/.test(s) ||
     /\bvalutare\s+se\b/.test(s) ||
-    /\b(?:non\s+)?ripresa\s+di\s+(?:lesioni|sintomatologia|artralgie|dolore|gonalgia)\b/.test(s) ||
+    /\b(?:non\s+)?ripresa\s+di\s+(?:malattia|attivita|attività|artrite|uveite|sintomi|lesioni|sintomatologia|artralgie|dolore|gonalgia)\b/.test(s) ||
     /\brisolt[aoe]?\b.{0,80}\bdopo\s+sospensione\s+del\s+farmaco\b/.test(s) ||
     /^sospensione\s+del\s+farmaco\.?$/.test(s.trim()) ||
     /\b(?:sospensione|ripresa|reintroduzione|reintrodotti|reintrodurre)\s+(?:preventiva|precauzionale|della\s+terapia\s+immunosoppressiva|dei\s+farmaci|entrambi\s+i\s+farmaci)\b/.test(s)
@@ -748,7 +748,7 @@ export function parseRaccordoTimeline(text) {
         const stopDate = parseMonthYearToken(rangeM[2]);
         const rangePos = rangeM.index;
         const beforeRangeDrugs = drugs.filter(d => d.pos < rangePos && !ANCILLARY_CANONICALS.has(d.canonical));
-        const stoppedDrug = beforeRangeDrugs[0] || drugs.find(d => !ANCILLARY_CANONICALS.has(d.canonical));
+        const stoppedDrug = beforeRangeDrugs.length === 1 ? beforeRangeDrugs[0] : null;
         if (stopDate && stoppedDrug) {
           events.push(makeEvent({
             event_type: "therapy_stop",
