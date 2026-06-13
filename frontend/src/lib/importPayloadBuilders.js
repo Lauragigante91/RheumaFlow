@@ -64,6 +64,8 @@ export function buildTherapyContinuityPayload(t, patientId, importedVisitId, tod
     drug_name:  t.drug_name,
     category:   t.category || "other",
     dose:       t.dose || null,
+    frequency:  t.frequency || null,
+    route:      t.route || null,
     start_date: t.start_date || today,
     status:     "active",
     visit_id:   importedVisitId || null,
