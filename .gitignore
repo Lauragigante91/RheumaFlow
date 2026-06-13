@@ -85,6 +85,9 @@ backup/
 # PHI / patient documents and uploaded assets — NEVER track in git
 attached_assets/
 
+# POC audit outputs (generated, regenerable) — NEVER track in git
+poc/results/
+
 # Archive files and large assets
 **/*.zip
 **/*.tar.gz
