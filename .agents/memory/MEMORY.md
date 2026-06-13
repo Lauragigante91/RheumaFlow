@@ -71,4 +71,5 @@
 - [Hb svuotata da emoglobina urinaria](lab-hb-emoglobina-urine-collision.md) — emoglobina urinaria qualitativa pre-empta la key hb numerica; stessa collisione su wbc (leucociti negativi).
 - [Biologic abbrev case-sensitive](biologic-abbrev-case-sensitive.md) — codici biologici UPPERCASE (ETN/ADA/SEC…) richiedono caseSensitive+\b o collidono con parole IT minuscole (sec/ada/ris).
 - [Parser corpus validation gaps](parser-corpus-validation-gaps.md) — before/after node-bundle diff harness; gaps: esordito-età, "ab" PRN, narrative-only loses active+timeline, single-line, dose-bleed.
+- [Raccordo P0 scope/alias FP-watch](raccordo-p0-scope-patch.md) — extractClinicalScope drops text outside recognized headings (FN risk on unlisted PDF headings); anaphora_restart + bounded_course_range are new FP-watch surfaces.
 - [raccordo Fase 1+2 events](raccordo-fase1-events.md) — append-only rules (diagnosis/disease_status/manifestation); seasonal date helper must run before extractDate (else bare-year invented); manifestation needs noun+recurrence gate; undated same-type events collide on dedup key.

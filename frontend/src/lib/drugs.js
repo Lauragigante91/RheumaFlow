@@ -911,6 +911,7 @@ export const DRUG_ALIAS_MAP = {
 
   // ── Glucocorticoids ───────────────────────────────────────────────────────
   "prednisone":         { canonical: "Prednisone",           category: "glucocorticoid" },
+  "pdn":                { canonical: "Prednisone",           category: "glucocorticoid" },
   "deltacortene":       { canonical: "Prednisone",           category: "glucocorticoid" },
   "lodotra":            { canonical: "Prednisone",           category: "glucocorticoid" },
   "prednisolone":       { canonical: "Prednisolone",         category: "glucocorticoid" },
@@ -1026,6 +1027,7 @@ export const DRUG_ALIAS_MAP = {
 
   // ── bDMARDs — anti-IL-6 ───────────────────────────────────────────────────
   "tocilizumab":        { canonical: "Tocilizumab",          category: "bDMARD" },
+  "tcz":                { canonical: "Tocilizumab",          category: "bDMARD" },
   "roactemra":          { canonical: "Tocilizumab",          category: "bDMARD" },
   "actemra":            { canonical: "Tocilizumab",          category: "bDMARD" },
   "tyenne":             { canonical: "Tocilizumab",          category: "bDMARD" },

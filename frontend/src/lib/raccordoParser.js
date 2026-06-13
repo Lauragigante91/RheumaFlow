@@ -156,7 +156,7 @@ const START_VERB_RE = /\b(?:avviat[oa]|aggiunt[oa]|iniziat[oa]|introdott[oa]|int
 // ── Restart verbs (ripresa, ha ripreso, reintrodotto…) ────────────────────────
 // Semantica distinta da START_VERB_RE: indicano una riesposizione dopo interruzione.
 // inferred_by → "restart_verb" per distinguerli dagli avvii de-novo.
-const RESTART_VERB_RE = /\b(?:ricominciat[oa]|ripres[ao]\s+(?:della\s+)?terapia(?:\s+(?:\w+\s+)?con)?|ha\s+ripreso\b|ripreso\s+(?:terapia\s+)?con\b|reintrodott[oa]\b|reintroduzione\s+di\b)\b/i;
+const RESTART_VERB_RE = /\b(?:ricominciat[oa]|ripres[ao]\s+(?:della\s+)?terapia(?:\s+(?:\w+\s+)?con)?|ha\s+ripreso\b|ripres[oa]\b(?!\s+della\s+dose)|ripreso\s+(?:terapia\s+)?con\b|reintrodott[oa]\b|reintroduzione\s+di\b)\b/i;
 
 const CONTINUE_VERB_RE = /\b(?:in\s+corso|prosegu\w+|in\s+terapia\s+con)\b/i;
 
@@ -213,6 +213,68 @@ function splitSentences(text) {
     .filter(s => s.length > 8);
 }
 
+// ── Clinical scope extraction ────────────────────────────────────────────────
+// Real visit PDFs contain education notes, perioperative instructions, planned
+// options, and administrative blocks. Keep only candidate clinical narrative
+// sections when recognizable headings exist; synthetic/plain snippets are left
+// untouched so regression fixtures still exercise the parser directly.
+const CLINICAL_SCOPE_START_RE = /^(?:RACCORDO\s+ANAMNESTICO|ANAMNESI\s+INTERVALLARE|VISITA\s+ODIERNA|CONCLUSIONI(?:\s*\/\s*DIAGNOSI)?|IN\s+TERAPIA|TERAPIE\s+IN\s+ATTO|TERAPIA\s+DOMICILIARE)\b/i;
+const CLINICAL_SCOPE_STOP_RE = /^(?:ACCERTAMENTI|ACCERTAMENTI\s+PREGRESSI|ESAMI(?:\s|$)|ESAME\s+OBIETTIVO|HO\s+RICHIESTO|NB\b|NOTA\b)/i;
+const CLINICAL_SCOPE_SKIP_RE = /^(?:PRESTAZIONE:|S\.S\.N\.|[0-9.]+\s+\d\^\s+VISITA|REGIME\s+DI\s+EROGAZIONE|DATA\s+E\s+ORA|STRUTTURA\b|STRUTTURA\s+COMPLESSA|AD\s+INDIRIZZO|DIPARTIMENTO|MEDICO$|COMPLESSA\s+DI|MEDICINA\s+INTERNA|INDIRIZZO$|REUMATOLOGICO$|DIRETTORE\b|DR\.?|DR\.SA|EQUIPE\s+MEDICA|MEDICI\s+SPECIALISTI|ASSOCIATI:|EMAIL\s+PER|@|SEGRETERIA:|PRENOTAZIONE|TERAPIA\s+E\s+MEDICAZIONI|ECOGRAFIA|CAPILLAROSCOPIA|OSTEOPOROSI|METABOLISMO|FOSFO-CALCICO|MALATTIE\s+RARE|TERAPIE\s+BIOTECNOLOGICHE|CONNETTIVITI|VASCULITI|PAGINA\s+\d+)/i;
+
+function extractClinicalScope(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const hasClinicalHeadings = lines.some(line => CLINICAL_SCOPE_START_RE.test(line.trim()));
+  if (!hasClinicalHeadings) return text;
+
+  const kept = [];
+  let collecting = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      if (collecting) kept.push("");
+      continue;
+    }
+
+    if (CLINICAL_SCOPE_START_RE.test(line)) {
+      collecting = true;
+      kept.push(line.replace(CLINICAL_SCOPE_START_RE, "").trim());
+      continue;
+    }
+
+    if (collecting && CLINICAL_SCOPE_SKIP_RE.test(line)) {
+      continue;
+    }
+
+    if (collecting && CLINICAL_SCOPE_STOP_RE.test(line)) {
+      collecting = false;
+      continue;
+    }
+
+    if (collecting) kept.push(rawLine);
+  }
+
+  const scoped = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return scoped || text;
+}
+
+function isExcludedTimelineSentence(sentence) {
+  const s = sentence.toLowerCase();
+  return (
+    /\b(?:nb|si ricorda che)\b/.test(s) ||
+    /\bin caso di\b/.test(s) ||
+    /\b(?:interventi? chirurgic[oi]|perioperatori[oa]|ferita chirurgica|cicatrizzazione|turb|turp)\b/.test(s) ||
+    /\b(?:vaccinazion[ei]|vaccino|virus vivi|antinfluenzale|anti-pneumococcica|sars-cov2|shingrix)\b/.test(s) ||
+    /\b(?:da valutare tra|andra'? avviat[ao]|andrà avviat[ao]|in programma|secondo necessita|potra' trattare|potrà trattare)\b/.test(s) ||
+    /\bvalutare\s+se\b/.test(s) ||
+    /\b(?:non\s+)?ripresa\s+di\s+(?:lesioni|sintomatologia|artralgie|dolore|gonalgia)\b/.test(s) ||
+    /\brisolt[aoe]?\b.{0,80}\bdopo\s+sospensione\s+del\s+farmaco\b/.test(s) ||
+    /^sospensione\s+del\s+farmaco\.?$/.test(s.trim()) ||
+    /\b(?:sospensione|ripresa|reintroduzione|reintrodotti|reintrodurre)\s+(?:preventiva|precauzionale|della\s+terapia\s+immunosoppressiva|dei\s+farmaci|entrambi\s+i\s+farmaci)\b/.test(s)
+  );
+}
+
 // ── Source text helper ────────────────────────────────────────────────────────
 function src(text) {
   return text.slice(0, 200).replace(/\s+/g, " ").trim();
@@ -261,6 +323,14 @@ function extractStopDate(sentence, stopPos) {
   // Forward (dopo la keyword) prima, poi fallback alla finestra precedente.
   return matchIn(sentence.slice(stopPos, stopPos + 60))
       || matchIn(sentence.slice(Math.max(0, stopPos - 30), stopPos));
+}
+
+function parseMonthYearToken(raw) {
+  const m = /^(0?\d|1[012])\/((?:20)?\d{2})$/.exec(String(raw || "").trim());
+  if (!m) return null;
+  const month = m[1].padStart(2, "0");
+  const year = m[2].length === 2 ? `20${m[2]}` : m[2];
+  return { date_value: `${year}-${month}-01`, date_text: raw, date_precision: "month_year", date_approximate: false };
 }
 
 // ── Event builder ─────────────────────────────────────────────────────────────
@@ -321,7 +391,8 @@ export function parseRaccordoTimeline(text) {
   let prevLastDrug = null;       // P2A: lastDrug della frase PRECEDENTE (prima dell'aggiornamento)
   let lastSentenceDrugs = [];
   let lastExtractedDate = null;  // P2A: carries date context across sentence boundaries
-  const sentences = splitSentences(text);
+  const scopedText = extractClinicalScope(text);
+  const sentences = splitSentences(scopedText).filter(s => !isExcludedTimelineSentence(s));
 
   for (const sentence of sentences) {
     prevLastDrug = lastDrug;     // salva prima che la frase corrente lo aggiorni
@@ -331,7 +402,10 @@ export function parseRaccordoTimeline(text) {
     const rangeHandledStops = new Set();
     if (drugs.length > 0) {
       lastSentenceDrugs = drugs;
-      lastDrug = drugs[drugs.length - 1];
+      const clinicallyRelevantDrugs = drugs.filter(d => !ANCILLARY_CANONICALS.has(d.canonical));
+      if (clinicallyRelevantDrugs.length > 0) {
+        lastDrug = clinicallyRelevantDrugs[clinicallyRelevantDrugs.length - 1];
+      }
     }
 
     // P2A: aggiorna lastExtractedDate ad ogni frase (anche senza drug).
@@ -628,6 +702,7 @@ export function parseRaccordoTimeline(text) {
         const wStart  = Math.max(0, verbPos - 30);
         const wEnd    = Math.min(sentence.length, verbPos + 130);
         const wDrugs  = findDrugsInText(sentence.slice(wStart, wEnd));
+        const eligibleWDrugs = wDrugs.filter(drug => !ANCILLARY_CANONICALS.has(drug.canonical));
         const dateCtx = sentence.slice(Math.max(0, verbPos - 60), verbPos + 80);
         const date    = extractDate(dateCtx);
 
@@ -643,6 +718,46 @@ export function parseRaccordoTimeline(text) {
             drug_category: drug.category,
             confidence: date ? "high" : "medium",
             inferred_by: "restart_verb",
+            source_text: src(sentence),
+          }));
+        }
+
+        // Implicit restart: "Ripreso a dicembre 2022..." after a previous named drug.
+        if (eligibleWDrugs.length === 0 && lastDrug && !ANCILLARY_CANONICALS.has(lastDrug.canonical) && !rvUsed.has(lastDrug.canonical)) {
+          rvUsed.add(lastDrug.canonical);
+          events.push(makeEvent({
+            event_type: "therapy_start",
+            ...(date || {}),
+            drug_name: lastDrug.name,
+            drug_canonical: lastDrug.canonical,
+            drug_category: lastDrug.category,
+            confidence: date ? "high" : "medium",
+            inferred_by: "anaphora_restart",
+            source_text: src(sentence),
+          }));
+        }
+      }
+    }
+
+    // ── 2d. Bounded course range ─────────────────────────────────────────────
+    // "Ciclofosfamide ... per 6 cicli (01/2019-06/2019)" implies a stop at range end.
+    {
+      const rangeM = /\((0?\d\/(?:20)?\d{2})\s*[-–]\s*(0?\d\/(?:20)?\d{2})\)/.exec(sentence);
+      const hasBoundedCourse = /\b(?:per\s+\d+\s+cicli|cicli|induzione)\b/i.test(sentence);
+      if (rangeM && hasBoundedCourse && drugs.length > 0) {
+        const stopDate = parseMonthYearToken(rangeM[2]);
+        const rangePos = rangeM.index;
+        const beforeRangeDrugs = drugs.filter(d => d.pos < rangePos && !ANCILLARY_CANONICALS.has(d.canonical));
+        const stoppedDrug = beforeRangeDrugs[0] || drugs.find(d => !ANCILLARY_CANONICALS.has(d.canonical));
+        if (stopDate && stoppedDrug) {
+          events.push(makeEvent({
+            event_type: "therapy_stop",
+            ...stopDate,
+            drug_name: stoppedDrug.name,
+            drug_canonical: stoppedDrug.canonical,
+            drug_category: stoppedDrug.category,
+            confidence: "medium",
+            inferred_by: "bounded_course_range",
             source_text: src(sentence),
           }));
         }
@@ -762,7 +877,8 @@ export function parseRaccordoTimeline(text) {
           // Anaphora: solo se nessun'altra stop è stata emessa in questa frase
           if (!stoppedDrug && stopsEmitted.size === 0) {
             const hasProNoun = PRONOUN_DRUG_RE.test(sentence);
-            isAnaphora = hasProNoun && !!lastDrug && !ANCILLARY_CANONICALS.has(lastDrug.canonical);
+            const hasImplicitStopCue = drugs.length === 0 && !!lastDrug && !!(reason || stopDate);
+            isAnaphora = (hasProNoun || hasImplicitStopCue) && !!lastDrug && !ANCILLARY_CANONICALS.has(lastDrug.canonical);
             stoppedDrug = isAnaphora ? lastDrug : null;
           }
         }
