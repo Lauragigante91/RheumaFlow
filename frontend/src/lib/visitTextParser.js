@@ -256,7 +256,8 @@ function prnSentenceScope(s) {
   return m ? s.slice(0, m.index) : s;
 }
 const ROUTE_RE =
-  /(?:^|[\s,;(])(?:(?:per\s+)?(?:os|orale(?:\s+per\s+os)?|bocca)|s\.c\.?|sottocut(?:e|ane[ao])|i\.m\.?|intramuscol[oe]|e\.v\.?|endovenosa?|i\.v\.?|sublinguale?|s\.l\.?|topica?|cutane[ao]|inalatori[ao])(?=[\s,;).\n]|$)/i;
+  /(?:^|[\s,;(])(?:(?:per\s+)?(?:os|orale(?:\s+per\s+os)?|bocca)|s\.?c\.?|sc|sottocut(?:e|ane[ao])|i\.m\.?|intramuscol[oe]|e\.v\.?|endovenosa?|i\.v\.?|sublinguale?|s\.l\.?|topica?|cutane[ao]|inalatori[ao])(?=[\s,;).\n]|$)/i;
+const TAPERING_CONTEXT_RE = /\b(?:riduce|ridurre|scala|scalare|scalaggio|taper(?:ing)?|fino\s+a\s+(?:controllo|sospendere)|prova\s+a\s+sospendere)\b/i;
 
 function parseDoseQuantity(raw) {
   const s = String(raw || "").toLowerCase().replace(",", ".").trim();
@@ -286,6 +287,7 @@ function extractDoseAndFrequency(context) {
   const doseM = context.match(DOSE_RE);
   let dose = null;
   let afterDose = "";
+  let dayPartsM = null;
 
   if (doseM) {
     const unitDose = Number(doseM[1].replace(",", "."));
@@ -293,7 +295,7 @@ function extractDoseAndFrequency(context) {
     let multiplier = 1;
     afterDose = context.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 80);
 
-    const dayPartsM = afterDose.match(/^\s*:?\s*(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\s+(?:la\s+)?mattina\s+e\s+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)?\s+(?:la\s+)?sera\b/i);
+    dayPartsM = afterDose.match(/^\s*:?\s*(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\s+(?:la\s+)?mattina\s+e\s+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)?\s+(?:la\s+)?sera\b/i);
     if (dayPartsM) {
       multiplier *= (parseDoseQuantity(dayPartsM[1]) || 0) + (parseDoseQuantity(dayPartsM[2]) || 0);
     } else {
@@ -326,6 +328,8 @@ function extractDoseAndFrequency(context) {
     frequency = "2 giorni/settimana";
   } else if (/\b(?:un\s+)?(?:unico\s+)?giorno\s+(?:a|alla)\s+settimana\b/i.test(context)) {
     frequency = "settimanale";
+  } else if (dayPartsM) {
+    frequency = "die";
   } else if (FREQ_PRN_RE.test(prnScope)) {
     frequency = prnScope.match(FREQ_PRN_RE)[0].trim();
   } else {
@@ -481,14 +485,15 @@ function extractTherapies(text, today) {
 
       const hasPastBefore = PAST_BEFORE_RE.test(ctxBefore);
       const hasPastAfter  = PAST_AFTER_RE.test(ctxAfter);
+      const hasTaperingContext = TAPERING_CONTEXT_RE.test(context) || /\b(?:riduce|ridurre|scala|scalare|scalaggio)\b/i.test(ctxBefore.slice(-80));
 
       if (!inActiveSection) {
-        if (hasPastBefore || hasPastAfter) status = "discontinued";
+        if (!hasTaperingContext && (hasPastBefore || hasPastAfter)) status = "discontinued";
       } else {
         // Anche dentro TERAPIA IN ATTO: se il farmaco è immediatamente seguito
         // da un qualificatore di sospensione (es. "Colchicina, sospesa per GI")
         // nel contesto stretto ≤80 caratteri, si sovrascrive ad "discontinued".
-        if (SOSP_NARROW_AFTER_RE.test(ctxAfter.slice(0, 80))) status = "discontinued";
+        if (!hasTaperingContext && SOSP_NARROW_AFTER_RE.test(ctxAfter.slice(0, 80))) status = "discontinued";
       }
 
       // ── Estrai motivo sospensione ────────────────────────────────────────────
@@ -583,7 +588,7 @@ function applyNarrativeDiscontinuations(therapies, narrativeText, rheuCategories
       // Finestra estesa a 400 car. per coprire frasi narrative con sospensione distante
       const ctxAfter   = narrativeText.slice(afterStart, Math.min(narrativeText.length, afterStart + 400));
 
-      const hasBefore  = PAST_BEFORE_RE.test(ctxBefore);
+      const hasBefore  = PAST_BEFORE_RE.test(ctxBefore.slice(-80));
 
       // Per PAST_AFTER_RE verifica che il match non cada in "mai sospeso" / "non sospeso"
       // (es. "Medrol 4 mg mai sospeso dal 2011" → falso positivo via "sospeso dal")

@@ -23,7 +23,7 @@ const FREQ_PATTERNS = [
 ];
 
 const ROUTE_PATTERNS = [
-  [/\bs\.?c\.?\b|\bsottocute\b|\bsubcutane[ao]\b/i,                                   "s.c."],
+  [/\bs\.?c\.?\b|\bsc\b|\bsottocute\b|\bsubcutane[ao]\b/i,                            "s.c."],
   [/\bi\.?m\.?\b|\bintramuscolo?\b|\bintramuscolare\b/i,                               "i.m."],
   [/\bi\.?v\.?\b|\bendovena\b|\bintravenos[ao]\b/i,                                    "e.v."],
   [/\b(?:per\s+os|per\s+bocca|orale|oralmente|os)\b/i,                                "orale"],
@@ -93,6 +93,8 @@ function extractDoseAndFrequency(text) {
   let frequency = null;
   if (/\b(?:2|due)\s+giorni\s+(?:a|alla)\s+settimana\b/i.test(text)) {
     frequency = "2 giorni/settimana";
+  } else if (dayPartsM) {
+    frequency = "Giornaliera";
   } else if (FREQ_PRN_RE.test(text)) {
     frequency = "Al bisogno";
   } else {

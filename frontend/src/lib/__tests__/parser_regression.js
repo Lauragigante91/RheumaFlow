@@ -1770,9 +1770,11 @@ runTest("THERAPY-DOSE-3 · quantità compresse per somministrazione × volte/die
   const morningEvening = parseVisitText("INDICAZIONI:\n- Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera").extracted.therapies ?? [];
   const sszMe = morningEvening.find(t => t.drug_name === "Sulfasalazina");
   assert(sszMe?.dose === "2000 mg", `Salazopirina 500 mg 2 cp mattina + 2 cp sera deve diventare 2000 mg (got: ${sszMe?.dose})`, sszMe);
+  assert(sszMe?.frequency === "die", `Salazopirina 500 mg mattina + sera deve avere frequenza die (got: ${sszMe?.frequency})`, sszMe);
 
   const quickMe = parseTherapyText("Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera");
   assert(quickMe.dose === "2000 mg", `Quick parser: mattina/sera deve diventare 2000 mg (got: ${quickMe.dose})`, quickMe);
+  assert(quickMe.frequency === "Giornaliera", `Quick parser: mattina/sera deve avere frequenza Giornaliera (got: ${quickMe.frequency})`, quickMe);
 
   const accented = parseVisitText("INDICAZIONI:\n- Salazopirina 1 g x 2 al dì").extracted.therapies ?? [];
   const sszAccented = accented.find(t => t.drug_name === "Sulfasalazina");
@@ -1793,6 +1795,38 @@ runTest("THERAPY-DOSE-5 · la dose non deve spillare sul farmaco successivo", ()
   const parsed = parseVisitText("INDICAZIONI:\n- prosegue Methotrexate - prosegue Colecalciferolo 10.000 UI 6 gocce al dì").extracted.therapies ?? [];
   const mtx = parsed.find(t => t.drug_name === "Methotrexate");
   assert(mtx?.dose == null, `Methotrexate senza dose non deve ereditare 10.000 UI dal farmaco successivo (got: ${mtx?.dose})`, parsed);
+});
+
+runTest("THERAPY-GENERAL-1 · Methoter alias + route sc nuda", () => {
+  const parsed = parseVisitText("IN TERAPIA\n- prosegue Methoter 7.5 mg 1 fl sc sempre un unico giorno alla settimana e Folina 5 mg").extracted.therapies ?? [];
+  const mtx = parsed.find(t => t.drug_name === "Methotrexate");
+  assert(!!mtx, `Methoter deve essere riconosciuto come Methotrexate (got: ${parsed.map(t => t.drug_name).join(", ")})`, parsed);
+  assert(mtx?.dose === "7.5 mg", `Methoter 7.5 mg deve mantenere dose 7.5 mg (got: ${mtx?.dose})`, mtx);
+  assert(mtx?.frequency === "settimanale", `Methoter un unico giorno alla settimana deve essere settimanale (got: ${mtx?.frequency})`, mtx);
+  assert(mtx?.route === "s.c.", `Methoter sc deve avere route s.c. (got: ${mtx?.route})`, mtx);
+});
+
+runTest("THERAPY-GENERAL-2 · RIDUCE Deltacortene resta active, non discontinued", () => {
+  const parsed = parseVisitText("TERAPIA\n- RIDUCE DELTACORTENE 25 mg 3/4 cp per 3 settimane, poi 1/2 cp alternata a 3/4 fino a controllo").extracted.therapies ?? [];
+  const pdn = parsed.find(t => t.drug_name === "Prednisone");
+  assert(pdn?.dose === "18.75 mg", `Deltacortene 25 mg 3/4 cp deve diventare 18.75 mg (got: ${pdn?.dose})`, pdn);
+  assert(pdn?.status === "active", `RIDUCE Deltacortene deve restare active (got: ${pdn?.status})`, pdn);
+  assert(!pdn?.discontinuation_reason, `RIDUCE Deltacortene non deve avere discontinuation_reason (got: ${pdn?.discontinuation_reason})`, pdn);
+});
+
+runTest("THERAPY-GENERAL-3 · stop Colchicina non sospende Prednisone successivo", () => {
+  const parsed = parseVisitText(`
+ANAMNESI INTERVALLARE
+Ha sospeso la Colchicina dopo 2 giorni per dolore addominale severo e nausea/vomito.
+CONCLUSIONI
+Non tollerata Colchicina.
+TERAPIA
+- RIDUCE DELTACORTENE 25 mg 3/4 cp per 3 settimane, poi 1/2 cp alternata a 3/4 fino a controllo
+`).extracted.therapies ?? [];
+  const pdn = parsed.find(t => t.drug_name === "Prednisone");
+  const colch = parsed.find(t => t.drug_name === "Colchicina");
+  assert(pdn?.status === "active", `Stop Colchicina non deve marcare Prednisone discontinued (got: ${pdn?.status})`, parsed);
+  assert(colch?.status === "discontinued", `Colchicina deve restare discontinued (got: ${colch?.status})`, parsed);
 });
 
 runTest("THERAPY-DOSE-6 · la preposizione 'di' non genera frequenza giornaliera (FP=0)", () => {

@@ -946,6 +946,7 @@ export const DRUG_ALIAS_MAP = {
   "methotrexate":       { canonical: "Methotrexate",         category: "csDMARD" },
   "metotrexato":        { canonical: "Methotrexate",         category: "csDMARD" },
   "metotressato":       { canonical: "Methotrexate",         category: "csDMARD" },
+  "methoter":           { canonical: "Methotrexate",         category: "csDMARD" },
   "mtx":                { canonical: "Methotrexate",         category: "csDMARD" },
   "reumaflex":          { canonical: "Methotrexate",         category: "csDMARD" },
   "leflunomide":        { canonical: "Leflunomide",          category: "csDMARD" },
