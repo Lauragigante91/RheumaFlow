@@ -383,7 +383,7 @@ const PAST_AFTER_RE = /\(\s*(?:inefficace|non\s+tollerat[oa]|sospeso|sospesa|int
 const SOSP_NARROW_AFTER_RE = /^[\s,;:(]+(?:sosp(?:eso|esa|esi|ese)|interrott[oa]|smessa?|cessata?|non\s+tollerat[oa])\b/i;
 
 const PRN_AFTER_RE = /\bal\s+bisogno\b|\ball['’]?\s*occorrenza\b|\bse\s+(?:dolore|necessario|serve|sintomatic|dolorabilit)|\bin\s+caso\s+di\s+(?:dolore|necessit|riacutizz|attacc)|\bcicl[oi]\s+brev[ei]\b|\bripetibile\b|\bsolo\s+se\s+necessario\b|\bquando\s+necessario\b|\bper\s+\d+(?:\s*-\s*\d+)?\s+(?:giorni|gg)\b[^.;\n]{0,40}\b(?:poi\s+(?:stop|sospen)|sospen|stop)\b|\bmax\b[^.;\n]{0,20}\bvolt[ae]\b/i;
-const PRN_LABEL_RE = /(?:\bse\s+dolore|\bse\s+necessario|\bal\s+bisogno|\bin\s+caso\s+di|\ball['’]?\s*occorrenza)\s*:?\s*$/i;
+const PRN_LABEL_RE = /(?:\bse\s+dolore|\bse\s+necessario|\bal\s+bisogno|\bin\s+caso\s+di|\ball['’]?\s*occorrenza)\s*:\s*$/i;
 const PRN_ABBREV_RE = /\bprn\b|\ba\.\s?b\.|\bal\s+bis\.?(?!\w)/i;
 const PRN_AB_BARE_RE = /(?:^|[\s,;(])ab(?![A-Za-z.])(?!\s*anti)/;
 
@@ -470,7 +470,7 @@ function extractTherapies(text, today) {
       const routeM = doseScope.match(ROUTE_RE);
       const route  = routeM ? normalizeRoute(routeM[0]) : null;
 
-      const _prnScope = prnSentenceScope(context);
+      const _prnScope = prnSentenceScope(doseScope);
       const _prnAbbrevScope = prnSentenceScope(doseScope).slice(match[0].length);
       const isPrn = PRN_AFTER_RE.test(_prnScope) ||
         PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 24), match.index)) ||

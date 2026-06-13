@@ -12,3 +12,7 @@ PRN frequency detection in the visit parser must be bounded to the CURRENT instr
 **Why:** regression originally introduced when PRN detection was widened during the therapy-dose work; the project invariant is FP=0 ("nessuna data/diagnosi inventata"), so a contaminated frequency is a hard failure.
 
 **How to apply:** when adding or widening any PRN/"al bisogno" detector, route it through the shared sentence-scope helper; never test a PRN regex against the raw 200-char context or a newline-only slice. Assert FP in tests as "frequency is not ANY PRN marker" (covers literal leaks like "prn"/"se necessario"), not just `!== "al bisogno"`.
+
+**Two concrete spillover vectors (both must stay closed):**
+- FORWARD (phrase path): the `_prnScope` fed to PRN_AFTER_RE must be derived from `doseScope` (next-drug-bounded), NOT the raw `context`. With `context`, after normalizeImportedText joins adjacent non-ALL-CAPS lines into one line, a NEXT drug's "al bisogno" leaks back onto the current drug. `_prnAbbrevScope` already used `doseScope`; `_prnScope` must match it.
+- BACKWARD (label look-behind path): PRN_LABEL_RE tests the ~24 chars BEFORE the drug to catch a leading label like "Se dolore: <drug>". The colon must be MANDATORY (`\s*:\s*$`), otherwise a PREVIOUS drug's trailing "se dolore"/"al bisogno" (no colon) is read as this drug's label. Colonless prefix forms ("al bisogno Arcoxia") are ambiguous and intentionally NOT detected here (forward path catches the post-dose form); accept that FN for FP=0.

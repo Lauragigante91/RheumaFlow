@@ -1301,6 +1301,56 @@ runTest("PRN-AB-6 · farmaco cronico senza abbreviazione resta NON PRN", () => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+// PRN-SPILL — anti-contaminazione PRN tra farmaci adiacenti.
+// Un "al bisogno"/"se dolore" di un farmaco NON deve contaminare il
+// farmaco vicino (vettore avanti: _prnScope su doseScope, non context;
+// vettore indietro: PRN_LABEL_RE con due punti obbligatori).
+// Entrypoint reale: parseVisitText.
+// ════════════════════════════════════════════════════════════════════
+
+const _spillTher = (text) => parseVisitText(text).extracted.therapies ?? [];
+const _spillFind = (th, re) => th.find((t) => re.test(t.drug_name ?? ""));
+
+runTest("PRN-SPILL-1 · Salazopirina + newline + Arcoxia al bisogno → Sala die/non-PRN, Arcoxia PRN", () => {
+  const th = _spillTher(`TERAPIA DOMICILIARE:\nSalazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo\nArcoxia 90 mg al bisogno se dolore`);
+  const ssz = _spillFind(th, /sulfasalazina/i);
+  const arc = _spillFind(th, /etoricoxib|arcoxia/i);
+  assert(ssz != null, "Sulfasalazina deve essere presente", th.map((x) => x.drug_name));
+  assert(ssz?.frequency === "die" && ssz?._prn !== true, `Sulfasalazina deve restare die/non-PRN (freq='${ssz?.frequency}' _prn=${ssz?._prn})`, ssz);
+  assert(arc != null, "Etoricoxib deve essere presente", th.map((x) => x.drug_name));
+  assert(_isPrn(arc), `Etoricoxib deve restare PRN (freq='${arc?.frequency}' _prn=${arc?._prn})`, arc);
+});
+
+runTest("PRN-SPILL-2 · Arcoxia al bisogno + newline + Salazopirina → Sala die/non-PRN", () => {
+  const th = _spillTher(`TERAPIA DOMICILIARE:\nArcoxia 90 mg al bisogno se dolore\nSalazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo`);
+  const ssz = _spillFind(th, /sulfasalazina/i);
+  assert(ssz != null, "Sulfasalazina deve essere presente", th.map((x) => x.drug_name));
+  assert(ssz?.frequency === "die" && ssz?._prn !== true, `Sulfasalazina NON deve ereditare PRN da Arcoxia precedente (freq='${ssz?.frequency}' _prn=${ssz?._prn})`, ssz);
+});
+
+runTest("PRN-SPILL-3 · Salazopirina sola → die/non-PRN", () => {
+  const th = _spillTher(`TERAPIA DOMICILIARE:\nSalazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo`);
+  const ssz = _spillFind(th, /sulfasalazina/i);
+  assert(ssz != null, "Sulfasalazina deve essere presente", th.map((x) => x.drug_name));
+  assert(ssz?.frequency === "die" && ssz?._prn !== true, `Sulfasalazina sola deve essere die/non-PRN (freq='${ssz?.frequency}' _prn=${ssz?._prn})`, ssz);
+});
+
+runTest("PRN-SPILL-4 · Arcoxia sola PRN → al bisogno/_prn=true", () => {
+  const th = _spillTher(`TERAPIA DOMICILIARE:\nArcoxia 90 mg al bisogno se dolore`);
+  const arc = _spillFind(th, /etoricoxib|arcoxia/i);
+  assert(arc != null, "Etoricoxib deve essere presente", th.map((x) => x.drug_name));
+  assert(_isPrn(arc), `Etoricoxib deve essere PRN (freq='${arc?.frequency}' _prn=${arc?._prn})`, arc);
+});
+
+runTest("PRN-SPILL-5 · separazione con punto → nessuna contaminazione PRN", () => {
+  const th = _spillTher(`TERAPIA DOMICILIARE:\nSalazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo. Arcoxia 90 mg al bisogno se dolore`);
+  const ssz = _spillFind(th, /sulfasalazina/i);
+  const arc = _spillFind(th, /etoricoxib|arcoxia/i);
+  assert(ssz?.frequency === "die" && ssz?._prn !== true, `Sulfasalazina deve restare die/non-PRN (freq='${ssz?.frequency}' _prn=${ssz?._prn})`, ssz);
+  assert(_isPrn(arc), `Etoricoxib deve restare PRN (freq='${arc?.frequency}' _prn=${arc?._prn})`, arc);
+});
+
+// ════════════════════════════════════════════════════════════════════
 // RACC-CONT (patch raccordo) — "in corso / prosegue / in terapia con <farmaco>"
 // → therapy_continue (date null, confidence medium). Negazioni e sospensioni
 // NON devono generare terapia attiva/continue.
