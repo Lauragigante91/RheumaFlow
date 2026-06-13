@@ -149,7 +149,7 @@ const PRONOUN_DRUG_RE = /\b(?:del|della)\s+(?:farmaco|terapia|biologico|bDMARD|c
 // "dal YEAR" position scanner — NON-consuming: find all occurrences independently
 const DAL_YEAR_POS_RE = /\bdal?\s+((19|20)\d{2})\b/gi;
 
-const SPACING_RE = /\bspacing\b.{0,80}a\s+(\d+)\s+settiman[ae]\b/i;
+const SPACING_RE = /\bspacing\b.{0,80}a\s+(?:ogni\s+)?(\d+)\s+settiman[ae]\b/i;
 
 const START_VERB_RE = /\b(?:avviat[oa]|aggiunt[oa]|iniziat[oa]|introdott[oa]|intrapres[oa]|potenziato\s+con|trattati?\s+con|ha\s+assunto|assumeva|induzione\s+con|mantenimento\s+con)\b/i;
 
@@ -584,7 +584,15 @@ export function parseRaccordoTimeline(text) {
         source_text: src(sentence),
       }));
 
-      continue; // onset sentences don't contain other events
+      // Avvio terapia co-localizzato nella stessa frase dell'esordio: se la frase
+      // ha data esplicita + verbo terapeutico esplicito (aggiunto/introdotto/avviato)
+      // + farmaco rilevante, NON interrompere — lascia che Rule 2/2b emettano il
+      // therapy_start datato (es. "Nel 2017 esordio nefrite, aggiunto Micofenolato").
+      const onsetHasExplicitStart =
+        /\b(?:aggiunt[oa]|introdott[oa]|avviat[oa])\b/i.test(sentence) &&
+        !!date &&
+        drugs.some(d => !ANCILLARY_CANONICALS.has(d.canonical));
+      if (!onsetHasExplicitStart) continue; // onset sentences don't contain other events
     }
 
     // ── 1b. Esordio in età evolutiva senza la parola "esordi" ────────────────

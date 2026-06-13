@@ -1572,6 +1572,47 @@ runTest("RACC-STOP-PARENREASON-5 · guardia: parentesi di classe '(biosimilare)'
   assert(stop?.reason == null, `reason deve restare null (parentesi di classe rifiutata), got '${stop?.reason}'`, stop);
 });
 
+const _my2Spacing = (list, re) =>
+  (list ?? []).find(
+    (e) => e.event_type === "dose_spacing" && re.test(e.drug_canonical ?? e.drug_name ?? ""),
+  );
+
+runTest("RACC-ONSET-START-1 · TC03 reale: 'Nel 2017 esordio nefrite, aggiunto Micofenolato' → therapy_start MMF 2017", () => {
+  const list = _my2Events(
+    "Artrite reumatoide sieronegativa, esordio 2003 con poliartrite erosiva. Dal 2003 Methotrexate 15 mg/sett. + Idrossiclorochina. Nel 2007 aggiunto Infliximab 3 mg/kg per risposta insufficiente al cDMARD; sospeso nel 2010 per anticorpi anti-farmaco con perdita di efficacia. Nel 2017 esordio nefrite, aggiunto Micofenolato Mofetil 2g/die. Nel 2021 sospeso Micofenolato per gravidanza programmata.",
+  );
+  const starts = (list ?? []).filter(
+    (e) => e.event_type === "therapy_start" && /micofenolato/i.test(e.drug_canonical ?? e.drug_name ?? ""),
+  );
+  assert(starts.length === 1, `deve esistere esattamente 1 therapy_start MMF (got ${starts.length})`, list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(starts[0]?.date_value === "2017-01-01", `start MMF 2017-01-01 (got '${starts[0]?.date_value}')`, starts[0]);
+  const onset = (list ?? []).find((e) => e.event_type === "disease_onset" && e.date_value === "2017-01-01");
+  assert(onset != null, "disease_onset 2017 deve restare presente (fall-through non sopprime l'esordio)", list.map((e) => `${e.event_type}:${e.date_value}`));
+});
+
+runTest("RACC-ONSET-START-2 · guardia: 'Nel 2017 esordio nefrite.' senza verbo → solo disease_onset, nessun therapy_start", () => {
+  const list = _my2Events("Nel 2017 esordio nefrite.");
+  const starts = (list ?? []).filter((e) => e.event_type === "therapy_start");
+  assert(starts.length === 0, `nessun therapy_start atteso (got ${starts.length})`, starts.map((e) => e.drug_canonical));
+});
+
+runTest("RACC-SPACING-OGNI-1 · TC10 reale: 'spacing a ogni 8 settimane' → dose_spacing Ixekizumab 2024", () => {
+  const list = _my2Events(
+    "Artrite psoriasica con interessamento poliarticolare e assiale, diagnosi 2012. Methotrexate 15 mg/settimana dal 2012, senza beneficio sulla componente assiale. Nel 2014 iniziato Adalimumab 40 mg ogni 2 settimane; risposta inizialmente buona. Nel 2017 perdita di risposta; passato a Golimumab 50 mg mensile. Nel 2020 inefficacia Golimumab; sostituito con Ixekizumab 80 mg ogni 4 settimane. Ottima risposta cutanea e articolare. Nel 2024 spacing a ogni 8 settimane per remissione sostenuta.",
+  );
+  const spacing = _my2Spacing(list, /ixekizumab/i);
+  assert(spacing != null, "deve esistere dose_spacing Ixekizumab", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(spacing?.date_value === "2024-01-01", `dose_spacing 2024-01-01 (got '${spacing?.date_value}')`, spacing);
+  assert(/8\s+settiman/i.test(spacing?.detail ?? ""), `detail deve contenere '8 settimane' (got '${spacing?.detail}')`, spacing);
+});
+
+runTest("RACC-SPACING-OGNI-2 · guardia: 'spacing a 10 settimane' (senza 'ogni') resta invariato", () => {
+  const list = _my2Events("Avviato Secukinumab 150 mg mensile dal 2018. Nel 2021 spacing a 10 settimane per remissione prolungata.");
+  const spacing = _my2Spacing(list, /secukinumab/i);
+  assert(spacing != null, "deve esistere dose_spacing Secukinumab", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(/10\s+settiman/i.test(spacing?.detail ?? ""), `detail deve contenere '10 settimane' (got '${spacing?.detail}')`, spacing);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
