@@ -163,6 +163,11 @@ const CONTINUE_VERB_RE = /\b(?:in\s+corso|prosegu\w+|in\s+terapia\s+con)\b/i;
 const DAL_YEAR_EXT_SRC = String.raw`\bdal?\s+(?:(0?\d|1[012])\/|(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+|(met[àa]|inizi[oa]|fine)\s+)?((19|20)\d{2})\b`;
 
 const REMISSION_RE = /\bremission[ei](?:\s+clinica)?\b/i;
+// Risoluzione NON farmacologica della malattia (es. dopo il parto / la gravidanza):
+// genera un evento remission. La risoluzione "dopo sospensione del farmaco" e'
+// esclusa a monte da isExcludedTimelineSentence, quindi non collide qui.
+const RESOLVED_NONPHARMA_RE = /\b(?:risolt[oaei]|risoluzione)\b/i;
+const NONPHARMA_RESOLUTION_CTX_RE = /\bdopo\s+(?:il\s+parto|la\s+gravidanza|il\s+puerperio)\b|\bpost[-\s]?partum\b/i;
 const FLARE_RE = /\briacutizzazion[ei]\b/i;
 const DIAGNOSIS_RE = /\bdiagnosticat[oa]\b|\bdiagnosi\s+(?:di|nel)\b|\bprima\s+diagnosi\b/i;
 const CONTROL_RE = /\bbuon\s+controllo\b|\bben\s+controllat[ao]\b|\bmalattia\s+(?:ben\s+)?controllat[ao]\b/i;
@@ -175,6 +180,9 @@ const RECURRENCE_RE = /\b(?:recidivant[ei]|recidiv[ae]|ricorrent[ei]|ripetut[ei]
 
 const REASON_RE = /\bper\s+([^.,;:\n]{3,60})/i;
 const APPROX_RE = /\bcirca\b|\bincirca\b|\bapprossimativament\b/i;
+// Durata "per (circa) un anno": abilita la back-inference dell'anno di avvio
+// quando lo stop e' datato. Lo start riceve date_estimated, mai date_value.
+const DURATION_ONE_YEAR_RE = /\b(?:per\s+)?circa\s+un\s+anno\b|\bper\s+un\s+anno\b/i;
 
 // ── P2A: Switch verbs ─────────────────────────────────────────────────────────
 // "passato a X" | "sostituito con X" | "switch a X" | "convertito a X"
@@ -364,6 +372,7 @@ function makeEvent(overrides) {
     date_text: null,
     date_precision: "year",
     date_approximate: false,
+    date_estimated: null,
     drug_name: null,
     drug_canonical: null,
     drug_category: null,
@@ -557,6 +566,26 @@ export function parseRaccordoTimeline(text) {
         }));
         rangeHandledStarts.add(drug.canonical);
         rangeHandledStops.add(drug.canonical);
+      }
+    }
+
+    // ── 1pre. Risoluzione non farmacologica → remission ───────────────────────
+    // "risolto/risolta/risoluzione" in contesto non farmacologico (dopo il parto,
+    // la gravidanza, il puerperio) → evento remission. La data e' cercata DOPO la
+    // keyword (parentesi/anno) per non ereditare l'anno dell'esordio nella stessa
+    // frase. Posizionata prima della Rule 1 perche' l'onset block fa continue.
+    {
+      const resM = RESOLVED_NONPHARMA_RE.exec(sentence);
+      if (resM && NONPHARMA_RESOLUTION_CTX_RE.test(sentence)) {
+        const resDate = extractDate(sentence.slice(resM.index));
+        events.push(makeEvent({
+          event_type: "remission",
+          ...(resDate || {}),
+          detail: sentence.replace(/\s+/g, " ").trim().slice(0, 100),
+          confidence: resDate ? "high" : "medium",
+          inferred_by: "resolution_nonpharma",
+          source_text: src(sentence),
+        }));
       }
     }
 
@@ -1057,6 +1086,35 @@ export function parseRaccordoTimeline(text) {
         source_text: src(sentence),
       }));
     }
+  }
+
+  // ── Post-pass: back-inference dell'anno di avvio da durata "circa un anno" ──
+  // Se uno stop e' datato e la stessa frase indica "per (circa) un anno", lo start
+  // corrispondente (senza data) riceve una STIMA dell'anno in date_estimated.
+  // date_value resta null: l'anno e' inferito, non dichiarato — nessuna data
+  // inventata nel campo ufficiale. Gate: esattamente un farmaco nella frase.
+  for (const stop of events) {
+    if (stop.event_type !== "therapy_stop") continue;
+    if (!stop.date_value || !stop.drug_canonical) continue;
+    if (!DURATION_ONE_YEAR_RE.test(stop.source_text || "")) continue;
+    const stopYear = parseInt(String(stop.date_value).slice(0, 4), 10);
+    if (!Number.isFinite(stopYear)) continue;
+    const sameSentence = events.filter(e => e.source_text === stop.source_text);
+    const distinctDrugs = new Set(
+      sameSentence.filter(e => e.drug_canonical).map(e => e.drug_canonical),
+    );
+    if (distinctDrugs.size !== 1) continue;
+    const start = sameSentence.find(e =>
+      e.event_type === "therapy_start" &&
+      e.drug_canonical === stop.drug_canonical &&
+      e.date_value == null &&
+      e.date_estimated == null,
+    );
+    if (!start) continue;
+    start.date_estimated = String(stopYear - 1);
+    start.date_approximate = true;
+    start.date_text = start.date_text || `~${stopYear - 1}`;
+    start.inferred_by = "duration_back_inference";
   }
 
   // ── Deduplicate: same event_type + drug_canonical + date_value ────────────

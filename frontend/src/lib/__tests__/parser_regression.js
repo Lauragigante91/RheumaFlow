@@ -1573,6 +1573,96 @@ runTest("RACC-STOP-PARENREASON-5 · guardia: parentesi di classe '(biosimilare)'
   assert(stop?.reason == null, `reason deve restare null (parentesi di classe rifiutata), got '${stop?.reason}'`, stop);
 });
 
+// ════════════════════════════════════════════════════════════════════
+// RACC-START-BACKINFER (Facchini Step 1) — back-inference dell'anno di avvio
+// da "per (circa) un anno" + stop datato. date_value resta null (nessuna data
+// inventata); la stima va in date_estimated, con date_approximate + inferred_by.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("RACC-START-BACKINFER-1 · MTX 'per circa un anno poi sospeso a gennaio 2022' → start date_estimated ~2021", () => {
+  const list = _my2Events("Già proposta in altre sede terapia con MTX che la paziente ha assunto per circa un anno poi sospeso a gennaio 2022.");
+  const start = _my2Start(list, /methotrexate/i);
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(stop?.date_value === "2022-01-01", `stop MTX 2022-01-01 (got '${stop?.date_value}')`, stop);
+  assert(start != null, "deve esistere therapy_start MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(start?.date_value == null, `start date_value deve restare null (got '${start?.date_value}')`, start);
+  assert(start?.date_estimated === "2021", `start date_estimated '2021' (stop 2022 - 1 anno), got '${start?.date_estimated}'`, start);
+  assert(start?.date_approximate === true, `start date_approximate true (got '${start?.date_approximate}')`, start);
+  assert(start?.inferred_by === "duration_back_inference", `inferred_by 'duration_back_inference' (got '${start?.inferred_by}')`, start);
+});
+
+runTest("RACC-START-BACKINFER-2 · guardia: stop senza data → nessuna stima (date_estimated null)", () => {
+  const list = _my2Events("MTX che la paziente ha assunto per circa un anno poi sospeso.");
+  const start = _my2Start(list, /methotrexate/i);
+  assert(start != null, "deve esistere therapy_start MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(start?.date_estimated == null, `senza stop datato nessuna stima (got '${start?.date_estimated}')`, start);
+});
+
+// ════════════════════════════════════════════════════════════════════
+// RACC-REMISSION-RESOLVED (Facchini Step 2) — risoluzione non farmacologica
+// "risolto dopo il parto (2018)" → remission datata dalla parentesi, non
+// dall'anno dell'esordio nella stessa frase. La risoluzione "dopo sospensione
+// del farmaco" resta esclusa.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("RACC-REMISSION-RESOLVED-1 · 'esordito nel 2013 ... risolto dopo il parto (2018)' → remission 2018 + onset 2013", () => {
+  const list = _my2Events("Quadro clinico esordito nel 2013 con coxalgia dx, risolto dopo il parto (2018).");
+  const rem = list.find((e) => e.event_type === "remission");
+  const onset = list.find((e) => e.event_type === "disease_onset");
+  assert(rem != null, "deve esistere un evento remission", list.map((e) => `${e.event_type}:${e.date_value}`));
+  assert(rem?.date_value === "2018-01-01", `remission 2018-01-01 dalla parentesi (got '${rem?.date_value}')`, rem);
+  assert(onset?.date_value === "2013-01-01", `disease_onset 2013-01-01 deve restare (got '${onset?.date_value}')`, onset);
+});
+
+runTest("RACC-REMISSION-RESOLVED-2 · guardia: 'risolta dopo sospensione del farmaco' NON genera remission", () => {
+  const list = _my2Events("Artrite risolta dopo sospensione del farmaco nel 2020.");
+  const rem = list.find((e) => e.event_type === "remission");
+  assert(rem == null, "la risoluzione farmacologica non deve creare remission", list.map((e) => e.event_type));
+});
+
+runTest("RACC-REMISSION-RESOLVED-3 · guardia: 'risolto' senza contesto non-farmacologico NON genera remission", () => {
+  const list = _my2Events("Episodio di lombalgia risolto spontaneamente.");
+  const rem = list.find((e) => e.event_type === "remission");
+  assert(rem == null, "'risolto' senza parto/gravidanza non deve creare remission", list.map((e) => e.event_type));
+});
+
+// ════════════════════════════════════════════════════════════════════
+// RACC-FACCHINI-GOLD — caso clinico sintetico a 6 punti gold (anonimo).
+// Verifica end-to-end i raffinamenti Facchini sul raccordo.
+// ════════════════════════════════════════════════════════════════════
+
+runTest("RACC-FACCHINI-GOLD · 6 punti gold (onset 2013 / remission 2018 / manif 2020 / MTX ~2021→2022 / SSZ 2023)", () => {
+  const ev = parseRaccordoTimeline(
+    "RACCORDO ANAMNESTICO:\n" +
+    "Quadro clinico esordito nel 2013 con coxalgia dx, risolto dopo il parto (2018).\n" +
+    "Da primavera 2020 episodi di gonartrite recidivante.\n" +
+    "Proposta terapia con MTX che la paziente ha assunto per circa un anno poi sospeso a gennaio 2022 (intolleranza/nausea).\n" +
+    "Iniziata Sulfasalazina a settembre 2023.",
+  );
+  const onset = ev.find((e) => e.event_type === "disease_onset");
+  assert(onset?.date_value === "2013-01-01", `onset 2013-01-01 (got '${onset?.date_value}')`, ev.map((e) => `${e.event_type}:${e.date_value}`));
+  assert(/coxalgia/i.test(onset?.detail ?? ""), "onset detail deve contenere 'coxalgia'", onset);
+
+  const rem = ev.find((e) => e.event_type === "remission");
+  assert(rem?.date_value === "2018-01-01", `remission 2018-01-01 (got '${rem?.date_value}')`, ev.map((e) => `${e.event_type}:${e.date_value}`));
+
+  const manif = ev.find((e) => e.event_type === "manifestation_onset");
+  assert(manif?.date_value === "2020-04-01", `manifestation 2020-04-01 (got '${manif?.date_value}')`, manif);
+  assert(manif?.date_approximate === true, "manifestation primavera 2020 approssimata", manif);
+
+  const mtxStart = ev.find((e) => e.event_type === "therapy_start" && /methotrexate/i.test(e.drug_canonical ?? ""));
+  assert(mtxStart != null, "deve esistere therapy_start MTX", ev.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(mtxStart?.date_value == null, `MTX start date_value null (got '${mtxStart?.date_value}')`, mtxStart);
+  assert(mtxStart?.date_estimated === "2021", `MTX start date_estimated '2021' (got '${mtxStart?.date_estimated}')`, mtxStart);
+
+  const mtxStop = ev.find((e) => e.event_type === "therapy_stop" && /methotrexate/i.test(e.drug_canonical ?? ""));
+  assert(mtxStop?.date_value === "2022-01-01", `MTX stop 2022-01-01 (got '${mtxStop?.date_value}')`, mtxStop);
+  assert(/intolleranza\/nausea/i.test(mtxStop?.reason ?? ""), `MTX stop reason 'intolleranza/nausea' (got '${mtxStop?.reason}')`, mtxStop);
+
+  const ssz = ev.find((e) => e.event_type === "therapy_start" && /sulfasalazina/i.test(e.drug_canonical ?? ""));
+  assert(ssz?.date_value === "2023-09-01", `SSZ start 2023-09-01 (got '${ssz?.date_value}')`, ssz);
+});
+
 const _my2Spacing = (list, re) =>
   (list ?? []).find(
     (e) => e.event_type === "dose_spacing" && re.test(e.drug_canonical ?? e.drug_name ?? ""),
