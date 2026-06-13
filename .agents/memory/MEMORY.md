@@ -73,3 +73,4 @@
 - [Parser corpus validation gaps](parser-corpus-validation-gaps.md) — before/after node-bundle diff harness; gaps: esordito-età, "ab" PRN, narrative-only loses active+timeline, single-line, dose-bleed.
 - [Raccordo P0 scope/alias FP-watch](raccordo-p0-scope-patch.md) — extractClinicalScope drops text outside recognized headings (FN risk on unlisted PDF headings); anaphora_restart + bounded_course_range are new FP-watch surfaces.
 - [raccordo Fase 1+2 events](raccordo-fase1-events.md) — append-only rules (diagnosis/disease_status/manifestation); seasonal date helper must run before extractDate (else bare-year invented); manifestation needs noun+recurrence gate; undated same-type events collide on dedup key.
+- [Inferred dates never in date_value](raccordo-inferred-dates-never-in-datevalue.md) — back-computed/estimated start/stop dates stay OUT of date_value (use a separate approx field); RACC-START-NOSTOPDATE-1 guards it; parenthetical stop-reason fallback is fine.

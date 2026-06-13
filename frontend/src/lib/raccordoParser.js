@@ -290,6 +290,24 @@ function extractReason(sentence) {
     .slice(0, 60);
 }
 
+// Token che NON sono motivi clinici ma classi/stato della terapia: una parentesi
+// che inizia con questi non va usata come reason di sospensione.
+const PAREN_NON_REASON_RE = /^(?:in\s+corso|in\s+atto|tuttora|attualmente|(?:b|c|ts)?dmards?|biologic[oi]|biosimilar[ei]|off[-\s]?label|in\s+remission(?:e)?|ben\s+controllat)/i;
+
+// ── Reason in parentesi come fallback (es. "(intolleranza/nausea)") ───────────
+// Cattura il contenuto della prima parentesi PRIVA di cifre che segue la keyword
+// di sospensione: le cifre indicano dosi/date/valori di laboratorio, non un motivo
+// clinico. Slash/virgola interni sono ammessi ("intolleranza/nausea"). Le parentesi
+// di sola classe/stato terapia (es. "(in corso)", "(bDMARD)") vengono scartate.
+function extractParenReason(text) {
+  const m = /\(([^)\d]{3,60})\)/.exec(text);
+  if (!m) return null;
+  const inner = m[1].trim();
+  if (!/^[a-zà-ú]/i.test(inner)) return null;
+  if (PAREN_NON_REASON_RE.test(inner)) return null;
+  return inner.slice(0, 60);
+}
+
 // ── Stop-specific date extraction (excludes "dal YEAR" which signals a START) ──
 function extractStopDate(sentence, stopPos) {
   // La data della sospensione segue la keyword ("sospeso a gennaio 2022"); solo
@@ -850,9 +868,11 @@ export function parseRaccordoTimeline(text) {
         // Data stop per-occorrenza (esclude "dal YEAR" che indica avvio)
         const stopDate = extractStopDate(sentence, stopPos);
 
-        // Reason per-occorrenza: cerca "per ..." nel contesto subito dopo la stop keyword
+        // Reason per-occorrenza: cerca "per ..." nel contesto subito dopo la stop
+        // keyword; in mancanza, ricade sulla parentesi successiva "(motivo)".
         const reasonCtx = sentence.slice(stopPos, Math.min(sentence.length, stopPos + 80));
-        const reason = extractReason(reasonCtx);
+        let reason = extractReason(reasonCtx);
+        if (!reason) reason = extractParenReason(reasonCtx);
 
         // Drug attribution: finestra di 80 char PRIMA di questa specifica occorrenza
         const drugsInWindow = drugs.filter(d => d.pos < stopPos && d.pos >= stopPos - 80);

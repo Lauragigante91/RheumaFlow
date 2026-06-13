@@ -1536,6 +1536,42 @@ runTest("FASE2-SEASON-1 · 'primavera' senza anno NON inventa una data", () => {
   assert(ev?.confidence === "low", `confidence 'low' senza data (got '${ev?.confidence}')`, ev);
 });
 
+runTest("RACC-STOP-PARENREASON-1 · reason dello stop dalla parentesi '(intolleranza/nausea)'", () => {
+  const list = _my2Events("Methotrexate sospeso a gennaio 2022 (intolleranza/nausea).");
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(stop != null, "deve esistere therapy_stop MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(stop?.date_value === "2022-01-01", `stop MTX 2022-01-01 (got '${stop?.date_value}')`, stop);
+  assert(/intolleranza\/nausea/i.test(stop?.reason ?? ""), `reason da parentesi 'intolleranza/nausea' (got '${stop?.reason}')`, stop);
+});
+
+runTest("RACC-STOP-PARENREASON-2 · 'per' esplicito ha priorita' sulla parentesi", () => {
+  const list = _my2Events("Methotrexate sospeso a gennaio 2022 per intolleranza (nausea ricorrente).");
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(stop != null, "deve esistere therapy_stop MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(/intolleranza/i.test(stop?.reason ?? ""), `reason da 'per intolleranza' (got '${stop?.reason}')`, stop);
+});
+
+runTest("RACC-STOP-PARENREASON-3 · guardia: parentesi con cifre NON diventa reason", () => {
+  const list = _my2Events("Methotrexate sospeso a marzo 2021 (15 mg).");
+  const stop = _my2Stop(list, /methotrexate/i);
+  assert(stop != null, "deve esistere therapy_stop MTX", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(stop?.reason == null, `reason deve restare null (parentesi con cifre rifiutata), got '${stop?.reason}'`, stop);
+});
+
+runTest("RACC-STOP-PARENREASON-4 · guardia: parentesi di stato '(in corso)' NON diventa reason", () => {
+  const list = _my2Events("Adalimumab sospeso a marzo 2021 (in corso il follow-up).");
+  const stop = _my2Stop(list, /adalimumab/i);
+  assert(stop != null, "deve esistere therapy_stop ADA", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(stop?.reason == null, `reason deve restare null (parentesi di stato rifiutata), got '${stop?.reason}'`, stop);
+});
+
+runTest("RACC-STOP-PARENREASON-5 · guardia: parentesi di classe '(biosimilare)' NON diventa reason", () => {
+  const list = _my2Events("Adalimumab sospeso a marzo 2021 (biosimilare).");
+  const stop = _my2Stop(list, /adalimumab/i);
+  assert(stop != null, "deve esistere therapy_stop ADA", list.map((e) => `${e.event_type}:${e.drug_canonical}`));
+  assert(stop?.reason == null, `reason deve restare null (parentesi di classe rifiutata), got '${stop?.reason}'`, stop);
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
