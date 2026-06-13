@@ -250,6 +250,11 @@ const FREQ_INTERVAL =
 const FREQ_GENERAL =
   /\b(\d+)\s*(?:volta|volte|times?)\s*(?:al\s*(?:giorno|day)|a\s*settimana|weekly)|\b(?:die|bid|tid|qid|once\s+(?:daily|weekly)|biweekly|mensile)\b|\bevery\s+\d+\s+(?:day|week)|\bogni\s+\d+\s+(?:settiman[ae]|giorni?|mes[ei]|weeks?|months?|days?)\b|\bspacing\s+a\s+\d+\s+settiman[ae]\b|\b(?:una|un['’])\s+volta\s+a\s+settimana\b|\bsettimanale\b/i;
 const FREQ_PRN_RE = /\b(?:al\s+bisogno|se\s+necessario|secondo\s+necessit[àa]|prn)\b/i;
+
+function prnSentenceScope(s) {
+  const m = s.match(/[;\n]|\.\s+(?=[A-ZÀÈÉÌÒÓÙ])/);
+  return m ? s.slice(0, m.index) : s;
+}
 const ROUTE_RE =
   /(?:^|[\s,;(])(?:(?:per\s+)?(?:os|orale(?:\s+per\s+os)?|bocca)|s\.c\.?|sottocut(?:e|ane[ao])|i\.m\.?|intramuscol[oe]|e\.v\.?|endovenosa?|i\.v\.?|sublinguale?|s\.l\.?|topica?|cutane[ao]|inalatori[ao])(?=[\s,;).\n]|$)/i;
 
@@ -314,13 +319,15 @@ function extractDoseAndFrequency(context) {
   const dailyM = afterDose.match(/(?:^|[\s/])(?:al\s+(?:di|dì|giorno|day)|die|dì|giorno|day|qd)(?=$|[\s,.;)])/i);
   const twoDaysWeekM = context.match(/\b(?:2|due)\s+giorni\s+(?:a|alla)\s+settimana\b/i);
 
+  const prnScope = prnSentenceScope(context);
+
   let frequency = null;
   if (twoDaysWeekM) {
     frequency = "2 giorni/settimana";
   } else if (/\b(?:un\s+)?(?:unico\s+)?giorno\s+(?:a|alla)\s+settimana\b/i.test(context)) {
     frequency = "settimanale";
-  } else if (FREQ_PRN_RE.test(context)) {
-    frequency = context.match(FREQ_PRN_RE)[0].trim();
+  } else if (FREQ_PRN_RE.test(prnScope)) {
+    frequency = prnScope.match(FREQ_PRN_RE)[0].trim();
   } else {
     const freqM = [freqPwM, freqIntM, freqGenM]
       .filter(Boolean)
@@ -459,9 +466,8 @@ function extractTherapies(text, today) {
       const routeM = doseScope.match(ROUTE_RE);
       const route  = routeM ? normalizeRoute(routeM[0]) : null;
 
-      const _prnBreak = context.search(/[.;\n]/);
-      const _prnScope = _prnBreak >= 0 ? context.slice(0, _prnBreak) : context;
-      const _prnAbbrevScope = doseScope.slice(match[0].length).split(/\n/)[0];
+      const _prnScope = prnSentenceScope(context);
+      const _prnAbbrevScope = prnSentenceScope(doseScope).slice(match[0].length);
       const isPrn = PRN_AFTER_RE.test(_prnScope) ||
         PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 24), match.index)) ||
         PRN_ABBREV_RE.test(_prnAbbrevScope) ||

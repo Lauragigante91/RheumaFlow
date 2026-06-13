@@ -1814,6 +1814,39 @@ runTest("THERAPY-DOSE-7 · 'x N mesi/giorni' è durata, non moltiplica la dose (
   assert(days.dose === "1000 mg", `'2 cp x 5 giorni' moltiplica solo per le cp (2), non per la durata (got: ${days.dose})`, days);
 });
 
+const _isPrnFreq = (f) => /al\s+bisogno|se\s+necessario|secondo\s+necessit|\bprn\b/i.test(f ?? "");
+
+runTest("THERAPY-PRN-1 · 'al bisogno' di farmaco vicino non contamina la Salazopirina (FP=0)", () => {
+  const text = "Riduce Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo. Toradol al bisogno";
+  const th = (parseVisitText(text).extracted.therapies ?? []).find(t => /sulfasalazina/i.test(t.drug_name));
+  assert(th != null, "Sulfasalazina deve essere estratta", th);
+  assert(th?.dose === "2000 mg", `dose totale deve restare 2000 mg (got: ${th?.dose})`, th);
+  assert(!_isPrnFreq(th?.frequency), `frequency NON deve essere un marcatore PRN (contaminazione da 'Toradol al bisogno') — got: ${th?.frequency}`, th);
+});
+
+runTest("THERAPY-PRN-2 · un vero PRN nella stessa frase resta PRN", () => {
+  const vis = (parseVisitText("INDICAZIONI:\n- Arcoxia 90 mg al bisogno").extracted.therapies ?? []).find(t => /etoricoxib/i.test(t.drug_name));
+  assert(vis != null, "Etoricoxib (Arcoxia) deve essere estratto", vis);
+  assert(vis?.frequency === "al bisogno", `Arcoxia con PRN nella stessa frase deve restare 'al bisogno' (got: ${vis?.frequency})`, vis);
+
+  const q = parseTherapyText("FANS al bisogno");
+  assert(/al bisogno/i.test(q.frequency ?? ""), `Quick parser: 'FANS al bisogno' deve restare PRN (got: ${q.frequency})`, q);
+});
+
+runTest("THERAPY-PRN-3 · abbreviazioni PRN a valle non contaminano; via puntata non rompe il PRN legittimo", () => {
+  const BASE = "Riduce Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo";
+  for (const tail of [". Toradol prn", ". Toradol a.b.", ". Toradol al bis."]) {
+    const th = (parseVisitText(BASE + tail).extracted.therapies ?? []).find(t => /sulfasalazina/i.test(t.drug_name));
+    assert(th != null, `Sulfasalazina deve essere estratta (tail='${tail}')`, th);
+    assert(!_isPrnFreq(th?.frequency), `'${tail}' non deve rendere PRN la Salazopirina (got: ${th?.frequency})`, th);
+  }
+  for (const legit of ["Arcoxia 90 mg p.o. al bisogno", "Arcoxia 90 mg s.c. se necessario", "Arcoxia 90 mg a.b.", "Arcoxia 90 mg al bis."]) {
+    const th = (parseVisitText("INDICAZIONI:\n- " + legit).extracted.therapies ?? []).find(t => /etoricoxib/i.test(t.drug_name));
+    assert(th != null, `Etoricoxib deve essere estratto ('${legit}')`, th);
+    assert(th?.frequency === "al bisogno", `'${legit}' deve restare PRN 'al bisogno' (got: ${th?.frequency})`, th);
+  }
+});
+
 // ── Report finale ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
 console.log(`Totale: ${passed + failed} test | ✓ ${passed} passati | ✗ ${failed} falliti`);
