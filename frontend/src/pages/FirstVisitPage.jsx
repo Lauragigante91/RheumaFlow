@@ -24,6 +24,7 @@ import { buildProfilePayload } from "../lib/profilePayload";
 import ConcomitantTherapyReview from "../components/therapy/ConcomitantTherapyReview";
 import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
 import TherapyActionLauncher from "../components/therapy/TherapyActionLauncher";
+import useConfirmReplace from "../components/shared/useConfirmReplace";
 import {
   REFERRAL_REASONS, FRAILTY_ITEMS, CHECKLISTS,
   RHEUM_TEMPLATES, BONE_TEMPLATE, EXAM_TEMPLATES,
@@ -159,6 +160,7 @@ export default function FirstVisitPage() {
   const [patient, setPatient] = useState(null);
   const [step, setStep] = useState(1);
   const [data, setData] = useState(EMPTY_DATA);
+  const { requestReplace, confirmDialog } = useConfirmReplace();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [profileDiseaseKey, setProfileDiseaseKey] = useState(null);
@@ -1350,9 +1352,11 @@ export default function FirstVisitPage() {
         visitDate={data.referral_date}
         visitStartTherapies={frozenTherapiesRef.current}
         initialAction={therapyLauncherAction}
-        onAppendToPlan={(text) => patch({ therapy_modification: data.therapy_modification ? data.therapy_modification + "\n\n" + text : text })}
+        onAppendToPlan={(text) => requestReplace(data.therapy_modification, () => patch({ therapy_modification: text }))}
         onTherapySaved={() => reloadTherapies()}
       />
+
+      {confirmDialog}
 
       {/* ── Quick add therapy dialog ── */}
       {therapyDlg.open && (

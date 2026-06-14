@@ -12,6 +12,7 @@ import { isPmrDiagnosis, isLvvDiagnosis } from "../../lib/diseaseDetection";
 import TemplatePickerDialog from "../visits/TemplatePickerDialog";
 import SelectableTextArea from "../shared/SelectableTextArea";
 import TherapyActionLauncher from "../therapy/TherapyActionLauncher";
+import useConfirmReplace from "../shared/useConfirmReplace";
 
 function InheritedFieldWrapper({ fieldKey, inheritedFields, onMarkReviewed, children }) {
   const isInherited = inheritedFields?.has(fieldKey);
@@ -124,6 +125,8 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
   const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
 
+  const { requestReplace, confirmDialog } = useConfirmReplace();
+
   const [inheritedPlanFields, setInheritedPlanFields] = useState(new Set());
   const markPlanReviewed = (key) => setInheritedPlanFields(prev => {
     if (!prev.has(key)) return prev;
@@ -149,8 +152,8 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
 
   useEffect(() => {
     if (!appendPlanText?.text) return;
-    setIndicazioni(prev => prev.trim() ? prev.trim() + "\n" + appendPlanText.text : appendPlanText.text);
-  }, [appendPlanText]);
+    requestReplace(indicazioni, () => setIndicazioni(appendPlanText.text));
+  }, [appendPlanText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── §10 Terapia: sorgente primaria = prescrizioni attive (sempre aggiornate) ──
   // Sovrascrive anche il valore già impostato dal clinical_cockpit (che potrebbe
@@ -433,6 +436,7 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
         </div>
 
       </div>
+      {confirmDialog}
     </div>
   );
 }

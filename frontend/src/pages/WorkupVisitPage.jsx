@@ -19,6 +19,7 @@ import SelectableTextArea from "../components/shared/SelectableTextArea";
 import QuickTherapyModal  from "../components/therapy/QuickTherapyModal";
 import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
 import TherapyActionLauncher from "../components/therapy/TherapyActionLauncher";
+import useConfirmReplace from "../components/shared/useConfirmReplace";
 import { patientsApi, workupVisitsApi, diseaseProfileApi, therapiesApi } from "../lib/api";
 import { parseTherapyText } from "../lib/therapyTextParser";
 import { detectSafetyReminders, detectDrugsInText } from "../lib/safetyReminders";
@@ -455,6 +456,7 @@ export default function WorkupVisitPage() {
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [form, setForm]                 = useState(makeEmptyForm());
+  const { requestReplace, confirmDialog } = useConfirmReplace();
   const [labImportOpen, setLabImportOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState(null);
   const [cockpitData, setCockpitData] = useState(null);
@@ -1528,10 +1530,7 @@ export default function WorkupVisitPage() {
         patient={patient}
         visitDate={form.visit_date}
         onSaved={() => reloadTherapies()}
-        onAppendToPlan={(text) => setForm(f => ({
-          ...f,
-          therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text,
-        }))}
+        onAppendToPlan={(text) => requestReplace(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
         onExpand={(newText) => {
           const sel = therapyQTM;
           setForm(f => ({
@@ -1551,9 +1550,11 @@ export default function WorkupVisitPage() {
         visitDate={form.visit_date}
         visitStartTherapies={frozenTherapiesRef.current}
         initialAction={therapyLauncherAction}
-        onAppendToPlan={(text) => setForm(f => ({ ...f, therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text }))}
+        onAppendToPlan={(text) => requestReplace(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
         onTherapySaved={() => reloadTherapies()}
       />
+
+      {confirmDialog}
     </div>
   );
 }
