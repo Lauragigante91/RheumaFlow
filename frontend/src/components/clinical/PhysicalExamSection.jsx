@@ -245,6 +245,7 @@ export default function PhysicalExamSection({
         )}
         <TemplatePickerDialog
           category="physical_exam"
+          currentText={freeText}
           onSelect={(text) => patch({ free_text: freeText ? freeText + "\n\n" + text : text })}
         />
       </div>

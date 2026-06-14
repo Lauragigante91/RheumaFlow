@@ -988,6 +988,7 @@ export default function TodayVisitSection({
             </InheritedFieldWrapper>
             <TemplatePickerDialog
               category="rheumatic_history"
+              currentText={intervalHistory}
               onSelect={(text) => { setIntervalHistory(prev => prev ? prev + "\n\n" + text : text); markReviewed('intervalHistory'); }}
             />
           </div>

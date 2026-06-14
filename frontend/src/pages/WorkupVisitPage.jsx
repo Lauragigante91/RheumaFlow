@@ -1055,6 +1055,7 @@ export default function WorkupVisitPage() {
                   />
                   <TemplatePickerDialog
                     category="rheumatic_history"
+                    currentText={form.interval_history}
                     onSelect={(text) => setForm((f) => ({
                       ...f,
                       interval_history: f.interval_history ? f.interval_history + "\n\n" + text : text,
