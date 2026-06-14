@@ -1,4 +1,4 @@
-import { calculateTablets, formatTablets, DRUG_FORMULATIONS } from "../lib/steroidTapering";
+import { calculateTablets, formatTablets, DRUG_FORMULATIONS, generateTaperingPlan } from "../lib/steroidTapering";
 
 function fmt(dose, drug = "prednisone") {
   return formatTablets(calculateTablets(dose, drug), DRUG_FORMULATIONS[drug].defaultBrand, dose);
@@ -91,5 +91,123 @@ describe("Metilprednisolone — nessuna preferenza frazione-grande (no regressio
 
   test("2 mg = ½ cp da 4", () => {
     expect(calculateTablets(2, "metilprednisolone")).toEqual([{ mg: 4, count: 0.5 }]);
+  });
+});
+
+const daysBetweenUTC = (a, b) =>
+  Math.round((new Date(b + "T00:00:00Z") - new Date(a + "T00:00:00Z")) / 86400000);
+
+const CONFIG_PMR = {
+  drug: "prednisone",
+  startDose: 15,
+  startDate: "2026-06-15",
+  initialDurationDays: 28,
+  targets: [
+    { dose: 10, byDate: "2026-09-07" },
+    { dose: 5, byDate: "2026-12-14" },
+    { dose: 0, byDate: "2027-06-14" },
+  ],
+  stepRules: [
+    { aboveDose: 10, reductionMg: 2.5, intervalDays: 28 },
+    { aboveDose: 5, reductionMg: 2.5, intervalDays: 28 },
+    { aboveDose: 0, reductionMg: 2.5, intervalDays: 56 },
+  ],
+  generalNote: "",
+};
+
+const CONFIG_GCA = {
+  drug: "prednisone",
+  startDose: 50,
+  startDate: "2026-01-10",
+  initialDurationDays: 14,
+  targets: [
+    { dose: 25, byDate: "2026-04-01" },
+    { dose: 15, byDate: "2026-07-01" },
+    { dose: 10, byDate: "2026-10-01" },
+    { dose: 5, byDate: "2027-06-01" },
+  ],
+  stepRules: [
+    { aboveDose: 30, reductionMg: 10, intervalDays: 14 },
+    { aboveDose: 20, reductionMg: 5, intervalDays: 14 },
+    { aboveDose: 10, reductionMg: 2.5, intervalDays: 28 },
+    { aboveDose: 0, reductionMg: 2.5, intervalDays: 28 },
+  ],
+  generalNote: "",
+};
+
+describe("generateTaperingPlan — coerenza delle date (fuso Europe/Rome)", () => {
+  describe.each([
+    ["PMR", CONFIG_PMR],
+    ["GCA", CONFIG_GCA],
+  ])("caso %s", (_label, config) => {
+    test("genera almeno uno step", () => {
+      const { steps } = generateTaperingPlan(config);
+      expect(steps.length).toBeGreaterThan(0);
+    });
+
+    test("il primo step inizia esattamente alla data di inizio (visita)", () => {
+      const { steps } = generateTaperingPlan(config);
+      expect(steps[0].startDate).toBe(config.startDate);
+    });
+
+    test("ogni step ha durata positiva e coerente con start/end", () => {
+      const { steps } = generateTaperingPlan(config);
+      for (const s of steps) {
+        expect(daysBetweenUTC(s.startDate, s.endDate)).toBeGreaterThanOrEqual(0);
+        expect(s.durationDays).toBe(daysBetweenUTC(s.startDate, s.endDate) + 1);
+        expect(s.durationDays).toBeGreaterThan(0);
+      }
+    });
+
+    test("step consecutivi senza overlap né buchi (ogni inizio = giorno dopo la fine precedente)", () => {
+      const { steps } = generateTaperingPlan(config);
+      for (let i = 1; i < steps.length; i++) {
+        expect(daysBetweenUTC(steps[i - 1].endDate, steps[i].startDate)).toBe(1);
+      }
+    });
+
+    test("date in ordine cronologico stretto", () => {
+      const { steps } = generateTaperingPlan(config);
+      for (let i = 1; i < steps.length; i++) {
+        expect(steps[i].startDate > steps[i - 1].startDate).toBe(true);
+        expect(steps[i].endDate > steps[i - 1].endDate).toBe(true);
+      }
+    });
+
+    test("l'ultimo step raggiunge la dose target finale", () => {
+      const { steps } = generateTaperingPlan(config);
+      const finalTarget = config.targets[config.targets.length - 1].dose;
+      expect(steps[steps.length - 1].dose).toBe(finalTarget);
+    });
+
+    test("nessuno step supera la data dell'ultimo obiettivo", () => {
+      const { steps } = generateTaperingPlan(config);
+      const lastByDate = config.targets[config.targets.length - 1].byDate;
+      for (const s of steps) {
+        expect(s.endDate <= lastByDate).toBe(true);
+      }
+    });
+  });
+
+  test("PMR: gli step iniziali a regime durano quanto l'intervallo della regola (28 gg)", () => {
+    const { steps } = generateTaperingPlan(CONFIG_PMR);
+    expect(steps[0].durationDays).toBe(28);
+    expect(steps[1].durationDays).toBe(28);
+  });
+
+  test("PMR: sequenza completa di date attesa (indipendente dal fuso)", () => {
+    const { steps } = generateTaperingPlan(CONFIG_PMR);
+    const seq = steps.map(s => `${s.startDate}|${s.endDate}|${s.dose}`);
+    expect(seq).toEqual([
+      "2026-06-15|2026-07-12|15",
+      "2026-07-13|2026-08-09|15",
+      "2026-08-10|2026-09-06|12.5",
+      "2026-09-07|2026-10-04|10",
+      "2026-10-05|2026-11-01|7.5",
+      "2026-11-02|2026-12-13|5",
+      "2026-12-14|2027-02-07|5",
+      "2027-02-08|2027-04-04|2.5",
+      "2027-04-05|2027-06-13|0",
+    ]);
   });
 });

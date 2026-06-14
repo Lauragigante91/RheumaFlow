@@ -28,12 +28,19 @@ import {
 } from "../../lib/steroidTapering";
 import ItalianDatePicker from "../shared/ItalianDatePicker";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const TODAY = localISO(new Date());
 
 function addWeeks(dateISO, weeks) {
   const d = new Date(dateISO + "T00:00:00");
   d.setDate(d.getDate() + weeks * 7);
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 const DEFAULT_STEP_RULES = [
@@ -161,7 +168,7 @@ export default function SteroidTaperingModal({
     const firstStep = plan.steps[0];
     const lastStep  = plan.steps[plan.steps.length - 1];
     const period    = `${formatDateIT(firstStep.startDate)} – ${formatDateIT(lastStep.endDate)}`;
-    const todayStr  = formatDateIT(new Date().toISOString().slice(0, 10));
+    const todayStr  = formatDateIT(localISO(new Date()));
 
     const rows = plan.steps.map(step => {
       const dal = formatDateIT(step.startDate);

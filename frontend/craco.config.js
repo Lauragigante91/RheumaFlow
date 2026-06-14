@@ -3,6 +3,10 @@ const path = require("path");
 const { createProxyMiddleware, fixRequestBody } = require("http-proxy-middleware");
 require("dotenv").config();
 
+if (process.env.NODE_ENV === "test" && !process.env.TZ) {
+  process.env.TZ = "Europe/Rome";
+}
+
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
 const isDevServer = process.env.NODE_ENV !== "production";
