@@ -97,7 +97,8 @@ export default function SteroidTaperingModal({
     stepRules,
     generalNote,
     hasImmunosuppressants,
-  }), [drug, startDose, startDate, initialDurationDays, targets, stepRules, generalNote, hasImmunosuppressants]);
+    standardDoseSequence: !appliedPreset,
+  }), [drug, startDose, startDate, initialDurationDays, targets, stepRules, generalNote, hasImmunosuppressants, appliedPreset]);
 
   const plan = useMemo(() => {
     if (!config.startDose || !config.startDate || !config.targets.length) return null;

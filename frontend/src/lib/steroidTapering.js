@@ -304,6 +304,9 @@ function daysBetween(a, b) {
   return Math.round((db - da) / 86400000);
 }
 
+const STANDARD_TAPER_DOSES = [25, 20, 18.75, 15, 12.5, 10, 7.5, 5, 2.5];
+const MIN_SAFE_INTERVAL_DAYS = 7;
+
 /**
  * Generate a tapering plan from a configuration object.
  *
@@ -321,7 +324,7 @@ function daysBetween(a, b) {
  * steps: [{ startDate, endDate, dose, durationDays, tablets, tabletText }]
  */
 export function generateTaperingPlan(config) {
-  const { drug, startDose, startDate, initialDurationDays, targets, stepRules, generalNote } = config;
+  const { drug, startDose, startDate, initialDurationDays, targets, stepRules, generalNote, standardDoseSequence } = config;
   if (!startDose || !startDate || !targets?.length) return { steps: [], warnings: [] };
 
   const sortedTargets = [...targets]
@@ -343,6 +346,52 @@ export function generateTaperingPlan(config) {
     const endDate = addDays(currentDate, initDays - 1);
     steps.push(makeStep(currentDate, endDate, currentDose, drug, generalNote));
     currentDate = addDays(currentDate, initDays);
+  }
+
+  if (standardDoseSequence) {
+    for (const target of sortedTargets) {
+      const targetDose = parseFloat(target.dose);
+      if (isNaN(targetDose)) continue;
+      if (currentDose <= targetDose) {
+        warnings.push(`Dose corrente (${currentDose} mg) già uguale o inferiore all'obiettivo (${targetDose} mg)`);
+        continue;
+      }
+
+      const targetDate = target.byDate;
+      const availableDays = daysBetween(currentDate, targetDate);
+      const sequence = STANDARD_TAPER_DOSES.filter(d => d < currentDose && d > targetDose);
+      sequence.push(targetDose);
+      const numLevels = sequence.length;
+
+      if (availableDays < numLevels) {
+        warnings.push(`Intervallo troppo breve per raggiungere ${targetDose} mg/die entro ${formatDateIT(targetDate)} in sicurezza: ampliare la data obiettivo.`);
+        continue;
+      }
+
+      let interval = Math.floor(availableDays / numLevels);
+      if (interval < MIN_SAFE_INTERVAL_DAYS) {
+        warnings.push(`Per raggiungere ${targetDose} mg/die entro ${formatDateIT(targetDate)} servirebbe una riduzione più rapida di ${MIN_SAFE_INTERVAL_DAYS} giorni per step: valutare una data obiettivo più lontana.`);
+        interval = MIN_SAFE_INTERVAL_DAYS;
+      }
+
+      let lastStepEnd = currentDate;
+      for (let i = 0; i < numLevels; i++) {
+        const stepStart = addDays(currentDate, i * interval);
+        let stepEnd;
+        if (i === numLevels - 1) {
+          const naturalEnd = addDays(currentDate, numLevels * interval - 1);
+          stepEnd = naturalEnd > targetDate ? naturalEnd : targetDate;
+        } else {
+          stepEnd = addDays(currentDate, (i + 1) * interval - 1);
+        }
+        steps.push(makeStep(stepStart, stepEnd, sequence[i], drug, generalNote));
+        lastStepEnd = stepEnd;
+      }
+
+      currentDose = targetDose;
+      currentDate = addDays(lastStepEnd, 1);
+    }
+    return { steps, warnings };
   }
 
   for (const target of sortedTargets) {

@@ -1,4 +1,4 @@
-import { calculateTablets, formatTablets, DRUG_FORMULATIONS, generateTaperingPlan } from "../lib/steroidTapering";
+import { calculateTablets, formatTablets, DRUG_FORMULATIONS, generateTaperingPlan, formatClinicalText } from "../lib/steroidTapering";
 
 function fmt(dose, drug = "prednisone") {
   return formatTablets(calculateTablets(dose, drug), DRUG_FORMULATIONS[drug].defaultBrand, dose);
@@ -209,5 +209,82 @@ describe("generateTaperingPlan — coerenza delle date (fuso Europe/Rome)", () =
       "2027-02-08|2027-04-04|2.5",
       "2027-04-05|2027-06-13|0",
     ]);
+  });
+});
+
+const CONFIG_BYDATE_MANUAL = {
+  drug: "prednisone",
+  startDose: 18.75,
+  startDate: "2026-06-14",
+  initialDurationDays: 21,
+  targets: [{ dose: 5, byDate: "2026-09-13" }],
+  stepRules: [],
+  generalNote: "",
+  standardDoseSequence: true,
+};
+
+describe("generateTaperingPlan — sequenza a dosi standard (target byDate manuale)", () => {
+  test("non ripete la dose iniziale: il secondo periodo è inferiore a 18.75 mg", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    expect(steps.length).toBeGreaterThan(1);
+    expect(steps[0].dose).toBe(18.75);
+    expect(steps[1].dose).toBeLessThan(18.75);
+  });
+
+  test("l'ultima dose è 5 mg e termina entro la data obiettivo", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    const last = steps[steps.length - 1];
+    expect(last.dose).toBe(5);
+    expect(last.endDate <= "2026-09-13").toBe(true);
+  });
+
+  test("nessun overlap né buco tra periodi consecutivi", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    for (let i = 1; i < steps.length; i++) {
+      expect(daysBetweenUTC(steps[i - 1].endDate, steps[i].startDate)).toBe(1);
+    }
+  });
+
+  test("dosi intermedie tutte standard e strettamente decrescenti", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    const standard = [25, 20, 18.75, 15, 12.5, 10, 7.5, 5, 2.5];
+    for (let i = 1; i < steps.length; i++) {
+      expect(standard).toContain(steps[i].dose);
+      expect(steps[i].dose).toBeLessThan(steps[i - 1].dose);
+    }
+  });
+
+  test("sequenza completa attesa (date + dose)", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    const seq = steps.map(s => `${s.startDate}|${s.endDate}|${s.dose}`);
+    expect(seq).toEqual([
+      "2026-06-14|2026-07-04|18.75",
+      "2026-07-05|2026-07-18|15",
+      "2026-07-19|2026-08-01|12.5",
+      "2026-08-02|2026-08-15|10",
+      "2026-08-16|2026-08-29|7.5",
+      "2026-08-30|2026-09-13|5",
+    ]);
+  });
+
+  test("rappresentazione compresse invariata: 18.75 = ¾ cp da 25 mg", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    expect(steps[0].tabletText).toBe("¾ cp da 25 mg");
+  });
+
+  test("referto coerente con la tabella: ultima dose = target, nessuna discrepanza", () => {
+    const { steps } = generateTaperingPlan(CONFIG_BYDATE_MANUAL);
+    const text = formatClinicalText(CONFIG_BYDATE_MANUAL, steps);
+    expect(text).toContain("5 mg/die");
+    expect(text).not.toContain("Lo schema generato prevede");
+  });
+
+  test("data obiettivo troppo vicina: warning e nessuno schema incoerente", () => {
+    const { steps, warnings } = generateTaperingPlan({
+      ...CONFIG_BYDATE_MANUAL,
+      targets: [{ dose: 5, byDate: "2026-06-20" }],
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(steps.every(s => s.dose >= 5)).toBe(true);
   });
 });
