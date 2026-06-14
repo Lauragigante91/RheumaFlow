@@ -22,6 +22,8 @@ import { parseHistoricalTherapies } from "../lib/historicalTherapyParser";
 import { analyzeComorbidityText } from "../lib/comorbidityAprParser";
 import { buildProfilePayload } from "../lib/profilePayload";
 import ConcomitantTherapyReview from "../components/therapy/ConcomitantTherapyReview";
+import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
+import TherapyActionLauncher from "../components/therapy/TherapyActionLauncher";
 import {
   REFERRAL_REASONS, FRAILTY_ITEMS, CHECKLISTS,
   RHEUM_TEMPLATES, BONE_TEMPLATE, EXAM_TEMPLATES,
@@ -169,6 +171,22 @@ export default function FirstVisitPage() {
   const [historicalConfirmed, setHistoricalConfirmed] = useState(false);
   const autoTemplateUsed = useRef(new Set());
   const [pendingTherapiesModal, setPendingTherapiesModal] = useState(false);
+  const [therapies, setTherapies] = useState([]);
+  const [gestioneOpen, setGestioneOpen] = useState(false);
+  const [therapyLauncherAction, setTherapyLauncherAction] = useState(null);
+  const frozenTherapiesRef = useRef(null);
+  const reloadTherapies = useCallback(async () => {
+    if (!id) return;
+    const list = await therapiesApi.listByPatient(id).catch(() => null);
+    if (list) {
+      setTherapies(list);
+      if (frozenTherapiesRef.current === null) frozenTherapiesRef.current = list;
+    }
+  }, [id]);
+  const openTherapyManager = (action = null) => {
+    setTherapyLauncherAction(action);
+    setGestioneOpen(true);
+  };
   const openTherapyDlg = () => {
     const firstLine = (data.therapy_modification || "").split("\n").find(l => l.trim()) || "";
     setTherapyDlg({ open: true, drug_name: firstLine.trim(), dose: "", route: "orale", category: "csDMARD", start_date: new Date().toISOString().slice(0, 10), saving: false });
@@ -189,6 +207,7 @@ export default function FirstVisitPage() {
         notes: "",
       });
       toast.success("Terapia aggiunta a «Terapia in corso»");
+      reloadTherapies();
       setTherapyDlg(d => ({ ...d, open: false, saving: false }));
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore nel salvataggio");
@@ -241,6 +260,7 @@ export default function FirstVisitPage() {
     }
     const total = groups.reduce((s, g) => s + g.items.filter(it => !it._skip && !it._duplicate).length, 0);
     if (total > 0) toast.success(`${total} ${total === 1 ? "terapia salvata" : "terapie salvate"} nel profilo paziente`);
+    reloadTherapies();
     setConcomitantItems(null);
     setHistoricalItems(null);
     setConcomitantConfirmed(true);
@@ -273,6 +293,7 @@ export default function FirstVisitPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { reloadTherapies(); }, [reloadTherapies]);
 
   const patch = (updater) => setData((prev) => typeof updater === "function" ? updater(prev) : { ...prev, ...updater });
 
@@ -1206,11 +1227,21 @@ export default function FirstVisitPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Terapia indicata</p>
-                  <TemplatePickerDialog
-                    category="therapy"
-                    currentText={data.therapy_modification}
-                    onSelect={(text) => patch({ therapy_modification: data.therapy_modification ? data.therapy_modification + "\n\n" + text : text })}
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openTherapyManager()}
+                      className="flex items-center gap-1.5 text-[11px] font-semibold text-[#0A2540] border border-[#0A2540]/30 px-2 py-1 rounded-md hover:bg-[#0A2540] hover:text-white transition-colors"
+                    >
+                      <Pill className="w-3 h-3" />
+                      Gestione terapia
+                    </button>
+                    <TemplatePickerDialog
+                      category="therapy"
+                      currentText={data.therapy_modification}
+                      onSelect={(text) => patch({ therapy_modification: data.therapy_modification ? data.therapy_modification + "\n\n" + text : text })}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-start gap-1.5 mb-2 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
                   <span className="text-amber-600 mt-0.5 flex-shrink-0">⚠</span>
@@ -1221,6 +1252,7 @@ export default function FirstVisitPage() {
                 <textarea value={data.therapy_modification} onChange={(e) => patch({ therapy_modification: e.target.value })}
                   rows={5} placeholder="Nuova terapia avviata, farmaco, dose, indicazioni al MMG, terapia ponte, raccomandazioni al paziente…"
                   className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300 leading-relaxed" />
+                <TherapyActionLauncher text={data.therapy_modification} therapies={therapies} onAddTherapy={openTherapyManager} />
                 <button
                   type="button"
                   onClick={openTherapyDlg}
@@ -1310,6 +1342,17 @@ export default function FirstVisitPage() {
           initialJoints={data.physical_exam_joint_exam || {}}
         />
       )}
+
+      <GestioneTerapiaModal
+        open={gestioneOpen}
+        onClose={() => { setGestioneOpen(false); setTherapyLauncherAction(null); }}
+        patient={patient}
+        visitDate={data.referral_date}
+        visitStartTherapies={frozenTherapiesRef.current}
+        initialAction={therapyLauncherAction}
+        onAppendToPlan={(text) => patch({ therapy_modification: data.therapy_modification ? data.therapy_modification + "\n\n" + text : text })}
+        onTherapySaved={() => reloadTherapies()}
+      />
 
       {/* ── Quick add therapy dialog ── */}
       {therapyDlg.open && (

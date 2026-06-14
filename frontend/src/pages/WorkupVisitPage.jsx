@@ -17,6 +17,8 @@ import TemplatePickerDialog from "../components/visits/TemplatePickerDialog";
 import PhysicalExamSection from "../components/clinical/PhysicalExamSection";
 import SelectableTextArea from "../components/shared/SelectableTextArea";
 import QuickTherapyModal  from "../components/therapy/QuickTherapyModal";
+import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
+import TherapyActionLauncher from "../components/therapy/TherapyActionLauncher";
 import { patientsApi, workupVisitsApi, diseaseProfileApi, therapiesApi } from "../lib/api";
 import { parseTherapyText } from "../lib/therapyTextParser";
 import { detectSafetyReminders, detectDrugsInText } from "../lib/safetyReminders";
@@ -469,6 +471,10 @@ export default function WorkupVisitPage() {
   const [profileDiseaseKey, setProfileDiseaseKey] = useState(null);
   const [therapyMenu, setTherapyMenu] = useState(null); // { x, y, text, selStart, selEnd } | null
   const [therapyQTM,  setTherapyQTM]  = useState({ open: false, src: "", selStart: 0, selEnd: 0 });
+  const [therapies, setTherapies] = useState([]);
+  const [gestioneOpen, setGestioneOpen] = useState(false);
+  const [therapyLauncherAction, setTherapyLauncherAction] = useState(null);
+  const frozenTherapiesRef = useRef(null);
   const hasAutoImportedExam    = useRef(false);
   const hasAutoImportedTherapy = useRef(false);
   // Snapshot of pastVisits taken at page-load — frozen for the duration of the session
@@ -483,11 +489,12 @@ export default function WorkupVisitPage() {
 
   const load = useCallback(async () => {
     try {
-      const [pat, fv, visits, comorb] = await Promise.all([
+      const [pat, fv, visits, comorb, therapyList] = await Promise.all([
         patientsApi.get(id),
         diseaseProfileApi.get(id, "prima_visita").catch(() => null),
         workupVisitsApi.list(id),
         diseaseProfileApi.get(id, "comorbidities").catch(() => null),
+        therapiesApi.listByPatient(id).catch(() => []),
       ]);
       setPatient(pat);
       setFirstVisit(fv);
@@ -495,6 +502,8 @@ export default function WorkupVisitPage() {
       // Freeze once at first load — so the cockpit always shows pre-visit therapy snapshot
       if (frozenPastVisitsRef.current === null) frozenPastVisitsRef.current = visits;
       setComorbData(comorb?.data || {});
+      setTherapies(therapyList || []);
+      if (frozenTherapiesRef.current === null) frozenTherapiesRef.current = therapyList || [];
     } catch {
       toast.error("Errore nel caricamento dei dati");
     } finally {
@@ -503,6 +512,16 @@ export default function WorkupVisitPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const reloadTherapies = useCallback(async () => {
+    if (!id) return;
+    const list = await therapiesApi.listByPatient(id).catch(() => null);
+    if (list) setTherapies(list);
+  }, [id]);
+  const openTherapyManager = (action = null) => {
+    setTherapyLauncherAction(action);
+    setGestioneOpen(true);
+  };
 
   // Auto-import physical exam from last workup visit (or first visit as fallback) when creating a new visit
   useEffect(() => {
@@ -1306,9 +1325,19 @@ export default function WorkupVisitPage() {
                   <div style={{ flex: 1 }}>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">9 · Terapia indicata</p>
-                      <TemplatePickerDialog category="therapy"
-                        currentText={form.therapy_modification}
-                        onSelect={(text) => setForm(f => ({ ...f, therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text }))} />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openTherapyManager()}
+                          className="flex items-center gap-1.5 text-[11px] font-semibold text-[#0A2540] border border-[#0A2540]/30 px-2 py-1 rounded-md hover:bg-[#0A2540] hover:text-white transition-colors"
+                        >
+                          <Pill className="w-3 h-3" />
+                          Gestione terapia
+                        </button>
+                        <TemplatePickerDialog category="therapy"
+                          currentText={form.therapy_modification}
+                          onSelect={(text) => setForm(f => ({ ...f, therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text }))} />
+                      </div>
                     </div>
                     <p className="text-[11px] text-gray-500 leading-relaxed">
                       Sarà mostrata in evidenza nella sintesi clinica della visita successiva.
@@ -1325,6 +1354,8 @@ export default function WorkupVisitPage() {
                         Seleziona un farmaco nel testo e usa tasto destro → <span className="font-medium">Salva in Terapia</span>
                       </p>
                     </div>
+
+                    <TherapyActionLauncher text={form.therapy_modification} therapies={therapies} onAddTherapy={openTherapyManager} />
 
                     {/* ── Safety reminders — triggered as drugs are typed in the plan ── */}
                     {planReminders.length > 0 && (
@@ -1496,7 +1527,7 @@ export default function WorkupVisitPage() {
         patientId={id}
         patient={patient}
         visitDate={form.visit_date}
-        onSaved={() => {}}
+        onSaved={() => reloadTherapies()}
         onAppendToPlan={(text) => setForm(f => ({
           ...f,
           therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text,
@@ -1511,6 +1542,17 @@ export default function WorkupVisitPage() {
               f.therapy_modification.substring(sel.selEnd),
           }));
         }}
+      />
+
+      <GestioneTerapiaModal
+        open={gestioneOpen}
+        onClose={() => { setGestioneOpen(false); setTherapyLauncherAction(null); }}
+        patient={patient}
+        visitDate={form.visit_date}
+        visitStartTherapies={frozenTherapiesRef.current}
+        initialAction={therapyLauncherAction}
+        onAppendToPlan={(text) => setForm(f => ({ ...f, therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text }))}
+        onTherapySaved={() => reloadTherapies()}
       />
     </div>
   );
