@@ -437,7 +437,7 @@ export function formatPatientSchedule(config, steps) {
   const brand = formulation?.defaultBrand || drug;
 
   const lines = [];
-  lines.push(`SCHEMA SCALAGGIO — ${(formulation?.label || drug).toUpperCase()}`);
+  lines.push(`SCHEMA SCALAGGIO — ${(formulation?.label || drug || "prednisone").toUpperCase()}`);
   lines.push("=".repeat(60));
 
   for (const step of steps) {

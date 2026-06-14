@@ -63,7 +63,7 @@ export default function SteroidTaperingModal({
 }) {
   const today = visitDate || TODAY;
 
-  const [drug, setDrug] = useState(initialDrug);
+  const [drug, setDrug] = useState(initialDrug || "prednisone");
   const [startDose, setStartDose] = useState(String(initialDose || ""));
   const [startDate, setStartDate] = useState(today);
   const [initialDurationDays, setInitialDurationDays] = useState(14);
