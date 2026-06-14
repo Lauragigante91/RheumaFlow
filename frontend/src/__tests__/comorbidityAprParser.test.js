@@ -1,4 +1,26 @@
 import { analyzeComorbidityText } from "../lib/comorbidityAprParser";
+import { buildProfilePayload } from "../lib/profilePayload";
+
+describe("buildProfilePayload", () => {
+  test("senza analisi (aprAnalysis null) il payload NON contiene la chiave comorbidities", () => {
+    const payload = buildProfilePayload({ referral_reason: "artrite" }, null, { cardiovascular: ["Ipertensione"] });
+    expect(payload).not.toHaveProperty("comorbidities");
+    expect(payload.referral_reason).toBe("artrite");
+  });
+
+  test("con analisi valorizzata il payload contiene comorbidities col valore passato", () => {
+    const comorbidities = { cardiovascular: ["Ipertensione"] };
+    const payload = buildProfilePayload({ referral_reason: "artrite" }, { recognized_known: [] }, comorbidities);
+    expect(payload).toHaveProperty("comorbidities");
+    expect(payload.comorbidities).toEqual(comorbidities);
+  });
+
+  test("non muta l'oggetto fvOnly originale", () => {
+    const fvOnly = { referral_reason: "artrite" };
+    buildProfilePayload(fvOnly, { recognized_known: [] }, {});
+    expect(fvOnly).not.toHaveProperty("comorbidities");
+  });
+});
 
 describe("analyzeComorbidityText", () => {
   test("testo vuoto restituisce risultato vuoto e confidence none", () => {

@@ -20,6 +20,7 @@ import LabImportFromImageDialog from "../components/labs/LabImportFromImageDialo
 import { parseConcomitantDrugs } from "../lib/concomitantDrugParser";
 import { parseHistoricalTherapies } from "../lib/historicalTherapyParser";
 import { analyzeComorbidityText } from "../lib/comorbidityAprParser";
+import { buildProfilePayload } from "../lib/profilePayload";
 import ConcomitantTherapyReview from "../components/therapy/ConcomitantTherapyReview";
 import {
   REFERRAL_REASONS, FRAILTY_ITEMS, CHECKLISTS,
@@ -380,12 +381,7 @@ export default function FirstVisitPage() {
         }
       }
 
-      const _profilePayload = { ...fvOnly };
-      if (aprAnalysis) {
-        _profilePayload.comorbidities = _comorbiditiesForReferto;
-      } else {
-        delete _profilePayload.comorbidities;
-      }
+      const _profilePayload = buildProfilePayload(fvOnly, aprAnalysis, _comorbiditiesForReferto);
       await diseaseProfileApi.upsert(id, "prima_visita", _profilePayload);
       const newState = (isConverting || data.diagnostic_certainty === "definita") ? "follow_up" : "workup_in_progress";
       const updates = {
