@@ -566,6 +566,7 @@ class ClinicalEventBase(BaseModel):
     titolo:           Optional[str] = None    # human-readable title (free text)
     categoria:        Optional[str] = None    # "malattia"|"terapia"|"esame"|"ricovero"|"procedura"|"diagnosi"|"altro"
     date_value:       Optional[str] = None    # ISO-10 approximated ("2009-01-01" if year-only)
+    date_estimated:   Optional[str] = None    # anno stimato per back-inference; date_value resta null
     date_text:        Optional[str] = None    # raw text from raccordo ("dal 2009")
     date_precision:   Optional[str] = "year"  # "year" | "month_year" | "exact"
     date_approximate: bool          = False

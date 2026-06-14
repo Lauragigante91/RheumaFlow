@@ -1,36 +1,35 @@
 ---
 name: Raccordo events dedup in reconcileDrafts
-description: Why timeline (clinical) events must be deduplicated in the multi-import reconciler, and the date_estimated DB-dedup limitation.
+description: Why timeline (clinical) events must be deduplicated in the multi-import reconciler, and why every dedup-key field must be persisted by the backend model.
 ---
 
-# reconcileDrafts must dedup raccordo_events (timeline), not only therapies/assessments/labs
+# Two durable lessons from the multi-PDF timeline-duplication bug
 
-reconcileDrafts (frontend/src/lib/visitReconciler.js) annotates each draft array
-with a status and skips duplicates across the batch and against existing DB data.
-It originally handled `therapies`, `assessments`, `lab_exams` only — `raccordo_events`
-(the longitudinal timeline / clinical_events) was passed through untouched.
+## 1. Every draft array type added to the import pipeline needs a dedup block
 
-**Bug:** the patient's anamnestic history (esordio, remissione, stop/start) is
-restated in *every* letter's "raccordo" section, so importing N PDFs created every
-timeline event N times (identical date/type/text). Single-import does NOT call
-reconcileDrafts (apply → _applyOneDraft once) so it saves events once — the dup bug
-was multi-mode only. Backend batch_create does no server-side dedup.
+The patient's anamnestic history (esordio, remissione, stop/start) is restated in
+*every* letter's "raccordo" section. The multi-import reconciler is the single
+choke point for "save once": it must mark existing-in-DB and seen-in-batch items
+as duplicate+skip. When a new draft array type is wired in but NOT given a dedup
+block there (and a fetch of its existing DB rows + a slot in the save counters),
+importing N PDFs silently writes every item N times. Single-import bypasses the
+reconciler, so this class of bug is multi-import-only and easy to miss.
 
-**Rule:** any new draft array type added to the import pipeline MUST get a matching
-dedup block in reconcileDrafts (existing-in-DB → DUPLICATE+_skip; seen-in-batch →
-DUPLICATE+_skip; else NEW), AND be counted in draftSummaryStats toSave/skipped, AND
-have its existing-DB source fetched in VisitImportButton.parseMulti and passed via
-existingData. _applyOneDraft already filters `!e._skip`, so setting _skip prevents save.
+**Why:** there is no server-side dedup on batch create; the client reconciler is
+the only guard.
 
-**Why:** the reconciler is the single choke point for "save once". Missing a type
-there silently duplicates on every multi-letter import.
+## 2. Any field used in a client dedup/identity key MUST be persisted server-side
 
-**date_estimated DB-dedup limitation:** the dedup key is
-`event_type::normDate(date_value||date_estimated)::drug(canonical||to||from)::text(manifestation||detail)`.
-Cross-batch dedup works for ALL events (both parser drafts carry date_estimated).
-But model ClinicalEventBase has NO date_estimated field (extra="ignore" drops it),
-so estimated-only events persist with date_value=null. Re-importing the same letter
-later can therefore re-create an estimated-date event (its DB copy keys with empty
-date, the fresh parse keys with the estimate → no match). All reported dups had real
-date_value, so this is an accepted edge case unless date_estimated is persisted or
-normalized into date_value before save.
+The event identity key mixes a date that can come from an *estimated* field, not
+just the declared date (back-inferred years live in a separate "estimated" field;
+the declared date stays null — estimated dates must never pollute the official
+date; see raccordo-inferred-dates-never-in-datevalue.md).
+
+If the backend model omits that estimated field, Pydantic drops it on save. In-batch
+dedup still works (both drafts carry it), but on **re-import** the stored copy keys
+with an empty date while the fresh parse keys with the estimate → no match →
+duplicate. The fix was to declare the field on the event model so it round-trips.
+
+**Why / how to apply:** when you extend a client identity key, check the backend
+model first — a key field that is not persisted degrades cross-session dedup
+silently, and only re-import (not first import) exposes it.

@@ -338,4 +338,17 @@ describe("reconcileDrafts — deduplica eventi raccordo (timeline)", () => {
     expect(draft.raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
     expect(draft.raccordo_events[1]._status).toBe(ITEM_STATUS.NEW);
   });
+
+  it("reimport: evento con sola data stimata (date_estimated) gia' in DB viene saltato", () => {
+    const [draft] = reconcileDrafts(
+      [{ raccordo_events: [
+        { event_type: "therapy_start", date_value: null, date_estimated: "2019", drug_canonical: "metotrexato" },
+      ] }],
+      { clinical_events: [
+        { event_type: "therapy_start", date_value: null, date_estimated: "2019", drug_canonical: "metotrexato" },
+      ] }
+    );
+    expect(draft.raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(draft.raccordo_events[0]._skip).toBe(true);
+  });
 });
