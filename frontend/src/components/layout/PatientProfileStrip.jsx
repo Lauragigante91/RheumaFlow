@@ -3,10 +3,13 @@ import {
   Leaf, Users, Heart, Pill, AlertTriangle,
   ChevronDown, ChevronUp, X, Plus, Search, Trash2, ChevronDown as DropArrow,
 } from "lucide-react";
-import { diseaseProfileApi, patientsApi, therapiesApi } from "../../lib/api";
+import { diseaseProfileApi, patientsApi, therapiesApi, conditionsApi } from "../../lib/api";
 import { parseTherapyText } from "../../lib/therapyTextParser";
-import { parseComorbidityAprText } from "../../lib/comorbidityAprParser";
-import { COMORBIDITY_CATEGORIES, FREQUENT_CONDITIONS } from "../../lib/conditions";
+import { analyzeComorbidityText } from "../../lib/comorbidityAprParser";
+import {
+  COMORBIDITY_CATEGORIES, FREQUENT_CONDITIONS,
+  buildConditionFromLabel, buildCustomCondition, CANONICAL_MAP, resolveCanonical,
+} from "../../lib/conditions";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
 
@@ -53,6 +56,17 @@ const CAT_DOT = {
   neurologic:       "bg-fuchsia-500",
   allergologic:     "bg-red-500",
   altro:            "bg-gray-400",
+};
+
+// ── Review kind labels (text-first APR mini-review) ─────────────────────────
+const REVIEW_KIND_LABELS = {
+  neoplasia:      "neoplasia",
+  infection:      "infezione",
+  multi:          "multi-istanza",
+  uncertain:      "da confermare",
+  ambiguous:      "ambigua",
+  low_confidence: "bassa confidenza",
+  unrecognized:   "non riconosciuta",
 };
 
 // ── Detail key ───────────────────────────────────────────────────────────────
@@ -150,7 +164,7 @@ function TextEditorModal({ title, value, placeholder, onSave, onClose, saving })
 }
 
 // ── Comorbidity editor modal — chip + search + detail rows ───────────────────
-function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSave, onClose, saving }) {
+function ComorbidityEditorModal({ patientId, comorbidities, comorbDetails, freeNotes, onSave, onClose, saving }) {
   // draft chip lists per category
   const [chips, setChips] = useState(() =>
     Object.fromEntries(Object.entries(comorbidities).map(([k, v]) => [k, [...(v || [])]])));
@@ -162,8 +176,10 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
     });
     return init;
   });
-  const [notes,      setNotes]      = useState(freeNotes || "");
-  const [aprPreview, setAprPreview] = useState(null);
+  const [notes,           setNotes]           = useState(freeNotes || "");
+  const [aprAnalysis,     setAprAnalysis]     = useState(null);
+  const [dismissedKnown,  setDismissedKnown]  = useState(() => new Set());
+  const [reviewDecisions, setReviewDecisions] = useState({});
   const [search,     setSearch]     = useState("");
   const [showDrop,   setShowDrop]   = useState(false);
   const searchRef = useRef(null);
@@ -226,37 +242,86 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
   );
 
   const handleSave = () => {
-    // Build updated comorbidity_details
+    // Merge text-first recognised/confirmed comorbidities into the structured chips
+    // so they appear in the strip, and persist them as canonical conditions.
+    const mergedChips = Object.fromEntries(
+      Object.entries(chips).map(([k, v]) => [k, [...(v || [])]])
+    );
+    const addToChips = (catKey, label) => {
+      const cat = catKey || "altro";
+      if (!mergedChips[cat]) mergedChips[cat] = [];
+      if (!mergedChips[cat].includes(label)) mergedChips[cat].push(label);
+    };
+
+    const conditionPayloads = [];
+    if (aprAnalysis) {
+      const knownToSave = aprAnalysis.recognized_known.filter((c) => !dismissedKnown.has(c.canonical));
+      for (const c of knownToSave) {
+        conditionPayloads.push(buildConditionFromLabel(c.label, patientId, "follow_up"));
+        addToChips((c.canonical && CANONICAL_MAP[c.canonical]?.category) || "altro", c.label);
+      }
+      const confirmedReview = aprAnalysis.review.filter((r) => reviewDecisions[r._raw]?.action === "confirm");
+      for (const r of confirmedReview) {
+        const decision = reviewDecisions[r._raw] || {};
+        const finalLabel = (decision.label || r.label || "").trim();
+        if (!finalLabel) continue;
+        const overrides = {};
+        if (r.status) overrides.status = r.status;
+        if (r.onset_date) overrides.onset_date = r.onset_date;
+        const canonical = resolveCanonical(finalLabel);
+        if (canonical) {
+          conditionPayloads.push(buildConditionFromLabel(finalLabel, patientId, "follow_up", overrides));
+          addToChips(CANONICAL_MAP[canonical].category, CANONICAL_MAP[canonical].label);
+        } else {
+          conditionPayloads.push(buildCustomCondition(finalLabel, patientId, "follow_up", overrides));
+          addToChips("altro", finalLabel);
+        }
+      }
+    }
+
+    // Build updated comorbidity_details for every chip (manual + merged)
     const newDetails = { ...(comorbDetails || {}) };
-    allSelected.forEach(({ catKey, item }) => {
-      const key  = dk(catKey, item);
-      const desc = (descs[key] || "").trim();
-      newDetails[key] = { description: desc };
-    });
-    onSave(chips, notes, newDetails);
+    Object.entries(mergedChips)
+      .filter(([k]) => k !== "allergologic")
+      .flatMap(([catKey, items]) => (items || []).filter(Boolean).map((item) => ({ catKey, item })))
+      .forEach(({ catKey, item }) => {
+        const key  = dk(catKey, item);
+        const desc = (descs[key] || "").trim();
+        if (!(key in newDetails)) newDetails[key] = { description: desc };
+        else newDetails[key] = { description: desc };
+      });
+
+    if (conditionPayloads.length > 0 && patientId) {
+      Promise.allSettled(conditionPayloads.map((p) => conditionsApi.upsert(p))).catch(() => {});
+    }
+    onSave(mergedChips, notes, newDetails);
   };
 
-  const runAprPreview = () => {
+  const runAprAnalysis = () => {
     const text = notes.trim();
-    setAprPreview(text ? parseComorbidityAprText(text) : null);
+    setAprAnalysis(text ? analyzeComorbidityText(text) : null);
+    setDismissedKnown(new Set());
+    setReviewDecisions({});
   };
 
-  const renderPreviewList = (label, items) => (
-    <div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
-      {items?.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map((item, i) => (
-            <span key={`${label}-${i}`} className="text-[11px] px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div className="text-xs text-gray-400 italic">Nessuna proposta</div>
-      )}
-    </div>
-  );
+  const resetAprAnalysis = () => {
+    setAprAnalysis(null);
+    setDismissedKnown(new Set());
+    setReviewDecisions({});
+  };
+
+  const dismissKnown = (canonical) =>
+    setDismissedKnown((prev) => {
+      const next = new Set(prev);
+      next.add(canonical);
+      return next;
+    });
+
+  const setReviewDecision = (raw, action) =>
+    setReviewDecisions((prev) => ({ ...prev, [raw]: { ...(prev[raw] || {}), action } }));
+
+  const setReviewLabel = (raw, label) =>
+    setReviewDecisions((prev) => ({ ...prev, [raw]: { ...(prev[raw] || {}), label } }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -282,7 +347,7 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
               </div>
               <button
                 type="button"
-                onClick={runAprPreview}
+                onClick={runAprAnalysis}
                 disabled={!notes.trim()}
                 className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -291,34 +356,110 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
             </div>
             <textarea
               value={notes}
-              onChange={e => { setNotes(e.target.value); setAprPreview(null); }}
-              placeholder="Osservazioni aggiuntive sull'anamnesi patologica remota…"
+              onChange={e => { setNotes(e.target.value); resetAprAnalysis(); }}
+              placeholder="Comorbidità e anamnesi patologica remota. Es. Ipertensione arteriosa, diabete tipo 2. Nega cardiopatia. Colecistectomia (2015)."
               rows={2}
               className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 leading-relaxed"
             />
-            {!notes.trim() && (
+            {aprAnalysis && (
+              <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
+                confidence: {aprAnalysis.confidence}
+              </span>
+            )}
+
+            {!aprAnalysis && (
               <div className="mt-2 text-xs text-gray-400 italic">
-                Inserisci un testo libero per visualizzare una preview strutturata.
+                Scrivi il testo e premi "Analizza testo". Le comorbidità note vengono salvate al salvataggio.
               </div>
             )}
-            {aprPreview && (
-              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                    Preview parser APR
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
-                    confidence: {aprPreview.confidence}
-                  </span>
+
+            {aprAnalysis && (() => {
+              const known = aprAnalysis.recognized_known.filter((c) => !dismissedKnown.has(c.canonical));
+              const nothing = known.length === 0 && aprAnalysis.review.length === 0 &&
+                aprAnalysis.negated.length === 0 && aprAnalysis.surgeries.length === 0;
+              return (
+                <div className="mt-3 space-y-3">
+                  {known.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1.5">
+                        Comorbidità riconosciute — salvate automaticamente
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {known.map((c) => (
+                          <span key={c.canonical} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800">
+                            {c.label}
+                            <button type="button" onClick={() => dismissKnown(c.canonical)} className="text-emerald-500 hover:text-emerald-700">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.review.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1.5">
+                        Da rivedere — salvate solo se confermate
+                      </div>
+                      <div className="space-y-1.5">
+                        {aprAnalysis.review.map((r) => {
+                          const decision = reviewDecisions[r._raw] || {};
+                          const confirmed = decision.action === "confirm";
+                          const skipped = !decision.action || decision.action === "skip";
+                          return (
+                            <div key={r._raw} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 bg-gray-50/60">
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500 shrink-0">
+                                {REVIEW_KIND_LABELS[r.kind] || r.kind}
+                              </span>
+                              <input
+                                type="text"
+                                value={decision.label ?? r.label}
+                                onChange={(e) => setReviewLabel(r._raw, e.target.value)}
+                                className="flex-1 h-7 text-xs px-2 border border-gray-200 rounded-md focus:outline-none focus:border-indigo-400 bg-white" />
+                              <button type="button" onClick={() => setReviewDecision(r._raw, "confirm")}
+                                className={`text-[11px] font-semibold px-2 py-1 rounded-md border ${confirmed ? "border-emerald-300 bg-emerald-100 text-emerald-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}>
+                                Conferma
+                              </button>
+                              <button type="button" onClick={() => setReviewDecision(r._raw, "skip")}
+                                className={`text-[11px] font-semibold px-2 py-1 rounded-md border ${skipped ? "border-gray-300 bg-gray-100 text-gray-600" : "border-gray-200 bg-white text-gray-400 hover:bg-gray-100"}`}>
+                                Ignora
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.negated.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                        Negazioni — solo informative, non salvate
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {aprAnalysis.negated.map((n, i) => (
+                          <span key={`neg-${i}`} className="text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500">
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.surgeries.length > 0 && (
+                    <div className="text-xs text-gray-500">
+                      <span className="font-semibold">Interventi rilevati:</span> {aprAnalysis.surgeries.join("; ")}
+                      <span className="italic text-gray-400"> — solo informativi, registrarli a parte.</span>
+                    </div>
+                  )}
+
+                  {nothing && (
+                    <div className="text-xs text-gray-400 italic">Nessuna comorbidità strutturata rilevata nel testo.</div>
+                  )}
                 </div>
-                {renderPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
-                {renderPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
-                {renderPreviewList("Interventi chirurgici", aprPreview.surgeries)}
-                {renderPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
-                {renderPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
-                {renderPreviewList("Altre APR", aprPreview.other_apr)}
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* ── Dati strutturati opzionali/confermati ── */}
@@ -860,6 +1001,7 @@ export default function PatientProfileStrip({
       )}
       {openEditor === "comorbidities" && (
         <ComorbidityEditorModal
+          patientId={patientId}
           comorbidities={fvData.comorbidities || {}}
           comorbDetails={fvData.comorbidity_details || {}}
           freeNotes={fvData.comorbidity_free_notes || ""}
