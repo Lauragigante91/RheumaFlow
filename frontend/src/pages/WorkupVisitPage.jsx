@@ -456,7 +456,7 @@ export default function WorkupVisitPage() {
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [form, setForm]                 = useState(makeEmptyForm());
-  const { requestReplace, confirmDialog } = useConfirmReplace();
+  const { safeInsertTherapyText, confirmDialog } = useConfirmReplace();
   const [labImportOpen, setLabImportOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState(null);
   const [cockpitData, setCockpitData] = useState(null);
@@ -1530,7 +1530,7 @@ export default function WorkupVisitPage() {
         patient={patient}
         visitDate={form.visit_date}
         onSaved={() => reloadTherapies()}
-        onAppendToPlan={(text) => requestReplace(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
+        onAppendToPlan={(text) => safeInsertTherapyText(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
         onExpand={(newText) => {
           const sel = therapyQTM;
           setForm(f => ({
@@ -1550,7 +1550,7 @@ export default function WorkupVisitPage() {
         visitDate={form.visit_date}
         visitStartTherapies={frozenTherapiesRef.current}
         initialAction={therapyLauncherAction}
-        onAppendToPlan={(text) => requestReplace(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
+        onAppendToPlan={(text) => safeInsertTherapyText(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
         onTherapySaved={() => reloadTherapies()}
       />
 

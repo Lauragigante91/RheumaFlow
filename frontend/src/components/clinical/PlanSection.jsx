@@ -125,7 +125,9 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
   const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
 
-  const { requestReplace, confirmDialog } = useConfirmReplace();
+  const { safeInsertTherapyText, confirmDialog } = useConfirmReplace();
+  const indicazioniRef = useRef("");
+  indicazioniRef.current = indicazioni;
 
   const [inheritedPlanFields, setInheritedPlanFields] = useState(new Set());
   const markPlanReviewed = (key) => setInheritedPlanFields(prev => {
@@ -145,14 +147,14 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
   useEffect(() => {
     onRegisterHandle?.({
       appendIndicazioni: (text) => {
-        setIndicazioni(prev => prev.trim() ? prev.trim() + "\n" + text : text);
+        safeInsertTherapyText(indicazioniRef.current, () => setIndicazioni(text));
       },
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!appendPlanText?.text) return;
-    requestReplace(indicazioni, () => setIndicazioni(appendPlanText.text));
+    safeInsertTherapyText(indicazioniRef.current, () => setIndicazioni(appendPlanText.text));
   }, [appendPlanText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── §10 Terapia: sorgente primaria = prescrizioni attive (sempre aggiornate) ──

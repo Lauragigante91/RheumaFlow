@@ -160,7 +160,7 @@ export default function FirstVisitPage() {
   const [patient, setPatient] = useState(null);
   const [step, setStep] = useState(1);
   const [data, setData] = useState(EMPTY_DATA);
-  const { requestReplace, confirmDialog } = useConfirmReplace();
+  const { safeInsertTherapyText, confirmDialog } = useConfirmReplace();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [profileDiseaseKey, setProfileDiseaseKey] = useState(null);
@@ -1352,7 +1352,7 @@ export default function FirstVisitPage() {
         visitDate={data.referral_date}
         visitStartTherapies={frozenTherapiesRef.current}
         initialAction={therapyLauncherAction}
-        onAppendToPlan={(text) => requestReplace(data.therapy_modification, () => patch({ therapy_modification: text }))}
+        onAppendToPlan={(text) => safeInsertTherapyText(data.therapy_modification, () => patch({ therapy_modification: text }))}
         onTherapySaved={() => reloadTherapies()}
       />
 

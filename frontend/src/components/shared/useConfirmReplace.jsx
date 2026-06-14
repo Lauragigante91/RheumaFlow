@@ -13,7 +13,7 @@ import {
 export default function useConfirmReplace() {
   const [pendingApply, setPendingApply] = useState(null);
 
-  const requestReplace = useCallback((currentValue, applyFn) => {
+  const safeInsertTherapyText = useCallback((currentValue, applyFn) => {
     if (!currentValue || !String(currentValue).trim()) {
       applyFn();
     } else {
@@ -29,7 +29,7 @@ export default function useConfirmReplace() {
         <AlertDialogHeader>
           <AlertDialogTitle>Terapia indicata</AlertDialogTitle>
           <AlertDialogDescription>
-            Il campo Terapia indicata contiene già testo. Vuoi sostituirlo con il testo generato dalla Gestione terapia?
+            Il campo Terapia contiene già testo. Vuoi sostituirlo con il testo generato?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -40,5 +40,5 @@ export default function useConfirmReplace() {
     </AlertDialog>
   );
 
-  return { requestReplace, confirmDialog };
+  return { safeInsertTherapyText, confirmDialog };
 }
