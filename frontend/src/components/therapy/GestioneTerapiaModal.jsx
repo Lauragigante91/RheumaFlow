@@ -52,10 +52,50 @@ const emptyAddForm = {
   start_date: "", reason_start: "", notes: "", selectedRegIdx: null,
 };
 
+function normDrugName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function launcherActionKey(action) {
+  if (!action) return "";
+  return [action.action, action.drug_canonical || action.drug_name, action.dose, action.frequency, action.route, action.source_text].filter(Boolean).join("::");
+}
+
+function findActiveTherapyForAction(activeTherapies, action) {
+  if (!action) return null;
+  if (action.targetTherapy?.id) {
+    const byId = activeTherapies.find(t => t.id === action.targetTherapy.id);
+    if (byId) return byId;
+    if (action.targetTherapy.status === "active") return action.targetTherapy;
+  }
+  const wanted = normDrugName(action.drug_canonical || action.drug_name);
+  return activeTherapies.find(t => {
+    const canonical = findDrug(t.drug_name)?.name || t.drug_name;
+    return normDrugName(canonical) === wanted || normDrugName(t.drug_name) === wanted;
+  }) || null;
+}
+
+function mapStartReason(reason = "") {
+  const r = reason.toLowerCase();
+  if (/ineffic/.test(r)) return "Switch per inefficacia";
+  if (/intoller|toller|avvers|collateral/.test(r)) return "Switch per intolleranza";
+  return "";
+}
+
+function mapStopReason(reason = "") {
+  const r = reason.toLowerCase();
+  if (/ineffic/.test(r)) return "Inefficacia primaria";
+  if (/intoller|toller/.test(r)) return "Intolleranza";
+  if (/avvers|collateral/.test(r)) return "Effetti avversi";
+  if (/remission/.test(r)) return "Remissione";
+  return "";
+}
+
 export default function GestioneTerapiaModal({
   open, onClose,
   patient, visitDate: visitDateProp,
   visitStartTherapies,
+  initialAction,
   onAcceptReminder, onAppendToPlan, onTherapySaved,
 }) {
   const today     = new Date().toISOString().slice(0, 10);
@@ -107,6 +147,7 @@ export default function GestioneTerapiaModal({
   const [drugQuery, setDrugQuery] = useState("");
   const [drugDDOpen, setDrugDDOpen] = useState(false);
   const drugRef = useRef(null);
+  const appliedInitialActionRef = useRef("");
 
   // Prescription expansion
   const [expandEnabled,      setExpandEnabled]      = useState(false);
@@ -178,6 +219,70 @@ export default function GestioneTerapiaModal({
     if (!addForm.drug_name?.trim()) return [];
     return detectSafetyReminders([{ drug_name: addForm.drug_name, status: "active" }], patient || {});
   }, [addForm.drug_name, patient]);
+
+  useEffect(() => {
+    if (!open) {
+      appliedInitialActionRef.current = "";
+      return;
+    }
+    if (!initialAction) return;
+    const key = launcherActionKey(initialAction);
+    if (!key || appliedInitialActionRef.current === key) return;
+
+    const drugName = initialAction.drug_canonical || initialAction.drug_name;
+    const drug = findDrug(drugName);
+    if (!drug) {
+      toast.info("Farmaco non gestito nel modulo terapia");
+      appliedInitialActionRef.current = key;
+      return;
+    }
+
+    if (initialAction.action === "start") {
+      setActiveTab("add");
+      setAddForm({
+        ...emptyAddForm,
+        drug_name: drug.name,
+        category: drug.category || initialAction.category || "other",
+        dose: initialAction.dose || "",
+        frequency: initialAction.frequency || "",
+        route: initialAction.route || "",
+        start_date: visitDate,
+        reason_start: mapStartReason(initialAction.reason),
+        notes: initialAction.source_text || "",
+        selectedRegIdx: null,
+      });
+      setDrugQuery(drug.name);
+      setDrugDDOpen(false);
+      appliedInitialActionRef.current = key;
+      return;
+    }
+
+    const target = findActiveTherapyForAction(active, initialAction);
+    if (!target) {
+      toast.info(`${drug.name} non risulta tra le terapie attive`);
+      appliedInitialActionRef.current = key;
+      return;
+    }
+
+    setActiveTab("current");
+    if (initialAction.action === "stop") {
+      setSuspendForm({
+        date: visitDate,
+        reason: mapStopReason(initialAction.reason),
+        notes: initialAction.source_text || "",
+      });
+      setSuspendModal({ open: true, therapy: target });
+    } else if (initialAction.action === "increase" || initialAction.action === "decrease") {
+      setModifyForm({
+        dose: initialAction.dose || target.dose || "",
+        frequency: initialAction.frequency || target.frequency || "",
+        route: initialAction.route || target.route || "",
+        notes: initialAction.reason || initialAction.source_text || "",
+      });
+      setModifyModal({ open: true, therapy: target });
+    }
+    appliedInitialActionRef.current = key;
+  }, [open, initialAction, active, visitDate]);
 
   // ── Tab 3 filtered history ─────────────────────────────────────────────────
   const filteredHistory = useMemo(() => past.filter(t => {

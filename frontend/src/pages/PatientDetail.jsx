@@ -151,6 +151,11 @@ export default function PatientDetail() {
   const [quickTherapyHistOpen, setQuickTherapyHistOpen] = useState(false);
   const [quickTherapyHistDate, setQuickTherapyHistDate] = useState(null);
   const [gestioneOpen, setGestioneOpen] = useState(false);
+  const [therapyLauncherAction, setTherapyLauncherAction] = useState(null);
+  const openTherapyManager = useCallback((initialAction = null) => {
+    setTherapyLauncherAction(initialAction || null);
+    setGestioneOpen(true);
+  }, []);
   const [petvasDialogOpen, setPetvasDialogOpen] = useState(false);
   const [editingPetvas, setEditingPetvas] = useState(null);
   const [petvasInitialTab, setPetvasInitialTab] = useState("score");
@@ -1151,7 +1156,7 @@ export default function PatientDetail() {
                 onSaveVisit={() => todayVisitHandle.current?.save()}
                 onOpenReport={() => todayVisitHandle.current?.openReport()}
                 onDuplicatePrevious={() => todayVisitHandle.current?.duplicatePrevious()}
-                onAddTherapy={() => setGestioneOpen(true)}
+                onAddTherapy={openTherapyManager}
                 onTherapySaved={() => { therapyHandle.current?.reload?.(); }}
                 onClinimetrySaved={() => { load(); }}
               />
@@ -1716,10 +1721,11 @@ export default function PatientDetail() {
       {/* Gestione terapia — 3-tab modal */}
       <GestioneTerapiaModal
         open={gestioneOpen}
-        onClose={() => setGestioneOpen(false)}
+        onClose={() => { setGestioneOpen(false); setTherapyLauncherAction(null); }}
         patient={patient}
         visitDate={followupVisitDate}
         visitStartTherapies={frozenTherapiesRef.current}
+        initialAction={therapyLauncherAction}
         onAcceptReminder={handleAcceptReminder}
         onAppendToPlan={handleAppendToPlan}
         onTherapySaved={(name, dose, route, therapyEvent) => {

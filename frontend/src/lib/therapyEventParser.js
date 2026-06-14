@@ -43,12 +43,12 @@ const ACTION_DEFS = [
   {
     action: "start", label: "Avvio", color: "green",
     status: "active",
-    re: /\b(si\s+avvia|avvio\s+(?:di\s+)?|si\s+inizia|inizi[oa]\s+(?:di\s+)?|iniziato[/a]?|avviat[oa]|si\s+introduce|introduc\w+|introdott[oa]|si\s+aggiunge|aggiunt[oa]|viene?\s+avviat[oa]|è\s+stat[oa]\s+avviat[oa]|prescritt[oa]|si\s+prescrive|inizia\s+(?:la\s+)?terapia)\b/i,
+    re: /\b(start|si\s+avvia|avvio\s+(?:di\s+)?|si\s+inizia|inizi[oa]\s+(?:di\s+)?|iniziato[/a]?|avviat[oa]|si\s+introduce|introduc\w+|introdott[oa]|si\s+aggiunge|aggiung[oa]|aggiunt[oa]|viene?\s+avviat[oa]|è\s+stat[oa]\s+avviat[oa]|prescritt[oa]|si\s+prescrive|inizia\s+(?:la\s+)?terapia)\b/i,
   },
   {
     action: "stop", label: "Sospensione", color: "red",
     status: "discontinued",
-    re: /\b(si\s+sospende|sospensione\s+(?:di\s+)?|sospes[ao]|si\s+interrompe|interruzione\s+(?:di\s+)?|interrott[oa]|discontinuat[oa]|si\s+toglie|viene?\s+sosp\w+|è\s+stat[oa]\s+sosp\w+|stop\s+(?:di\s+)?|si\s+elimina)\b/i,
+    re: /\b(si\s+sospende|sospend[oa]|sospensione\s+(?:di\s+)?|sospes[ao]|si\s+interrompe|interromp[oa]|interruzione\s+(?:di\s+)?|interrott[oa]|discontinuat[oa]|si\s+toglie|viene?\s+sosp\w+|è\s+stat[oa]\s+sosp\w+|stop\s+(?:di\s+)?|si\s+elimina)\b/i,
   },
   {
     action: "increase", label: "Incremento dose", color: "orange",
@@ -58,7 +58,7 @@ const ACTION_DEFS = [
   {
     action: "decrease", label: "Riduzione dose", color: "blue",
     status: "active",
-    re: /\b(si\s+riduce|riduzione\s+(?:della\s+dose\s+(?:di\s+)?)?|ridott[oa]|si\s+scala|scal[ao]\s+(?:a\s+)?|si\s+abbassa|abbassato|tapering|dose\s+ridott[oa]|down.?titration)\b/i,
+    re: /\b(si\s+riduce|riduc[oa]|riduzione\s+(?:della\s+dose\s+(?:di\s+)?)?|ridott[oa]|si\s+scala|scal[ao]\s+(?:a\s+)?|si\s+abbassa|abbassato|tapering|dose\s+ridott[oa]|down.?titration)\b/i,
   },
   {
     action: "switch", label: "Switch", color: "purple",
@@ -104,6 +104,17 @@ function extractReason(seg) {
   return m ? m[1].trim() : "";
 }
 
+function getActionSpan(sentence, actionDef, allActions) {
+  const start = sentence.search(actionDef.re);
+  if (start < 0) return sentence;
+  const nextStarts = allActions
+    .filter(a => a !== actionDef)
+    .map(a => sentence.search(a.re))
+    .filter(pos => pos > start);
+  const end = nextStarts.length ? Math.min(...nextStarts) : sentence.length;
+  return sentence.slice(start, end).trim();
+}
+
 // ── Split text into sentences ─────────────────────────────────────────────────
 function splitSentences(text) {
   return text
@@ -123,7 +134,11 @@ export function parseTherapyEvents(text) {
 
   for (const sentence of sentences) {
     // Find which action(s) this sentence contains
-    const matchedActions = ACTION_DEFS.filter(a => a.re.test(sentence));
+    const matchedActions = ACTION_DEFS
+      .map(a => ({ def: a, pos: sentence.search(a.re) }))
+      .filter(a => a.pos >= 0)
+      .sort((a, b) => a.pos - b.pos)
+      .map(a => a.def);
     if (!matchedActions.length) continue;
 
     // Find all drug mentions
@@ -163,8 +178,11 @@ export function parseTherapyEvents(text) {
           source_text: sentence.slice(0, 120),
         });
       } else {
-        // For each drug found in this sentence
-        for (const drug of drugs) {
+        // For each drug found in the action span. This prevents
+        // "Sospendo A e avvio B" from generating stop+start for both drugs.
+        const actionSegment = getActionSpan(sentence, actionDef, matchedActions);
+        const actionDrugs = findDrug(actionSegment);
+        for (const drug of actionDrugs) {
           // Check for duplicates (same action + drug)
           if (events.some(e => e.action === actionDef.action && e.drug_name === drug.name && e.source_text === sentence.slice(0, 120))) continue;
           events.push({
@@ -175,10 +193,10 @@ export function parseTherapyEvents(text) {
             status: actionDef.status,
             drug_name: drug.name,
             category: drug.category,
-            dose: extractDose(sentence),
-            frequency: extractFrequency(sentence),
-            route: extractRoute(sentence),
-            reason: extractReason(sentence),
+            dose: extractDose(actionSegment),
+            frequency: extractFrequency(actionSegment),
+            route: extractRoute(actionSegment),
+            reason: extractReason(actionSegment),
             source_text: sentence.slice(0, 120),
           });
         }
