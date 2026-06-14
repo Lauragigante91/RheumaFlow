@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { visitTemplatesApi } from "../../lib/api";
-import { Check, Pencil, Trash2, Plus, Save, X, FileText } from "lucide-react";
+import { Check, Pencil, Trash2, Plus, Save, X, FileText, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORY_LABELS = {
@@ -33,6 +33,7 @@ export default function TemplatePickerDialog({
 
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
 
   const [newName, setNewName] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
@@ -66,6 +67,7 @@ export default function TemplatePickerDialog({
       setNewName("");
       setEditingId(null);
       setOverwriteId(null);
+      setSearch("");
     }
   }, [open]);
 
@@ -123,6 +125,15 @@ export default function TemplatePickerDialog({
     setEditContent(tpl.content);
   };
 
+  const q = search.trim().toLowerCase();
+  const visibleTemplates = q
+    ? templates.filter(
+        (t) =>
+          (t.name || "").toLowerCase().includes(q) ||
+          (t.content || "").toLowerCase().includes(q),
+      )
+    : templates;
+
   return (
     <>
       {isSelfContained && (
@@ -148,6 +159,30 @@ export default function TemplatePickerDialog({
             </p>
           </DialogHeader>
 
+          {!loading && templates.length > 0 && (
+            <div className="flex-shrink-0 px-5 pt-3 pb-1">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cerca template..."
+                  className="w-full h-8 text-xs pl-9 pr-8 border border-gray-200 rounded-md focus:outline-none focus:border-blue-300"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    title="Cancella ricerca"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-700"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2 min-h-0">
             {loading && <p className="text-xs text-gray-400 text-center py-6">Caricamento…</p>}
 
@@ -159,7 +194,11 @@ export default function TemplatePickerDialog({
               </div>
             )}
 
-            {!loading && templates.map((tpl) => (
+            {!loading && templates.length > 0 && visibleTemplates.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-10">Nessun template trovato</p>
+            )}
+
+            {!loading && visibleTemplates.map((tpl) => (
               <div key={tpl.id} className="border border-gray-200 rounded-xl overflow-hidden">
                 {editingId === tpl.id ? (
                   <div className="p-3 space-y-2 bg-gray-50">
