@@ -380,7 +380,13 @@ export default function FirstVisitPage() {
         }
       }
 
-      await diseaseProfileApi.upsert(id, "prima_visita", { ...fvOnly, comorbidities: _comorbiditiesForReferto });
+      const _profilePayload = { ...fvOnly };
+      if (aprAnalysis) {
+        _profilePayload.comorbidities = _comorbiditiesForReferto;
+      } else {
+        delete _profilePayload.comorbidities;
+      }
+      await diseaseProfileApi.upsert(id, "prima_visita", _profilePayload);
       const newState = (isConverting || data.diagnostic_certainty === "definita") ? "follow_up" : "workup_in_progress";
       const updates = {
         patient_state:        newState,
