@@ -386,6 +386,8 @@ const PRN_AFTER_RE = /\bal\s+bisogno\b|\ball['’]?\s*occorrenza\b|\bse\s+(?:dol
 const PRN_LABEL_RE = /(?:\bse\s+dolore|\bse\s+necessario|\bal\s+bisogno|\bin\s+caso\s+di|\ball['’]?\s*occorrenza)\s*:\s*$/i;
 const PRN_ABBREV_RE = /\bprn\b|\ba\.\s?b\.|\bal\s+bis\.?(?!\w)/i;
 const PRN_AB_BARE_RE = /(?:^|[\s,;(])ab(?![A-Za-z.])(?!\s*anti)/;
+const PRN_BEFORE_RE = /\bin\s+caso\s+di\s+[^.;\n]{0,80}\s*:?\s*$/i;
+const PRN_NEXT_THERAPY_CUE_RE = /(?:^|[\s.;,\n-])in\s+caso\s+di\s+[^.;\n]{0,80}$/i;
 
 function getActiveSectionText(text) {
   const m = text.match(
@@ -428,7 +430,18 @@ function extractTherapies(text, today) {
           const m2 = new RegExp(p2.source, cs2 ? "" : "i").exec(afterDrug);
           if (m2 && m2.index < nextDrugRel) nextDrugRel = m2.index;
         }
-        if (nextDrugRel !== Infinity) doseScope = context.slice(0, match[0].length + nextDrugRel);
+        if (nextDrugRel !== Infinity) {
+          const cueM = afterDrug.slice(0, nextDrugRel).match(PRN_NEXT_THERAPY_CUE_RE);
+          let limit = nextDrugRel;
+          if (cueM) {
+            const preCueScope = afterDrug.slice(0, cueM.index);
+            const currentHasFreq = FREQ_PER_WEEK.test(preCueScope) ||
+              FREQ_INTERVAL.test(preCueScope) || FREQ_GENERAL.test(preCueScope) ||
+              /\b(?:mattina|sera|fino\s+al)\b/i.test(preCueScope);
+            if (currentHasFreq) limit = cueM.index;
+          }
+          doseScope = context.slice(0, match[0].length + limit);
+        }
       }
 
       const { dose, frequency: _doseFreq } = extractDoseAndFrequency(doseScope);
@@ -472,8 +485,20 @@ function extractTherapies(text, today) {
 
       const _prnScope = prnSentenceScope(doseScope);
       const _prnAbbrevScope = prnSentenceScope(doseScope).slice(match[0].length);
+      const _beforeStart = Math.max(0, match.index - 120);
+      const _beforeWin = text.slice(_beforeStart, match.index);
+      const _beforeM = _beforeWin.match(PRN_BEFORE_RE);
+      let _prnBefore = false;
+      if (_beforeM) {
+        const _cueAbs = _beforeStart + _beforeM.index;
+        const _preCue = text.slice(Math.max(0, _cueAbs - 35), _cueAbs);
+        const _cueOwnedByPrev = DRUG_PATTERNS.some(([p4, n4, , cs4]) =>
+          n4 !== drugName && new RegExp(p4.source, cs4 ? "" : "i").test(_preCue));
+        _prnBefore = !_cueOwnedByPrev;
+      }
       const isPrn = PRN_AFTER_RE.test(_prnScope) ||
-        PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 24), match.index)) ||
+        PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 80), match.index)) ||
+        _prnBefore ||
         PRN_ABBREV_RE.test(_prnAbbrevScope) ||
         PRN_AB_BARE_RE.test(_prnAbbrevScope);
       if (isPrn) frequency = "al bisogno";

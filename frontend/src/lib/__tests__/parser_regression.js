@@ -1101,6 +1101,35 @@ runTest("PSO-T001-3 · Zyloric (Allopurinolo) resta attivo", () => {
   assert(allo?.status === "active", `Allopurinolo deve restare 'active' (got '${allo?.status}')`, allo);
 });
 
+const LETTER_FACCHINI_THERAPY = `TERAPIE IN ATTO:  SSZ 500 mg 5 cp/die, FANS ab
+
+VISITA ODIERNA:
+minimo versamento a sede sfondato sottoquadricipitale destro non captante doppler.
+
+INDICAZIONI
+- RIDUCE Salazopirina 500 mg: 2 cp la mattina e 2 cp la sera fino al prossimo controllo
+In caso di dolore articolare Arcoxia 90 mg 1cp dopo cena per 6 giorni consecutivi (nota 66)`;
+
+const { extracted: _exFacchini } = parseVisitText(LETTER_FACCHINI_THERAPY);
+const _thFacchini = _exFacchini.therapies ?? [];
+const _findFacchini = (re) => _thFacchini.find(t => re.test(t.drug_name ?? ""));
+
+runTest("FACCHINI-T001 · Salazopirina non eredita PRN da Arcoxia successiva", () => {
+  const ssz = _findFacchini(/sulfasalazina/i);
+  assert(ssz != null, "Sulfasalazina deve essere presente", _thFacchini.map(t => t.drug_name));
+  assert(ssz?.dose === "2000 mg", `Sulfasalazina dose deve essere 2000 mg (got '${ssz?.dose}')`, ssz);
+  assert(ssz?.frequency === "die", `Sulfasalazina frequency deve essere die (got '${ssz?.frequency}')`, ssz);
+  assert(ssz?._prn === false, `Sulfasalazina _prn deve essere false (got '${ssz?._prn}')`, ssz);
+});
+
+runTest("FACCHINI-T002 · Arcoxia resta PRN/al bisogno", () => {
+  const arc = _findFacchini(/etoricoxib|arcoxia/i);
+  assert(arc != null, "Etoricoxib (Arcoxia) deve essere presente", _thFacchini.map(t => t.drug_name));
+  assert(arc?.dose === "90 mg", `Etoricoxib dose deve essere 90 mg (got '${arc?.dose}')`, arc);
+  assert(arc?.frequency === "al bisogno", `Etoricoxib frequency deve essere al bisogno (got '${arc?.frequency}')`, arc);
+  assert(arc?._prn === true, `Etoricoxib _prn deve essere true (got '${arc?._prn}')`, arc);
+});
+
 runTest("PSO-T002-1 · abbreviazioni biologiche: ETN→Etanercept, ADA-b→Adalimumab riconosciute", () => {
   const etn = _evPso.find(e => /etanercept/i.test(e.drug_canonical ?? ""));
   const ada = _evPso.find(e => /adalimumab/i.test(e.drug_canonical ?? ""));
