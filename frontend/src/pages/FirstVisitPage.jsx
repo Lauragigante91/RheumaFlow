@@ -19,6 +19,7 @@ import SelectableTextArea from "../components/shared/SelectableTextArea";
 import LabImportFromImageDialog from "../components/labs/LabImportFromImageDialog";
 import { parseConcomitantDrugs } from "../lib/concomitantDrugParser";
 import { parseHistoricalTherapies } from "../lib/historicalTherapyParser";
+import { parseComorbidityAprText } from "../lib/comorbidityAprParser";
 import ConcomitantTherapyReview from "../components/therapy/ConcomitantTherapyReview";
 import {
   REFERRAL_REASONS, FRAILTY_ITEMS, CHECKLISTS,
@@ -276,6 +277,7 @@ export default function FirstVisitPage() {
   }));
 
   const [comorbiditiesSearch, setComorbiditiesSearch] = useState("");
+  const [aprPreview, setAprPreview] = useState(null);
   const [openCategories, setOpenCategories] = useState({});
 
   const toggleComorbidity = (catKey, item) => patch((p) => {
@@ -295,6 +297,28 @@ export default function FirstVisitPage() {
   const setComorbidityNote = (item, note) => patch((p) => ({
     ...p, comorbidity_item_notes: { ...p.comorbidity_item_notes, [item]: note },
   }));
+
+  const runAprPreview = () => {
+    const text = data.comorbidity_free_notes?.trim();
+    setAprPreview(text ? parseComorbidityAprText(text) : null);
+  };
+
+  const renderAprPreviewList = (label, items) => (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
+      {items?.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((item, i) => (
+            <span key={`${label}-${i}`} className="text-[11px] px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-gray-400 italic">Nessuna proposta</div>
+      )}
+    </div>
+  );
 
   const toggleClinical = (key) => patch((p) => ({
     ...p, clinical_features: { ...p.clinical_features, [key]: !p.clinical_features[key] },
@@ -495,15 +519,60 @@ export default function FirstVisitPage() {
           {/* ── Comorbidità ── */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm text-[#0A2540]">Comorbidità</h3>
+              <h3 className="font-semibold text-sm text-[#0A2540]">Comorbidità e APR</h3>
               {(() => {
                 const tot = COMORBIDITY_CATEGORIES.reduce((n, c) => n + (data.comorbidities[c.key] || []).length, 0);
                 return tot > 0 ? (
                   <span className="text-[10px] bg-[#0A2540] text-white rounded-full px-2 py-0.5 font-semibold">
-                    {tot} selezionate
+                    {tot} strutturate
                   </span>
                 ) : null;
               })()}
+            </div>
+
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <SectionLabel>Comorbidità e APR</SectionLabel>
+                <button
+                  type="button"
+                  onClick={runAprPreview}
+                  disabled={!data.comorbidity_free_notes?.trim()}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Analizza testo
+                </button>
+              </div>
+              <textarea value={data.comorbidity_free_notes}
+                onChange={(e) => { patch({ comorbidity_free_notes: e.target.value }); setAprPreview(null); }}
+                rows={3} placeholder="Comorbidità e anamnesi patologica remota. Es. Non comorbidità extrareumatologiche rilevanti. Colecistectomia per fango biliare."
+                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300" />
+              {!data.comorbidity_free_notes?.trim() && (
+                <div className="mt-2 text-xs text-gray-400 italic">
+                  Inserisci un testo libero per visualizzare una preview strutturata.
+                </div>
+              )}
+              {aprPreview && (
+                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                      Preview parser APR
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
+                      confidence: {aprPreview.confidence}
+                    </span>
+                  </div>
+                  {renderAprPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
+                  {renderAprPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
+                  {renderAprPreviewList("Interventi chirurgici", aprPreview.surgeries)}
+                  {renderAprPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
+                  {renderAprPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
+                  {renderAprPreviewList("Altre APR", aprPreview.other_apr)}
+                </div>
+              )}
+            </div>
+
+            <div className="mb-2">
+              <SectionLabel>Dati strutturati opzionali/confermati</SectionLabel>
             </div>
 
             {/* Search bar */}
@@ -527,7 +596,7 @@ export default function FirstVisitPage() {
                     }
                   }
                 }}
-                placeholder="Cerca comorbidità… (es. FA, BPCO, ILD, IRC, HBV, TIA, TVP, neoplasia…)"
+                placeholder="Cerca comorbidità strutturata… (es. FA, BPCO, ILD, IRC, HBV, TIA, TVP, neoplasia…)"
                 className="w-full h-8 pl-8 pr-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
               />
               {comorbiditiesSearch && (
@@ -619,13 +688,6 @@ export default function FirstVisitPage() {
               </div>
             )}
 
-            <div className="mt-1">
-              <SectionLabel>ALTRO</SectionLabel>
-              <textarea value={data.comorbidity_free_notes}
-                onChange={(e) => patch({ comorbidity_free_notes: e.target.value })}
-                rows={2} placeholder="Comorbidità non in lista o note cliniche aggiuntive…"
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300" />
-            </div>
           </div>
 
           {/* ── Interventi chirurgici ── */}

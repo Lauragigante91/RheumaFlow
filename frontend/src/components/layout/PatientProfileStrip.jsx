@@ -274,14 +274,61 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
 
-          {/* ── 1. Chips selezionate ── */}
+          {/* Note libere generali — fonte primaria */}
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Comorbidità e APR
+              </div>
+              <button
+                type="button"
+                onClick={runAprPreview}
+                disabled={!notes.trim()}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Analizza testo
+              </button>
+            </div>
+            <textarea
+              value={notes}
+              onChange={e => { setNotes(e.target.value); setAprPreview(null); }}
+              placeholder="Osservazioni aggiuntive sull'anamnesi patologica remota…"
+              rows={2}
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 leading-relaxed"
+            />
+            {!notes.trim() && (
+              <div className="mt-2 text-xs text-gray-400 italic">
+                Inserisci un testo libero per visualizzare una preview strutturata.
+              </div>
+            )}
+            {aprPreview && (
+              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                    Preview parser APR
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
+                    confidence: {aprPreview.confidence}
+                  </span>
+                </div>
+                {renderPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
+                {renderPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
+                {renderPreviewList("Interventi chirurgici", aprPreview.surgeries)}
+                {renderPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
+                {renderPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
+                {renderPreviewList("Altre APR", aprPreview.other_apr)}
+              </div>
+            )}
+          </div>
+
+          {/* ── Dati strutturati opzionali/confermati ── */}
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-              Comorbidità selezionate
+              Dati strutturati opzionali/confermati
             </div>
             <div className="flex flex-wrap gap-1.5 min-h-[32px]">
               {allSelected.length === 0 && (
-                <span className="text-xs text-gray-400 italic">Nessuna selezionata</span>
+                <span className="text-xs text-gray-400 italic">Nessuna comorbidità strutturata confermata</span>
               )}
               {allSelected.map(({ catKey, item }) => (
                 <span key={`${catKey}__${item}`}
@@ -297,10 +344,10 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
             </div>
           </div>
 
-          {/* ── 2. Cerca / aggiungi ── */}
+          {/* ── Cerca / aggiungi struttura opzionale ── */}
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-              Aggiungi comorbidità
+              Aggiungi dato strutturato opzionale
             </div>
             <div className="relative" ref={dropRef}>
               <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2 gap-2 focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-200 bg-white">
@@ -314,7 +361,7 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
                     if (e.key === "Enter") { addCustom(); }
                     if (e.key === "Escape") { setShowDrop(false); }
                   }}
-                  placeholder="Cerca o aggiungi comorbidità..."
+                  placeholder="Cerca o aggiungi comorbidità strutturata..."
                   className="flex-1 text-sm outline-none bg-transparent placeholder-gray-400"
                 />
                 <DropArrow className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -352,11 +399,11 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
             </div>
           </div>
 
-          {/* ── 3. Dettagli per ciascuna chip ── */}
+          {/* ── Dettagli per ciascuna chip ── */}
           {allSelected.length > 0 && (
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                Dettagli delle comorbidità selezionate
+                Dettagli dei dati strutturati confermati
               </div>
               <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100">
                 {allSelected.map(({ catKey, item }) => {
@@ -383,53 +430,6 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
               </div>
             </div>
           )}
-
-          {/* Note libere generali */}
-          <div>
-            <div className="flex items-center justify-between gap-3 mb-1.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Note generali (opzionali)
-              </div>
-              <button
-                type="button"
-                onClick={runAprPreview}
-                disabled={!notes.trim()}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Analizza testo
-              </button>
-            </div>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Osservazioni aggiuntive sull'anamnesi patologica remota…"
-              rows={2}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 leading-relaxed"
-            />
-            {!notes.trim() && (
-              <div className="mt-2 text-xs text-gray-400 italic">
-                Inserisci un testo libero per visualizzare una preview strutturata.
-              </div>
-            )}
-            {aprPreview && (
-              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                    Preview parser APR
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
-                    confidence: {aprPreview.confidence}
-                  </span>
-                </div>
-                {renderPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
-                {renderPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
-                {renderPreviewList("Interventi chirurgici", aprPreview.surgeries)}
-                {renderPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
-                {renderPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
-                {renderPreviewList("Altre APR", aprPreview.other_apr)}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Footer */}
@@ -780,19 +780,24 @@ export default function PatientProfileStrip({
           <Col icon={Heart} iconColor="text-rose-500" label="Comorbidità"
             reportKey="profile_comorbidities" reportSections={reportSections} toggleReportSection={toggleReportSection}
             onClick={() => setOpenEditor("comorbidities")}>
-            {allComorbidities.length === 0
+            {allComorbidities.length === 0 && !fvData.comorbidity_free_notes?.trim()
               ? <span className="text-[11px] text-gray-300 italic">Clicca per compilare</span>
-              : <div className="flex flex-wrap gap-1">
+              : <div className="space-y-1">
+                  {fvData.comorbidity_free_notes?.trim() && (
+                    <p className={`text-xs text-gray-700 leading-snug whitespace-pre-wrap ${!expanded ? "line-clamp-3" : ""}`}>
+                      {fvData.comorbidity_free_notes.trim()}
+                    </p>
+                  )}
+                  {allComorbidities.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
                   {allComorbidities.map((c, i) => (
                     <span key={i}
                       className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${CAT_COLOR[c.catKey] || DEFAULT_COLOR}`}>
                       {c.item}
                     </span>
                   ))}
-                  {fvData.comorbidity_free_notes?.trim() && (
-                    <span className="text-[10px] text-gray-500 italic self-center">
-                      {fvData.comorbidity_free_notes.trim()}
-                    </span>
+                  )}
+                    </div>
                   )}
                 </div>
             }
