@@ -66,6 +66,7 @@
 - [Therapy regime-change persistence](therapy-regime-persistence.md) — freq/route/formulation changes persist only via full upsert (_skip:false); continuity payload carries dose only and silently drops them.
 - [Debug parse-trace privacy](parse-trace-privacy.md) — /api/debug/parse-trace must stay dev-only (client NODE_ENV + server build-presence gate) and metadata-only; never log source text or clinical values.
 - [Dev bare-domain 502](dev-bare-domain-port-forward.md) — externalPort 80 reshuffles to a dead localPort on recovery merges; app fine on 5000/8000; agent can't edit .replit ports → TCP forwarder shim in start.sh.
+- [Deploy autoscale port+build](deploy-autoscale-port-build.md) — publish fallisce se uvicorn non binda 3000 (porta→external 80) e se manca build frontend (build/ gitignored, spa_fallback proxa a localhost:5000); fix via deployConfig.
 - [Therapy event projection](therapy-event-projection.md) — all longitudinal therapy writes go through one projection helper; update_therapy must diff vs current (""→None) or full-object PUTs from the frontend pollute the event ledger.
 - [Militello permanent regression test](militello-regression-test.md) — intentional red TDD test for the Militello letter; don't "fix" it to match current parser output.
 - [Atlas bad-auth (code 8000) diagnosis](atlas-bad-auth-diagnosis.md) — 8000=creds rejected but cluster reached; safe URI-structure probe (no secret print); dotenv override=False = Secrets win over .env.
