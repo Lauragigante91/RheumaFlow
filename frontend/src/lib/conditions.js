@@ -360,7 +360,7 @@ export function extractConditionModifiers(raw) {
  *
  * @internal
  */
-function findBestCanonical(query) {
+export function findBestCanonical(query) {
   if (!query?.trim()) return null;
   const q = query.trim();
 

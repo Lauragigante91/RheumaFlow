@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { patientsApi, diseaseProfileApi, therapiesApi, conditionsApi } from "../lib/api";
-import { buildConditionFromLabel, COMORBIDITY_CATEGORIES, FREQUENT_CONDITIONS, CONDITION_SYNONYMS } from "../lib/conditions";
+import { buildConditionFromLabel, buildCustomCondition, CANONICAL_MAP, resolveCanonical } from "../lib/conditions";
 import { isScleroDiagnosis, isSpaDiagnosis } from "../lib/diseaseDetection";
 import DiagnosisProfileOverlay from "../components/profiles/DiagnosisProfileOverlay";
 import { Card } from "../components/ui/card";
@@ -10,7 +10,7 @@ import { Badge } from "../components/ui/badge";
 import {
   ArrowLeft, ArrowRight, Save, Check,
   ClipboardList, FlaskConical, Lightbulb, FileText, Printer, FolderOpen,
-  Search, ChevronDown, ChevronUp, X, Plus, Pill, Camera, Sparkles, AlertCircle,
+  ChevronDown, ChevronUp, X, Plus, Pill, Camera, Sparkles, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import TemplatePickerDialog from "../components/visits/TemplatePickerDialog";
@@ -19,7 +19,7 @@ import SelectableTextArea from "../components/shared/SelectableTextArea";
 import LabImportFromImageDialog from "../components/labs/LabImportFromImageDialog";
 import { parseConcomitantDrugs } from "../lib/concomitantDrugParser";
 import { parseHistoricalTherapies } from "../lib/historicalTherapyParser";
-import { parseComorbidityAprText } from "../lib/comorbidityAprParser";
+import { analyzeComorbidityText } from "../lib/comorbidityAprParser";
 import ConcomitantTherapyReview from "../components/therapy/ConcomitantTherapyReview";
 import {
   REFERRAL_REASONS, FRAILTY_ITEMS, CHECKLISTS,
@@ -45,11 +45,14 @@ const REFERRAL_REASON_ICONS = {
   altro:         "📋",
 };
 
-const matchesComorbiditySearch = (item, query) => {
-  if (!query.trim()) return true;
-  const q = query.toLowerCase();
-  if (item.toLowerCase().includes(q)) return true;
-  return (CONDITION_SYNONYMS[item] || []).some((s) => s.includes(q));
+const REVIEW_KIND_LABELS = {
+  neoplasia:      "neoplasia",
+  infection:      "infezione",
+  multi:          "multi-istanza",
+  uncertain:      "da confermare",
+  ambiguous:      "ambigua",
+  low_confidence: "bassa confidenza",
+  unrecognized:   "non riconosciuta",
 };
 
 // ─── UI helpers ────────────────────────────────────────────────────────────────
@@ -276,49 +279,35 @@ export default function FirstVisitPage() {
     ...p, [field]: p[field].includes(val) ? p[field].filter((x) => x !== val) : [...p[field], val],
   }));
 
-  const [comorbiditiesSearch, setComorbiditiesSearch] = useState("");
-  const [aprPreview, setAprPreview] = useState(null);
-  const [openCategories, setOpenCategories] = useState({});
+  const [aprAnalysis, setAprAnalysis] = useState(null);
+  const [dismissedKnown, setDismissedKnown] = useState(() => new Set());
+  const [reviewDecisions, setReviewDecisions] = useState({});
 
-  const toggleComorbidity = (catKey, item) => patch((p) => {
-    const cur = p.comorbidities[catKey] || [];
-    const next = cur.includes(item) ? cur.filter((x) => x !== item) : [...cur, item];
-    return { ...p, comorbidities: { ...p.comorbidities, [catKey]: next } };
-  });
-
-  const toggleCategoryOpen = (catKey) =>
-    setOpenCategories((prev) => ({ ...prev, [catKey]: !isCatOpen(catKey, prev) }));
-
-  const isCatOpen = (catKey, overrides = openCategories) => {
-    if (overrides[catKey] !== undefined) return overrides[catKey];
-    return (data.comorbidities[catKey] || []).length > 0;
-  };
-
-  const setComorbidityNote = (item, note) => patch((p) => ({
-    ...p, comorbidity_item_notes: { ...p.comorbidity_item_notes, [item]: note },
-  }));
-
-  const runAprPreview = () => {
+  const runAprAnalysis = () => {
     const text = data.comorbidity_free_notes?.trim();
-    setAprPreview(text ? parseComorbidityAprText(text) : null);
+    setAprAnalysis(text ? analyzeComorbidityText(text) : null);
+    setDismissedKnown(new Set());
+    setReviewDecisions({});
   };
 
-  const renderAprPreviewList = (label, items) => (
-    <div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
-      {items?.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map((item, i) => (
-            <span key={`${label}-${i}`} className="text-[11px] px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div className="text-xs text-gray-400 italic">Nessuna proposta</div>
-      )}
-    </div>
-  );
+  const resetAprAnalysis = () => {
+    setAprAnalysis(null);
+    setDismissedKnown(new Set());
+    setReviewDecisions({});
+  };
+
+  const dismissKnown = (canonical) =>
+    setDismissedKnown((prev) => {
+      const next = new Set(prev);
+      next.add(canonical);
+      return next;
+    });
+
+  const setReviewDecision = (raw, action) =>
+    setReviewDecisions((prev) => ({ ...prev, [raw]: { ...(prev[raw] || {}), action } }));
+
+  const setReviewLabel = (raw, label) =>
+    setReviewDecisions((prev) => ({ ...prev, [raw]: { ...(prev[raw] || {}), label } }));
 
   const toggleClinical = (key) => patch((p) => ({
     ...p, clinical_features: { ...p.clinical_features, [key]: !p.clinical_features[key] },
@@ -361,7 +350,37 @@ export default function FirstVisitPage() {
         current_therapies_text, drug_allergies,
         ...fvOnly
       } = data;
-      await diseaseProfileApi.upsert(id, "prima_visita", fvOnly);
+      const _knownToSave = (aprAnalysis?.recognized_known || []).filter((c) => !dismissedKnown.has(c.canonical));
+      const _confirmedReview = (aprAnalysis?.review || []).filter((r) => reviewDecisions[r._raw]?.action === "confirm");
+      const _conditionPayloads = [];
+      const _comorbiditiesForReferto = {};
+      const _pushReferto = (canonical, label) => {
+        const catKey = (canonical && CANONICAL_MAP[canonical]?.category) || "other";
+        if (!_comorbiditiesForReferto[catKey]) _comorbiditiesForReferto[catKey] = [];
+        if (!_comorbiditiesForReferto[catKey].includes(label)) _comorbiditiesForReferto[catKey].push(label);
+      };
+      for (const c of _knownToSave) {
+        _conditionPayloads.push(buildConditionFromLabel(c.label, id, "prima_visita"));
+        _pushReferto(c.canonical, c.label);
+      }
+      for (const r of _confirmedReview) {
+        const decision = reviewDecisions[r._raw] || {};
+        const finalLabel = (decision.label || r.label || "").trim();
+        if (!finalLabel) continue;
+        const overrides = {};
+        if (r.status) overrides.status = r.status;
+        if (r.onset_date) overrides.onset_date = r.onset_date;
+        const canonical = resolveCanonical(finalLabel);
+        if (canonical) {
+          _conditionPayloads.push(buildConditionFromLabel(finalLabel, id, "prima_visita", overrides));
+          _pushReferto(canonical, CANONICAL_MAP[canonical].label);
+        } else {
+          _conditionPayloads.push(buildCustomCondition(finalLabel, id, "prima_visita", overrides));
+          _pushReferto(null, finalLabel);
+        }
+      }
+
+      await diseaseProfileApi.upsert(id, "prima_visita", { ...fvOnly, comorbidities: _comorbiditiesForReferto });
       const newState = (isConverting || data.diagnostic_certainty === "definita") ? "follow_up" : "workup_in_progress";
       const updates = {
         patient_state:        newState,
@@ -376,19 +395,9 @@ export default function FirstVisitPage() {
       }
       await patientsApi.update(id, updates).catch(() => {});
 
-      // Phase 4c: write structured conditions to db.conditions in parallel.
-      // Fire-and-forget — does not block or affect the main save.
-      // disease_profiles.prima_visita.comorbidities is still written above
-      // for referto compatibility (Phase 5 will migrate buildReferto to read
-      // from db.conditions and remove the legacy write).
-      const _conditionLabels = COMORBIDITY_CATEGORIES.flatMap(
-        (cat) => (data.comorbidities?.[cat.key] || [])
-      );
-      if (_conditionLabels.length > 0) {
+      if (_conditionPayloads.length > 0) {
         Promise.allSettled(
-          _conditionLabels.map((label) =>
-            conditionsApi.upsert(buildConditionFromLabel(label, id, "prima_visita"))
-          )
+          _conditionPayloads.map((payload) => conditionsApi.upsert(payload))
         ).catch(() => {});
       }
 
@@ -516,178 +525,126 @@ export default function FirstVisitPage() {
               className="w-full text-xs border border-rose-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-rose-400 bg-white" />
           </div>
 
-          {/* ── Comorbidità ── */}
+          {/* ── Comorbidità e APR ── */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm text-[#0A2540]">Comorbidità e APR</h3>
-              {(() => {
-                const tot = COMORBIDITY_CATEGORIES.reduce((n, c) => n + (data.comorbidities[c.key] || []).length, 0);
-                return tot > 0 ? (
-                  <span className="text-[10px] bg-[#0A2540] text-white rounded-full px-2 py-0.5 font-semibold">
-                    {tot} strutturate
+            <h3 className="font-semibold text-sm text-[#0A2540] mb-1.5">Comorbidità e APR</h3>
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <SectionLabel>Testo libero</SectionLabel>
+              <div className="flex items-center gap-2">
+                {aprAnalysis && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
+                    confidence: {aprAnalysis.confidence}
                   </span>
-                ) : null;
-              })()}
-            </div>
-
-            <div className="mb-4">
-              <div className="flex items-center justify-between gap-3 mb-1.5">
-                <SectionLabel>Comorbidità e APR</SectionLabel>
+                )}
                 <button
                   type="button"
-                  onClick={runAprPreview}
+                  onClick={runAprAnalysis}
                   disabled={!data.comorbidity_free_notes?.trim()}
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Analizza testo
                 </button>
               </div>
-              <textarea value={data.comorbidity_free_notes}
-                onChange={(e) => { patch({ comorbidity_free_notes: e.target.value }); setAprPreview(null); }}
-                rows={3} placeholder="Comorbidità e anamnesi patologica remota. Es. Non comorbidità extrareumatologiche rilevanti. Colecistectomia per fango biliare."
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300" />
-              {!data.comorbidity_free_notes?.trim() && (
-                <div className="mt-2 text-xs text-gray-400 italic">
-                  Inserisci un testo libero per visualizzare una preview strutturata.
-                </div>
-              )}
-              {aprPreview && (
-                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                      Preview parser APR
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
-                      confidence: {aprPreview.confidence}
-                    </span>
-                  </div>
-                  {renderAprPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
-                  {renderAprPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
-                  {renderAprPreviewList("Interventi chirurgici", aprPreview.surgeries)}
-                  {renderAprPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
-                  {renderAprPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
-                  {renderAprPreviewList("Altre APR", aprPreview.other_apr)}
-                </div>
-              )}
             </div>
+            <textarea value={data.comorbidity_free_notes}
+              onChange={(e) => { patch({ comorbidity_free_notes: e.target.value }); resetAprAnalysis(); }}
+              rows={3}
+              placeholder="Comorbidità e anamnesi patologica remota. Es. Ipertensione arteriosa, diabete tipo 2. Nega cardiopatia. Colecistectomia (2015)."
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300" />
 
-            <div className="mb-2">
-              <SectionLabel>Dati strutturati opzionali/confermati</SectionLabel>
-            </div>
-
-            {/* Search bar */}
-            <div className="relative mb-4">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                value={comorbiditiesSearch}
-                onChange={(e) => setComorbiditiesSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const term = comorbiditiesSearch.trim();
-                    if (!term) return;
-                    const hasMatch = COMORBIDITY_CATEGORIES.some((cat) =>
-                      cat.items.some((item) => matchesComorbiditySearch(item, term))
-                    );
-                    if (!hasMatch) {
-                      toggleComorbidity("other", term);
-                      setComorbiditiesSearch("");
-                    }
-                  }
-                }}
-                placeholder="Cerca comorbidità strutturata… (es. FA, BPCO, ILD, IRC, HBV, TIA, TVP, neoplasia…)"
-                className="w-full h-8 pl-8 pr-8 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
-              />
-              {comorbiditiesSearch && (
-                <button
-                  type="button"
-                  onClick={() => setComorbiditiesSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Search results — flat list from all categories */}
-            {comorbiditiesSearch && (() => {
-              const matches = COMORBIDITY_CATEGORIES.flatMap((cat) =>
-                cat.items
-                  .filter((item) => matchesComorbiditySearch(item, comorbiditiesSearch))
-                  .map((item) => ({ item, catKey: cat.key }))
-              );
-              if (matches.length === 0) return (
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs text-gray-400 italic">Nessun risultato per "{comorbiditiesSearch}"</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toggleComorbidity("other", comorbiditiesSearch.trim());
-                      setComorbiditiesSearch("");
-                    }}
-                    className="text-[11px] text-blue-600 font-medium bg-blue-50 border border-blue-200 rounded-md px-2 py-0.5 hover:bg-blue-100 transition-colors flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Aggiungi «{comorbiditiesSearch.trim()}» come altro
-                  </button>
-                </div>
-              );
-              return (
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {matches.map(({ item, catKey }) => (
-                    <ToggleBtn key={item} label={item}
-                      selected={(data.comorbidities[catKey] || []).includes(item)}
-                      onToggle={() => toggleComorbidity(catKey, item)} />
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Selected items panel — always visible so selected items are never hidden */}
-            {(() => {
-              const allSel = COMORBIDITY_CATEGORIES.flatMap((c) =>
-                (data.comorbidities[c.key] || []).map((item) => ({ item, catKey: c.key }))
-              );
-              if (allSel.length === 0) return null;
-              return (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-2">Selezionate</p>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {allSel.map(({ item, catKey }) => (
-                      <ToggleBtn key={item} label={item} selected={true}
-                        onToggle={() => toggleComorbidity(catKey, item)} />
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    {allSel.map(({ item }) => (
-                      <div key={item} className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#0A2540] font-medium min-w-[140px] shrink-0">{item}:</span>
-                        <input type="text"
-                          value={data.comorbidity_item_notes?.[item] || ""}
-                          onChange={(e) => setComorbidityNote(item, e.target.value)}
-                          placeholder="Nota opzionale (es. stent coronarico 2021, in terapia…)"
-                          className="flex-1 h-7 text-xs px-2.5 border border-blue-200 rounded-md focus:outline-none focus:border-blue-400 bg-white" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Frequent comorbidities (hidden during search) */}
-            {!comorbiditiesSearch && (
-              <div className="mb-4 p-3 border border-amber-100 rounded-xl bg-amber-50/40">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600 mb-2">Comorbidità frequenti</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {FREQUENT_CONDITIONS.map(({ label, catKey }) => (
-                    <ToggleBtn key={label} label={label}
-                      selected={(data.comorbidities[catKey] || []).includes(label)}
-                      onToggle={() => toggleComorbidity(catKey, label)} />
-                  ))}
-                </div>
+            {!aprAnalysis && (
+              <div className="mt-2 text-xs text-gray-400 italic">
+                Scrivi il testo e premi "Analizza testo". Le comorbidità note vengono salvate al salvataggio della prima visita.
               </div>
             )}
 
+            {aprAnalysis && (() => {
+              const known = aprAnalysis.recognized_known.filter((c) => !dismissedKnown.has(c.canonical));
+              const nothing = known.length === 0 && aprAnalysis.review.length === 0 &&
+                aprAnalysis.negated.length === 0 && aprAnalysis.surgeries.length === 0;
+              return (
+                <div className="mt-3 space-y-3">
+                  {known.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1.5">
+                        Comorbidità riconosciute — salvate automaticamente
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {known.map((c) => (
+                          <span key={c.canonical} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800">
+                            {c.label}
+                            <button type="button" onClick={() => dismissKnown(c.canonical)} className="text-emerald-500 hover:text-emerald-700">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.review.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1.5">
+                        Da rivedere — salvate solo se confermate
+                      </div>
+                      <div className="space-y-1.5">
+                        {aprAnalysis.review.map((r) => {
+                          const decision = reviewDecisions[r._raw] || {};
+                          const confirmed = decision.action === "confirm";
+                          const skipped = !decision.action || decision.action === "skip";
+                          return (
+                            <div key={r._raw} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 bg-gray-50/60">
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500 shrink-0">
+                                {REVIEW_KIND_LABELS[r.kind] || r.kind}
+                              </span>
+                              <input
+                                type="text"
+                                value={decision.label ?? r.label}
+                                onChange={(e) => setReviewLabel(r._raw, e.target.value)}
+                                className="flex-1 h-7 text-xs px-2 border border-gray-200 rounded-md focus:outline-none focus:border-blue-300 bg-white" />
+                              <button type="button" onClick={() => setReviewDecision(r._raw, "confirm")}
+                                className={`text-[11px] font-semibold px-2 py-1 rounded-md border ${confirmed ? "border-emerald-300 bg-emerald-100 text-emerald-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}>
+                                Conferma
+                              </button>
+                              <button type="button" onClick={() => setReviewDecision(r._raw, "skip")}
+                                className={`text-[11px] font-semibold px-2 py-1 rounded-md border ${skipped ? "border-gray-300 bg-gray-100 text-gray-600" : "border-gray-200 bg-white text-gray-400 hover:bg-gray-100"}`}>
+                                Ignora
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.negated.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                        Negazioni — solo informative, non salvate
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {aprAnalysis.negated.map((n, i) => (
+                          <span key={`neg-${i}`} className="text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500">
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {aprAnalysis.surgeries.length > 0 && (
+                    <div className="text-xs text-gray-500">
+                      <span className="font-semibold">Interventi rilevati:</span> {aprAnalysis.surgeries.join("; ")}
+                      <span className="italic text-gray-400"> — inseriscili nella sezione "Interventi chirurgici".</span>
+                    </div>
+                  )}
+
+                  {nothing && (
+                    <div className="text-xs text-gray-400 italic">Nessuna comorbidità strutturata rilevata nel testo.</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Interventi chirurgici ── */}
