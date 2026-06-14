@@ -289,12 +289,63 @@ const SOSP_NARROW_AFTER_RE = /^[\s,;:(]+(?:sosp(?:eso|esa|esi|ese)|interrott[oa]
 
 const PRN_AFTER_RE = /\bal\s+bisogno\b|\ball['’]?\s*occorrenza\b|\bse\s+(?:dolore|necessario|serve|sintomatic|dolorabilit)|\bin\s+caso\s+di\s+(?:dolore|necessit|riacutizz|attacc)|\bcicl[oi]\s+brev[ei]\b|\bripetibile\b|\bsolo\s+se\s+necessario\b|\bquando\s+necessario\b|\bper\s+\d+(?:\s*-\s*\d+)?\s+(?:giorni|gg)\b[^.;\n]{0,40}\b(?:poi\s+(?:stop|sospen)|sospen|stop)\b|\bmax\b[^.;\n]{0,20}\bvolt[ae]\b/i;
 const PRN_LABEL_RE = /(?:\bse\s+dolore|\bse\s+necessario|\bal\s+bisogno|\bin\s+caso\s+di|\ball['’]?\s*occorrenza)\s*:?\s*$/i;
+const PRN_BEFORE_RE = /(?:\bse\s+(?:dolore|necessario|serve|sintomatic[oi]?)|\bin\s+caso\s+di\s+[^.;\n]{0,80}|\bal\s+bisogno|\ball['’]?\s*occorrenza)\s*:?\s*$/i;
+const PRN_NEXT_THERAPY_CUE_RE = /(?:^|[\s.;,\n-])(?:in\s+caso\s+di\s+[^.;\n]{0,80}|se\s+(?:dolore|necessario|serve|sintomatic[oi]?)[^.;\n]{0,80}|al\s+bisogno[^.;\n]{0,80}|all['’]?\s*occorrenza[^.;\n]{0,80})$/i;
 
 function getActiveSectionText(text) {
   const m = text.match(
     /(?:TERAPIA\s+IN\s+ATTO|TERAPIA\s+ATTUALE|TERAPIA\s+IN\s+CORSO)\s*([\s\S]*?)(?=\n{2,}|\n[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s']{3,}[:\n]|$)/i
   );
   return m ? m[1] : "";
+}
+
+function findNextDrugOffset(ctxAfter, currentDrugName) {
+  let next = -1;
+  for (const [pattern, drugName, _category, caseSensitive] of DRUG_PATTERNS) {
+    if (drugName === currentDrugName) continue;
+    const re = new RegExp(pattern.source, caseSensitive ? "" : "i");
+    const m = re.exec(ctxAfter);
+    if (m && m.index > 0 && (next === -1 || m.index < next)) next = m.index;
+  }
+  return next;
+}
+
+function currentDrugScope(context, ctxAfter, drugName) {
+  const nextDrug = findNextDrugOffset(ctxAfter, drugName);
+  if (nextDrug < 0) return context;
+
+  const prefix = ctxAfter.slice(0, nextDrug);
+  const cueM = prefix.match(PRN_NEXT_THERAPY_CUE_RE);
+  const afterLimit = cueM ? cueM.index : nextDrug;
+  const drugNameLen = context.length - ctxAfter.length;
+  return context.slice(0, Math.max(drugNameLen, drugNameLen + afterLimit));
+}
+
+function extractDailyTabletDose(context) {
+  const doseM = context.match(/(\d+(?:[.,]\d+)?)\s*mg\b/i);
+  if (!doseM) return null;
+
+  const mg = Number(doseM[1].replace(",", "."));
+  if (!Number.isFinite(mg)) return null;
+
+  const afterDose = context.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 140);
+
+  const morningEveningM = afterDose.match(/:?\s*(\d+(?:[.,]\d+)?)\s*cp\b[^.;\n]{0,60}\b(?:mattina|mattino)\b[^.;\n]{0,60}\b(?:e|\+)\s*(\d+(?:[.,]\d+)?)\s*cp\b[^.;\n]{0,40}\bsera\b/i);
+  if (morningEveningM) {
+    const morning = Number(morningEveningM[1].replace(",", "."));
+    const evening = Number(morningEveningM[2].replace(",", "."));
+    if (Number.isFinite(morning) && Number.isFinite(evening)) {
+      return { dose: `${Math.round(mg * (morning + evening))} mg`, frequency: "die" };
+    }
+  }
+
+  const cpPerDayM = afterDose.match(/:?\s*(\d+(?:[.,]\d+)?)\s*cp\s*(?:\/\s*die|\bal\s+d[iì]|\bdie\b|\bal\s+giorno\b)/i);
+  if (cpPerDayM) {
+    const cps = Number(cpPerDayM[1].replace(",", "."));
+    if (Number.isFinite(cps)) return { dose: `${Math.round(mg * cps)} mg`, frequency: "die" };
+  }
+
+  return null;
 }
 
 function extractTherapies(text, today) {
@@ -321,15 +372,17 @@ function extractTherapies(text, today) {
       const context    = text.slice(ctxStart, ctxEnd);
       const ctxBefore  = text.slice(Math.max(0, match.index - 250), match.index);
       const ctxAfter   = text.slice(match.index + match[0].length, ctxEnd);
+      const drugScope  = currentDrugScope(context, ctxAfter, drugName);
 
-      const doseM  = context.match(FREQ_PER_WEEK) || context.match(DOSE_RE);
-      const dose   = doseM ? doseM[0].trim() : null;
+      const dailyTabletDose = extractDailyTabletDose(drugScope);
+      const doseM  = drugScope.match(FREQ_PER_WEEK) || drugScope.match(DOSE_RE);
+      let dose     = dailyTabletDose?.dose || (doseM ? doseM[0].trim() : null);
 
-      const freqPwM    = context.match(FREQ_PER_WEEK);
+      const freqPwM    = drugScope.match(FREQ_PER_WEEK);
       // Priority: specific interval patterns (ogni N settimane / spacing a N settimane)
       // beat generic abbreviations (die/bid/tid) even when both appear in the context.
-      const freqIntM   = context.match(FREQ_INTERVAL);
-      const freqGenM   = context.match(FREQ_GENERAL);
+      const freqIntM   = drugScope.match(FREQ_INTERVAL);
+      const freqGenM   = drugScope.match(FREQ_GENERAL);
       // Prefer the match that appears EARLIEST in context (closest to drug name).
       // Fixed-priority FREQ_PER_WEEK > FREQ_INTERVAL > FREQ_GENERAL is the tiebreaker
       // when two patterns match at the same position, but earliest-in-context prevents
@@ -340,6 +393,7 @@ function extractTherapies(text, today) {
         .filter(Boolean)
         .sort((a, b) => a.index - b.index)[0] ?? null;
       let frequency    = freqM ? freqM[0].trim() : null;
+      if (!frequency && dailyTabletDose?.frequency) frequency = dailyTabletDose.frequency;
       // Normalize slash-interval format: "/3 settimane" → "ogni 3 settimane"
       // (common in Italian referti: "Adalimumab 40 mg/3 settimane")
       if (frequency) {
@@ -354,7 +408,7 @@ function extractTherapies(text, today) {
         _T(`  match pos=${match.index}`);
         _T(`  context (${ctxStart}→${ctxEnd}, ${ctxEnd - ctxStart} car)`);
         _T(`  DOSE_RE: ${DOSE_RE.source}`);
-        const doseReTry = context.match(DOSE_RE);
+        const doseReTry = drugScope.match(DOSE_RE);
         _T(`  DOSE_RE match: ${doseReTry ? "sì" : "no"}`);
         _T(`  FREQ_PER_WEEK match: ${freqPwM ? "sì" : "no"}`);
         _T(`  FREQ_INTERVAL match: ${freqIntM ? "sì ← PRIORITÀ ALTA" : "no"}`);
@@ -368,7 +422,7 @@ function extractTherapies(text, today) {
             { label: "spacing a N settimane", re: /\bspacing\s+a\s+\d+\s+settiman[ae]\b/i },
             { label: "una/un' volta a settimana | settimanale", re: /\b(?:una|un['’])\s+volta\s+a\s+settimana\b|\bsettimanale\b/i },
           ];
-          const matched = alts.filter(a => a.re.test(context));
+          const matched = alts.filter(a => a.re.test(drugScope));
           _T(`  FREQ_GENERAL alt(s) che matchano nel context: ${matched.length ? matched.map(a => a.label).join(" | ") : "NESSUNA (?)"}`);
         } else {
           _T(`  FREQ_GENERAL match: no`);
@@ -380,10 +434,11 @@ function extractTherapies(text, today) {
       const routeM = context.match(ROUTE_RE);
       const route  = routeM ? normalizeRoute(routeM[0]) : null;
 
-      const _prnBreak = context.search(/[.;\n]/);
-      const _prnScope = _prnBreak >= 0 ? context.slice(0, _prnBreak) : context;
+      const _prnBreak = drugScope.search(/[.;\n]/);
+      const _prnScope = _prnBreak >= 0 ? drugScope.slice(0, _prnBreak) : drugScope;
       const isPrn = PRN_AFTER_RE.test(_prnScope) ||
-        PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 24), match.index));
+        PRN_LABEL_RE.test(text.slice(Math.max(0, match.index - 80), match.index)) ||
+        PRN_BEFORE_RE.test(text.slice(Math.max(0, match.index - 120), match.index));
       if (isPrn) frequency = "al bisogno";
 
       // ── Determina status: "active" vs "discontinued" ────────────────────────
