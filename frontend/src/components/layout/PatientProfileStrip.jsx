@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { diseaseProfileApi, patientsApi, therapiesApi } from "../../lib/api";
 import { parseTherapyText } from "../../lib/therapyTextParser";
+import { parseComorbidityAprText } from "../../lib/comorbidityAprParser";
 import { COMORBIDITY_CATEGORIES, FREQUENT_CONDITIONS } from "../../lib/conditions";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
@@ -162,6 +163,7 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
     return init;
   });
   const [notes,      setNotes]      = useState(freeNotes || "");
+  const [aprPreview, setAprPreview] = useState(null);
   const [search,     setSearch]     = useState("");
   const [showDrop,   setShowDrop]   = useState(false);
   const searchRef = useRef(null);
@@ -233,6 +235,28 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
     });
     onSave(chips, notes, newDetails);
   };
+
+  const runAprPreview = () => {
+    const text = notes.trim();
+    setAprPreview(text ? parseComorbidityAprText(text) : null);
+  };
+
+  const renderPreviewList = (label, items) => (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</div>
+      {items?.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((item, i) => (
+            <span key={`${label}-${i}`} className="text-[11px] px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-gray-400 italic">Nessuna proposta</div>
+      )}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -362,8 +386,18 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
 
           {/* Note libere generali */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-              Note generali (opzionali)
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Note generali (opzionali)
+              </div>
+              <button
+                type="button"
+                onClick={runAprPreview}
+                disabled={!notes.trim()}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Analizza testo
+              </button>
             </div>
             <textarea
               value={notes}
@@ -372,6 +406,29 @@ function ComorbidityEditorModal({ comorbidities, comorbDetails, freeNotes, onSav
               rows={2}
               className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 leading-relaxed"
             />
+            {!notes.trim() && (
+              <div className="mt-2 text-xs text-gray-400 italic">
+                Inserisci un testo libero per visualizzare una preview strutturata.
+              </div>
+            )}
+            {aprPreview && (
+              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                    Preview parser APR
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 bg-white text-gray-500">
+                    confidence: {aprPreview.confidence}
+                  </span>
+                </div>
+                {renderPreviewList("Comorbidità attive", aprPreview.active_comorbidities)}
+                {renderPreviewList("Assenze / negazioni rilevanti", aprPreview.negated_relevant_absences)}
+                {renderPreviewList("Interventi chirurgici", aprPreview.surgeries)}
+                {renderPreviewList("Neoplasie pregresse", aprPreview.prior_neoplasia)}
+                {renderPreviewList("Infezioni rilevanti", aprPreview.relevant_infections)}
+                {renderPreviewList("Altre APR", aprPreview.other_apr)}
+              </div>
+            )}
           </div>
         </div>
 
