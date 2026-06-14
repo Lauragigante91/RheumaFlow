@@ -402,7 +402,11 @@ export default function ClinicalTimelineManager({ patientId }) {
     setLoading(true);
     try {
       const data = await clinicalEventsApi.list(patientId);
-      setEvents(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[timeline][reload] eventi caricati dal DB:", list.length);
+      }
+      setEvents(list);
     } catch {
       setEvents([]);
     } finally {

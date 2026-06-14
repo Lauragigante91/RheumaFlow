@@ -281,11 +281,14 @@ async function _applyOneDraft(extracted, patient, selected, visitType, sourceFil
   // ── Raccordo events (cronologia longitudinale) ───────────────────────────────
   if (selected.raccordo_events) {
     const confirmed = (extracted.raccordo_events || []).filter(e => !e._skip);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[import][save] eventi raccordo da salvare:", confirmed.length);
+    }
     if (confirmed.length > 0) {
       try {
         await clinicalEventsApi.batchCreate(patient.id, {
           patient_id: patient.id,
-          events: confirmed.map(({ _id, _skip, id, ...e }) => ({
+          events: confirmed.map(({ _id, _skip, id, _status, _statusReason, ...e }) => ({
             ...e,
             source_filename: e.source_filename || sourceFilename || null,
           })),
@@ -484,14 +487,17 @@ export default function VisitImportButton({ patient, onImported, open: externalO
         draft.visit_date      = block.date;
         draft.visit_type      = block.visitType || "follow_up";
         draft.source_filename = block.source_filename || null;
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[import multi][PDF ${i + 1}] eventi raccordo prodotti dal parser:`, (draft.raccordo_events || []).length);
+        }
         return { block, draft };
       });
 
       // 2. Fetch existing patient data for reconciliation
-      let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null };
+      let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {
         try {
-          const [thRes, assRes, labRes, raRes, spaRes, sleRes, scleroRes] = await Promise.allSettled([
+          const [thRes, assRes, labRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
             therapiesApi.listByPatient(patient.id),
             assessmentsApi.listByPatient(patient.id),
             labExamsApi.listByPatient(patient.id),
@@ -499,6 +505,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             diseaseProfileApi.get(patient.id, "spa").catch(() => null),
             diseaseProfileApi.get(patient.id, "sle").catch(() => null),
             scleroProfileApi.get(patient.id).catch(() => null),
+            clinicalEventsApi.list(patient.id),
           ]);
           existingData = {
             therapies:        thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
@@ -510,6 +517,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
               sle: sleRes.status === "fulfilled" ? sleRes.value : null,
             },
             sclero_profile: scleroRes.status === "fulfilled" ? scleroRes.value : null,
+            clinical_events: ceRes.status === "fulfilled" ? (ceRes.value || []) : [],
           };
         } catch (_) { /* continue without existing data */ }
       }
@@ -517,6 +525,12 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       // 3. Run reconciler across all drafts
       const rawDrafts        = rawResults.map(r => r.draft);
       const reconciledDrafts = reconcileDrafts(rawDrafts, existingData);
+
+      if (process.env.NODE_ENV !== "production") {
+        const evNew  = reconciledDrafts.reduce((s, d) => s + (d.raccordo_events || []).filter(e => e.event_type && !e._skip).length, 0);
+        const evSkip = reconciledDrafts.reduce((s, d) => s + (d.raccordo_events || []).filter(e => e._skip).length, 0);
+        console.log(`[import multi][merge] eventi raccordo dopo deduplica: ${evNew} nuovi, ${evSkip} duplicati ignorati`);
+      }
 
       // 4. Build final results array
       const results = rawResults.map(({ block }, i) => {

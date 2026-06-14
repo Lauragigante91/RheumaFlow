@@ -269,3 +269,73 @@ describe("reconcileDrafts — roadmap punto 1: copertura dedicata", () => {
     expect(out._call_upsert).toBeFalsy();
   });
 });
+
+function reconcileEventsMultiDraft(existingData, draftsEvents) {
+  return reconcileDrafts(
+    draftsEvents.map((evs) => ({ raccordo_events: evs })),
+    existingData
+  );
+}
+
+const HISTORY = [
+  { event_type: "disease_onset", date_value: "2013-01-01" },
+  { event_type: "remission", date_value: "2018-01-01" },
+  { event_type: "therapy_stop", date_value: "2022-01-01", drug_canonical: "metotrexato" },
+  { event_type: "therapy_start", date_value: "2023-01-01", drug_canonical: "sulfasalazina" },
+];
+
+describe("reconcileDrafts — deduplica eventi raccordo (timeline)", () => {
+  it("la stessa cronologia in due lettere del batch viene salvata una volta sola", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [HISTORY, HISTORY]);
+    drafts[0].raccordo_events.forEach((e) => {
+      expect(e._status).toBe(ITEM_STATUS.NEW);
+      expect(e._skip).toBeFalsy();
+    });
+    drafts[1].raccordo_events.forEach((e) => {
+      expect(e._status).toBe(ITEM_STATUS.DUPLICATE);
+      expect(e._skip).toBe(true);
+    });
+  });
+
+  it("evento già presente nella cronologia (DB) viene saltato", () => {
+    const [draft] = reconcileDrafts(
+      [{ raccordo_events: [{ event_type: "disease_onset", date_value: "2013-01-01" }] }],
+      { clinical_events: [{ event_type: "disease_onset", date_value: "2013-01-01" }] }
+    );
+    expect(draft.raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(draft.raccordo_events[0]._skip).toBe(true);
+  });
+
+  it("eventi nuovi e non duplicati restano NEW e salvabili", () => {
+    const [draft] = reconcileDrafts(
+      [{ raccordo_events: HISTORY }],
+      { clinical_events: [] }
+    );
+    expect(draft.raccordo_events.every((e) => e._status === ITEM_STATUS.NEW && !e._skip)).toBe(true);
+  });
+
+  it("due manifestazioni stesso anno ma organo diverso NON vengono deduplicate", () => {
+    const [draft] = reconcileDrafts(
+      [{ raccordo_events: [
+        { event_type: "manifestation_onset", date_value: "2020-01-01", manifestation: "artrite" },
+        { event_type: "manifestation_onset", date_value: "2020-01-01", manifestation: "psoriasi cutanea" },
+      ] }],
+      { clinical_events: [] }
+    );
+    expect(draft.raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(draft.raccordo_events[1]._status).toBe(ITEM_STATUS.NEW);
+    expect(draft.raccordo_events[1]._skip).toBeFalsy();
+  });
+
+  it("stesso farmaco con date diverse (stop 2022, start 2023) NON viene deduplicato", () => {
+    const [draft] = reconcileDrafts(
+      [{ raccordo_events: [
+        { event_type: "therapy_stop", date_value: "2022-01-01", drug_canonical: "metotrexato" },
+        { event_type: "therapy_start", date_value: "2023-01-01", drug_canonical: "metotrexato" },
+      ] }],
+      { clinical_events: [] }
+    );
+    expect(draft.raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(draft.raccordo_events[1]._status).toBe(ITEM_STATUS.NEW);
+  });
+});

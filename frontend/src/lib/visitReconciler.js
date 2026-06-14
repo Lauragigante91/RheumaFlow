@@ -103,6 +103,26 @@ function buildLabSet(labs) {
   return set;
 }
 
+function normEventText(s) {
+  return (s || "").toString().toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function eventKey(e) {
+  const date = normDate(e.date_value || e.date_estimated);
+  const drug = e.drug_canonical || e.to_drug || e.from_drug || "";
+  const text = normEventText(e.manifestation || e.detail);
+  return `${e.event_type || ""}::${date}::${normEventText(drug)}::${text}`;
+}
+
+function buildEventSet(events) {
+  const set = new Set();
+  for (const e of events || []) {
+    if (!e || !e.event_type) continue;
+    set.add(eventKey(e));
+  }
+  return set;
+}
+
 // ── Core reconciliation ───────────────────────────────────────────────────────
 
 export function reconcileDrafts(drafts, existingData) {
@@ -112,16 +132,19 @@ export function reconcileDrafts(drafts, existingData) {
     lab_exams:        existingLabs         = [],
     disease_profiles: existingProfiles     = {},
     sclero_profile:   existingSclero       = null,
+    clinical_events:  existingEvents       = [],
   } = existingData;
 
   const therapyMap    = buildTherapyMap(existingTherapies);
   const assessmentSet = buildAssessmentSet(existingAssessments);
   const labSet        = buildLabSet(existingLabs);
+  const eventSet      = buildEventSet(existingEvents);
 
   // Cross-draft deduplication trackers (shared across all drafts)
   const seenDrugs       = new Set();
   const seenAssessments = new Set();
   const seenLabs        = new Set();
+  const seenEvents      = new Set();
 
   return drafts.map((draft, draftIdx) => {
     const out = { ...draft };
@@ -296,6 +319,28 @@ export function reconcileDrafts(drafts, existingData) {
       });
     }
 
+    // ── Raccordo events (cronologia longitudinale) ──────────────────────────
+    // La cronologia anamnestica (esordio, remissione, stop/start) si ripete in
+    // ogni lettera del batch: senza deduplica ogni evento verrebbe creato una
+    // volta per PDF. Si confronta contro la cronologia già salvata e contro gli
+    // altri draft dello stesso import.
+    if (Array.isArray(draft.raccordo_events)) {
+      out.raccordo_events = draft.raccordo_events.map(e => {
+        if (!e.event_type) return e;
+        const key = eventKey(e);
+
+        if (eventSet.has(key)) {
+          return { ...e, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Evento già presente nella cronologia", _skip: true };
+        }
+        if (seenEvents.has(key)) {
+          return { ...e, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Duplicato in un'altra lettera del batch", _skip: true };
+        }
+
+        seenEvents.add(key);
+        return { ...e, _status: ITEM_STATUS.NEW };
+      });
+    }
+
     // ── Disease profiles ────────────────────────────────────────────────────
     // Annotate the entire profile section with a status (field-level shown in UI)
 
@@ -362,6 +407,7 @@ export function draftSummaryStats(draft) {
   const assessments  = draft.assessments  || [];
   const lab_exams    = draft.lab_exams    || [];
   const instrumental = draft.instrumental_findings || [];
+  const raccordo     = draft.raccordo_events || [];
 
   const conflicts = [
     ...therapies.filter(x => x._status === ITEM_STATUS.CONFLICT),
@@ -373,12 +419,14 @@ export function draftSummaryStats(draft) {
     ...assessments.filter(x => !x._skip),
     ...lab_exams.filter(x => !x._skip),
     ...instrumental.filter(x => !x._skip),
+    ...raccordo.filter(x => !x._skip),
   ].length;
 
   const skipped = [
     ...therapies.filter(x => x._skip && x._status !== undefined),
     ...assessments.filter(x => x._skip && x._status !== undefined),
     ...lab_exams.filter(x => x._skip && x._status !== undefined),
+    ...raccordo.filter(x => x._skip && x._status !== undefined),
   ].length;
 
   return { conflicts, toSave, skipped, therapies: therapies.length, assessments: assessments.length };
