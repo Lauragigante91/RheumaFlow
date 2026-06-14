@@ -44,6 +44,7 @@ export const DRUG_FORMULATIONS = {
     defaultBrand: "Deltacortene",
     equivalentFactor: 1,
     tablets: [25, 5],
+    fractionableLarge: true,
     unit: "mg",
   },
   metilprednisolone: {
@@ -81,29 +82,47 @@ export function calculateTablets(dose, drugKey) {
   const formulation = DRUG_FORMULATIONS[drugKey];
   if (!formulation) return [];
   const sizes = [...formulation.tablets].sort((a, b) => b - a);
+  const largest = sizes[0];
+  const smallest = sizes[sizes.length - 1];
+  const largestH = Math.round(largest * 100);
+  const smallestH = Math.round(smallest * 100);
+  const fractions = [0.75, 0.5, 0.25];
   const result = [];
-  // Work in hundredths to handle ¼ tablets (e.g. ¼ × 5mg = 1.25mg = 125 hundredths)
   let remaining = Math.round(dose * 100);
 
-  for (const size of sizes) {
-    const sizeH = Math.round(size * 100);
-    if (remaining >= sizeH) {
-      const count = Math.floor(remaining / sizeH);
-      result.push({ mg: size, count });
-      remaining -= count * sizeH;
+  if (remaining >= largestH) {
+    const count = Math.floor(remaining / largestH);
+    result.push({ mg: largest, count });
+    remaining -= count * largestH;
+  }
+
+  if (remaining > 0 && formulation.fractionableLarge) {
+    for (const frac of fractions) {
+      if (remaining === Math.round(largestH * frac)) {
+        result.push({ mg: largest, count: frac });
+        remaining = 0;
+        break;
+      }
     }
   }
 
-  // Try fractional tablets: ¾, ½, ¼ — prefer largest fraction that fits
   if (remaining > 0) {
-    outer: for (const frac of [0.75, 0.5, 0.25]) {
-      for (const size of sizes) {
-        const fracH = Math.round(size * 100 * frac);
-        if (remaining === fracH) {
-          result.push({ mg: size, count: frac });
-          remaining = 0;
-          break outer;
-        }
+    for (const size of sizes.slice(1)) {
+      const sizeH = Math.round(size * 100);
+      if (remaining >= sizeH) {
+        const count = Math.floor(remaining / sizeH);
+        result.push({ mg: size, count });
+        remaining -= count * sizeH;
+      }
+    }
+  }
+
+  if (remaining > 0) {
+    for (const frac of fractions) {
+      if (remaining === Math.round(smallestH * frac)) {
+        result.push({ mg: smallest, count: frac });
+        remaining = 0;
+        break;
       }
     }
   }
@@ -446,8 +465,9 @@ export function formatPatientSchedule(config, steps) {
     lines.push(`  Totale: ${step.dose} mg al giorno`);
 
     if (step.tablets?.length) {
+      const fracWord = { 0.25: "¼ compressa", 0.5: "½ compressa", 0.75: "¾ compressa" };
       const tabParts = step.tablets.map(t => {
-        const n = t.count === 0.5 ? "½ compressa" : `${t.count} ${t.count === 1 ? "compressa" : "compresse"}`;
+        const n = fracWord[t.count] ?? `${t.count} ${t.count === 1 ? "compressa" : "compresse"}`;
         return `${brand} ${t.mg} mg: ${n}`;
       });
       lines.push(`  ${tabParts.join(" + ")}`);
