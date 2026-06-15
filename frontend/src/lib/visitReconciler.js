@@ -3,6 +3,8 @@
 // annotates each item with a status: new / duplicate / continuity / conflict /
 // update / uncertain. Also deduplicates across letters within the same batch.
 
+import { toCanonicalLabKey } from "./labValueExtractor";
+
 export const ITEM_STATUS = {
   NEW:        "new",
   DUPLICATE:  "duplicate",
@@ -95,12 +97,32 @@ function buildAssessmentSet(assessments) {
   return set;
 }
 
-function buildLabSet(labs) {
-  const set = new Set();
+function normLabValue(v) {
+  if (v === null || v === undefined) return "";
+  return String(v).toLowerCase().replace(/\s+/g, "").replace(",", ".");
+}
+
+function labValSig(entry) {
+  const val  = normLabValue(entry?.value);
+  const unit = normLabValue(entry?.unit);
+  const qual = normLabValue(entry?.qualitative);
+  return `${val}|${unit}|${qual}`;
+}
+
+function labParamKey(date, paramKey) {
+  return `${normDate(date)}::${paramKey}`;
+}
+
+function buildLabValueMap(labs) {
+  const map = new Map();
   for (const l of labs || []) {
-    set.add(`${normDate(l.date)}::${l.panel || "custom"}`);
+    const values = l.values || {};
+    for (const [pk, entry] of Object.entries(values)) {
+      if (!entry) continue;
+      map.set(labParamKey(l.date, pk), labValSig(entry));
+    }
   }
-  return set;
+  return map;
 }
 
 function normEventText(s) {
@@ -137,13 +159,13 @@ export function reconcileDrafts(drafts, existingData) {
 
   const therapyMap    = buildTherapyMap(existingTherapies);
   const assessmentSet = buildAssessmentSet(existingAssessments);
-  const labSet        = buildLabSet(existingLabs);
+  const labValueMap   = buildLabValueMap(existingLabs);
   const eventSet      = buildEventSet(existingEvents);
 
   // Cross-draft deduplication trackers (shared across all drafts)
   const seenDrugs       = new Set();
   const seenAssessments = new Set();
-  const seenLabs        = new Set();
+  const seenLabValues   = new Map();
   const seenEvents      = new Set();
 
   return drafts.map((draft, draftIdx) => {
@@ -302,20 +324,52 @@ export function reconcileDrafts(drafts, existingData) {
     }
 
     // ── Lab exams ───────────────────────────────────────────────────────────
+    // Conflitto a livello di singolo parametro: stesso param_key + stessa data
+    // con valore/unità discordante => CONFLICT (mai sovrascritto). Identico =>
+    // duplicate. Almeno un parametro nuovo => l'esame si salva (i risultati
+    // duplicati/in conflitto sono marcati _skip a livello di risultato e il
+    // builder li filtra prima dell'upsert, quindi non toccano il dato esistente).
     if (Array.isArray(draft.lab_exams)) {
       out.lab_exams = draft.lab_exams.map(l => {
-        const panel = l.panel || l.category || "custom";
-        const key   = `${normDate(l.date)}::${panel}`;
+        const results = Array.isArray(l.results) ? l.results : [];
+        let anyNew = false;
+        let anyConflict = false;
+        let anyDuplicate = false;
 
-        if (labSet.has(key)) {
-          return { ...l, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Pannello già importato per questa data", _skip: true };
-        }
-        if (seenLabs.has(key)) {
-          return { ...l, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Duplicato in un'altra lettera del batch", _skip: true };
+        const annotatedResults = results.map(r => {
+          const pk  = r.param_key || toCanonicalLabKey(r.name);
+          if (!pk) return { ...r };
+          const key = labParamKey(l.date, pk);
+          const sig = labValSig({ value: r.value, unit: r.unit, qualitative: r.qualitative });
+
+          const existingSig = labValueMap.has(key) ? labValueMap.get(key)
+            : (seenLabValues.has(key) ? seenLabValues.get(key) : undefined);
+
+          if (existingSig !== undefined) {
+            if (existingSig === sig) {
+              anyDuplicate = true;
+              return { ...r, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Valore già presente per questa data", _skip: true };
+            }
+            anyConflict = true;
+            return { ...r, _status: ITEM_STATUS.CONFLICT, _statusReason: "Valore discordante per stesso parametro e data", _skip: true };
+          }
+
+          seenLabValues.set(key, sig);
+          anyNew = true;
+          return { ...r, _status: ITEM_STATUS.NEW };
+        });
+
+        let status = ITEM_STATUS.DUPLICATE;
+        let reason = "Tutti i valori già presenti per questa data";
+        if (anyConflict) {
+          status = ITEM_STATUS.CONFLICT;
+          reason = anyNew ? "Alcuni valori discordanti per stesso parametro e data" : "Valori discordanti per stesso parametro e data";
+        } else if (anyNew) {
+          status = ITEM_STATUS.NEW;
+          reason = anyDuplicate ? "Alcuni nuovi valori per questa data" : null;
         }
 
-        seenLabs.add(key);
-        return { ...l, _status: ITEM_STATUS.NEW };
+        return { ...l, results: annotatedResults, _status: status, _statusReason: reason, _skip: !anyNew };
       });
     }
 
@@ -409,10 +463,15 @@ export function draftSummaryStats(draft) {
   const instrumental = draft.instrumental_findings || [];
   const raccordo     = draft.raccordo_events || [];
 
+  const labResultConflicts = lab_exams.reduce(
+    (s, ex) => s + (ex.results || []).filter(r => r._status === ITEM_STATUS.CONFLICT).length,
+    0
+  );
+
   const conflicts = [
     ...therapies.filter(x => x._status === ITEM_STATUS.CONFLICT),
     ...assessments.filter(x => x._status === ITEM_STATUS.CONFLICT),
-  ].length;
+  ].length + labResultConflicts;
 
   const toSave = [
     ...therapies.filter(x => !x._skip),

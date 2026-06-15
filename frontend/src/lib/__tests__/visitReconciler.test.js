@@ -352,3 +352,111 @@ describe("reconcileDrafts — deduplica eventi raccordo (timeline)", () => {
     expect(draft.raccordo_events[0]._skip).toBe(true);
   });
 });
+
+function reconcileLab(existingLabs, draftLab) {
+  const [draft] = reconcileDrafts([{ lab_exams: [draftLab] }], { lab_exams: existingLabs });
+  return draft.lab_exams[0];
+}
+
+function reconcileLabMultiDraft(existingLabs, draftsLabs) {
+  return reconcileDrafts(
+    draftsLabs.map((labs) => ({ lab_exams: labs })),
+    { lab_exams: existingLabs }
+  );
+}
+
+describe("reconcileDrafts — esami di laboratorio a livello di parametro", () => {
+  it("valore identico già presente in DB (stesso param + stessa data) -> DUPLICATE, non salvato", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "0.5", unit: "mg/dL" }] }
+    );
+    expect(out.results[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(out.results[0]._skip).toBe(true);
+    expect(out._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(out._skip).toBe(true);
+  });
+
+  it("stesso param + stessa data con valore discordante -> CONFLICT senza perdita dato", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "2.3", unit: "mg/dL" }] }
+    );
+    expect(out.results[0]._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(out.results[0]._skip).toBe(true);
+    expect(out._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(out._skip).toBe(true);
+  });
+
+  it("parametro nuovo per quella data -> NEW e salvabile", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-01-10", results: [{ param_key: "ves", name: "VES", value: "20", unit: "mm/h" }] }
+    );
+    expect(out.results[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(out.results[0]._skip).toBeFalsy();
+    expect(out._status).toBe(ITEM_STATUS.NEW);
+    expect(out._skip).toBe(false);
+  });
+
+  it("stesso param ma data diversa -> NEW (nessun conflitto tra date distinte)", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-02-15", results: [{ param_key: "pcr", name: "PCR", value: "0.5", unit: "mg/dL" }] }
+    );
+    expect(out.results[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(out._skip).toBe(false);
+  });
+
+  it("esame misto: un parametro nuovo + uno in conflitto -> esame salvabile, conflitto marcato", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-01-10", results: [
+        { param_key: "pcr", name: "PCR", value: "2.3", unit: "mg/dL" },
+        { param_key: "ves", name: "VES", value: "20", unit: "mm/h" },
+      ] }
+    );
+    const pcr = out.results.find(r => r.param_key === "pcr");
+    const ves = out.results.find(r => r.param_key === "ves");
+    expect(pcr._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(pcr._skip).toBe(true);
+    expect(ves._status).toBe(ITEM_STATUS.NEW);
+    expect(ves._skip).toBeFalsy();
+    expect(out._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(out._skip).toBe(false);
+  });
+
+  it("cross-batch: stesso param+data+valore in due lettere -> seconda è DUPLICATE", () => {
+    const drafts = reconcileLabMultiDraft(
+      [],
+      [
+        [{ date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "0.5", unit: "mg/dL" }] }],
+        [{ date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "0.5", unit: "mg/dL" }] }],
+      ]
+    );
+    expect(drafts[0].lab_exams[0].results[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[0].lab_exams[0]._skip).toBe(false);
+    expect(drafts[1].lab_exams[0].results[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[1].lab_exams[0]._skip).toBe(true);
+  });
+
+  it("cross-batch: stesso param+data ma valore discordante in due lettere -> seconda è CONFLICT", () => {
+    const drafts = reconcileLabMultiDraft(
+      [],
+      [
+        [{ date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "0.5", unit: "mg/dL" }] }],
+        [{ date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "3.0", unit: "mg/dL" }] }],
+      ]
+    );
+    expect(drafts[1].lab_exams[0].results[0]._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(drafts[1].lab_exams[0]._skip).toBe(true);
+  });
+
+  it("formattazione equivalente (0.5 vs 0,5; spazi) -> DUPLICATE", () => {
+    const out = reconcileLab(
+      [{ date: "2024-01-10", values: { pcr: { value: "0.5", unit: "mg/dL" } } }],
+      { date: "2024-01-10", results: [{ param_key: "pcr", name: "PCR", value: "0,5 ", unit: "mg/dL" }] }
+    );
+    expect(out.results[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+  });
+});

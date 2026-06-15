@@ -6,16 +6,9 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Loader2, FileText, Check, AlertCircle, ScanSearch, ChevronDown, ChevronUp, ChevronRight, FileSearch, Calendar, Pencil, Trash2, Plus, RotateCcw, Layers, X } from "lucide-react";
 import { toast } from "sonner";
-import { patientsApi, assessmentsApi, instrumentalExamsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, workupVisitsApi, clinicalEventsApi } from "../../lib/api";
+import { patientsApi, assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi } from "../../lib/api";
 import { parseVisitText } from "../../lib/visitTextParser";
-import {
-  buildWorkupVisitPayload,
-  buildTherapyUpsertPayload,
-  buildTherapyContinuityPayload,
-  buildAssessmentPayload,
-  buildLabExamPayload,
-  buildInstrumentalExamPayload,
-} from "../../lib/importPayloadBuilders";
+import { applyOneDraft } from "../../lib/importApply";
 import { reconcileDrafts, ITEM_STATUS, STATUS_META, draftSummaryStats } from "../../lib/visitReconciler";
 import SelectableTextBlock from "../shared/SelectableTextBlock";
 import SectionReviewPanel from "./SectionReviewPanel";
@@ -49,258 +42,6 @@ const DEFAULT_SELECTED = {
   intolleranze: true,
   raccordo_events: true,
 };
-
-function apiErrMsg(e, label) {
-  const detail = e?.response?.data?.detail;
-  let msg = "";
-  if (Array.isArray(detail)) {
-    msg = detail.map((d) => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("; ");
-  } else if (typeof detail === "string") {
-    msg = detail;
-  } else {
-    msg = e?.message || "errore sconosciuto";
-  }
-  console.error(`[Import] ${label} FAILED — status ${e?.response?.status}:`, detail ?? e);
-  return `${label}: ${msg}`;
-}
-
-async function _applyOneDraft(extracted, patient, selected, visitType, sourceFilename = null) {
-  const errors = [];
-  let updates = 0;
-
-  if (selected.patient && extracted.patient) {
-    try {
-      const patch = {};
-      const pp = extracted.patient;
-      ["nome", "cognome", "data_nascita", "sesso", "codice_fiscale", "diagnosi"].forEach((k) => {
-        if (pp[k] && pp[k] !== patient[k]) patch[k] = pp[k];
-      });
-      if (Object.keys(patch).length > 0) {
-        await patientsApi.update(patient.id, patch);
-        updates += 1;
-      }
-    } catch (e) { errors.push(apiErrMsg(e, "Dati paziente")); }
-  }
-
-  let importedVisitId = null;
-  const wantVisitSections = selected.visit_sections && extracted.visit_sections &&
-    Object.values(extracted.visit_sections).some(Boolean);
-  const wantExamImaging = selected.exam_imaging && Array.isArray(extracted.exam_imaging) &&
-    extracted.exam_imaging.filter(x => !x._skip).length > 0;
-  const wantReqTestsCheck = selected.requested_tests && Array.isArray(extracted.requested_tests) &&
-    extracted.requested_tests.length > 0;
-
-  if (wantVisitSections) {
-    try {
-      const payload = buildWorkupVisitPayload(extracted, patient.id, visitType, wantExamImaging);
-      const createdVisit = await workupVisitsApi.create(patient.id, payload);
-      importedVisitId = createdVisit?.id || null;
-      updates += 1;
-    } catch (e) { errors.push(apiErrMsg(e, "Sezioni visita")); }
-  }
-
-  if (selected.assessments && Array.isArray(extracted.assessments)) {
-    const today = new Date().toISOString().slice(0, 10);
-    for (const a of extracted.assessments.filter(x => !x._skip)) {
-      if (!a.index_type) continue;
-      try {
-        await assessmentsApi.create(
-          buildAssessmentPayload(a, patient.id, today, importedVisitId, visitType, sourceFilename)
-        );
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, `Score ${a.index_type}`)); }
-    }
-  }
-
-  if (selected.therapies && Array.isArray(extracted.therapies)) {
-    const today = new Date().toISOString().slice(0, 10);
-
-    // Non-skip items: new episodes, dose changes, suspensions, resumptions.
-    for (const t of extracted.therapies.filter(x => !x._skip)) {
-      if (!t.drug_name) continue;
-      try {
-        await therapiesApi.upsert(buildTherapyUpsertPayload(t, patient.id, importedVisitId));
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, `Terapia ${t.drug_name}`)); }
-    }
-
-    // Continuity items flagged for a "continued" event (high-relevance drugs only).
-    for (const t of extracted.therapies.filter(x => x._skip && x._call_upsert)) {
-      if (!t.drug_name) continue;
-      try {
-        await therapiesApi.upsert(buildTherapyContinuityPayload(t, patient.id, importedVisitId, today));
-        // Not counted in `updates` — background event, not a user-visible save
-      } catch (_) { /* continued events are non-critical — silently skip */ }
-    }
-  }
-
-  if (selected.lab_exams && Array.isArray(extracted.lab_exams)) {
-    for (const ex of extracted.lab_exams.filter(x => !x._skip)) {
-      try {
-        const payload = buildLabExamPayload(ex, patient.id, sourceFilename);
-        if (Object.keys(payload.values).length === 0) continue;
-        await labExamsApi.upsert(payload);
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, `Esami lab ${ex.date || ""}`)); }
-    }
-  }
-
-  if (selected.instrumental_findings && Array.isArray(extracted.instrumental_findings)) {
-    const visitDate = extracted.visit_date || new Date().toISOString().slice(0, 10);
-    for (const f of extracted.instrumental_findings.filter(x => !x._skip)) {
-      try {
-        await instrumentalExamsApi.create(buildInstrumentalExamPayload(f, patient.id, visitDate, null));
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, `Esame strum. ${f.examLabel}`)); }
-    }
-  }
-
-  if (Array.isArray(extracted.exam_imaging)) {
-    const visitDate = extracted.visit_date || new Date().toISOString().slice(0, 10);
-    for (const f of extracted.exam_imaging.filter(x => !x._skip)) {
-      try {
-        await instrumentalExamsApi.create(buildInstrumentalExamPayload(f, patient.id, visitDate, "imaging_report"));
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, `Esame (visione) ${f.examLabel}`)); }
-    }
-  }
-
-  if (selected.sclero_profile && extracted.sclero_profile) {
-    try {
-      const sp = extracted.sclero_profile;
-      const hasContent = Object.values(sp).some((v) => v && Object.keys(v || {}).length > 0);
-      if (hasContent) {
-        let existing = await scleroProfileApi.get(patient.id).catch(() => null);
-        existing = existing || {};
-        const merged = {};
-        ["cutaneous", "antibody", "vascular", "ild", "pah", "gi", "msk"].forEach((sec) => {
-          const parserSec = sp[sec] || {};
-          const exSec    = existing[sec] || {};
-          const out = { ...exSec };
-          Object.entries(parserSec).forEach(([k, v]) => {
-            if (v !== null && v !== undefined && v !== "") out[k] = v;
-          });
-          if (Object.keys(out).length > 0) merged[sec] = out;
-        });
-        await scleroProfileApi.upsert(patient.id, merged);
-        updates += 1;
-      }
-    } catch (e) { errors.push(apiErrMsg(e, "Profilo SSc")); }
-  }
-
-  if (selected.ra_profile && extracted.ra_profile) {
-    try {
-      const existing = await diseaseProfileApi.get(patient.id, "ra").catch(() => null);
-      const existingData = existing?.data || {};
-      const merged = { ...existingData };
-      Object.entries(extracted.ra_profile).forEach(([k, v]) => {
-        if (v !== null && v !== undefined && v !== "") merged[k] = v;
-      });
-      await diseaseProfileApi.upsert(patient.id, "ra", merged);
-      updates += 1;
-    } catch (e) { errors.push(apiErrMsg(e, "Profilo AR")); }
-  }
-
-  if (selected.spa_profile && extracted.spa_profile) {
-    try {
-      const existing = await diseaseProfileApi.get(patient.id, "spa").catch(() => null);
-      const existingData = existing?.data || {};
-      const merged = { ...existingData };
-      Object.entries(extracted.spa_profile).forEach(([k, v]) => {
-        if (v !== null && v !== undefined && v !== false) merged[k] = v;
-      });
-      await diseaseProfileApi.upsert(patient.id, "spa", merged);
-      updates += 1;
-    } catch (e) { errors.push(apiErrMsg(e, "Profilo SpA")); }
-  }
-
-  if (selected.sle_profile && extracted.sle_profile) {
-    try {
-      const existing = await diseaseProfileApi.get(patient.id, "sle").catch(() => null);
-      const existingData = existing?.data || {};
-      const merged = { ...existingData };
-      Object.entries(extracted.sle_profile).forEach(([k, v]) => {
-        if (k === "antibodies") {
-          merged.antibodies = { ...(existingData.antibodies || {}), ...v };
-        } else if (v !== null && v !== undefined && v !== "") {
-          merged[k] = v;
-        }
-      });
-      await diseaseProfileApi.upsert(patient.id, "sle", merged);
-      updates += 1;
-    } catch (e) { errors.push(apiErrMsg(e, "Profilo LES")); }
-  }
-
-  if (selected.profilo_generale && extracted.profilo_generale) {
-    try {
-      const pg = extracted.profilo_generale;
-      const patch = {};
-      if (pg.anamnesi_fisiologica) patch.anamnesi_fisiologica = pg.anamnesi_fisiologica;
-      if (pg.anamnesi_familiare)   patch.anamnesi_familiare   = pg.anamnesi_familiare;
-      if (pg.terapia_domiciliare)  patch.terapia_domiciliare  = pg.terapia_domiciliare;
-      // comorbidita_apr e allergie_testo sono scritti dalla sezione dedicata (comorbidita /
-      // intolleranze) se ha item confermati — evita la doppia scrittura che fa vincere la
-      // versione meno ricca (array parsed) sulla versione completa (testo libero da parser).
-      const _hasComorbItems = (extracted.comorbidita || []).filter(x => !x._skip).length > 0;
-      const _hasIntollItems  = (extracted.intolleranze || []).filter(x => !x._skip).length > 0;
-      if (pg.comorbidita_apr && !_hasComorbItems) patch.comorbidita_apr = pg.comorbidita_apr;
-      if (pg.allergie        && !_hasIntollItems)  patch.allergie_testo  = pg.allergie;
-      if (Object.keys(patch).length > 0) {
-        await patientsApi.patch(patient.id, patch);
-        updates += 1;
-      }
-    } catch (e) { errors.push(apiErrMsg(e, "Profilo generale")); }
-  }
-
-  // ── Comorbidità ──────────────────────────────────────────────────────────────
-  if (selected.comorbidita && extracted.comorbidita?.length) {
-    try {
-      const confirmed = (extracted.comorbidita || []).filter(x => !x._skip);
-      if (confirmed.length > 0) {
-        // Sovrascrittura semplice: in import multi-documento i draft sono ordinati
-        // per data crescente, quindi l'ultimo (più recente) vince — "latest wins".
-        const text = confirmed.map(x => x.text).filter(Boolean).join("\n");
-        await patientsApi.patch(patient.id, { comorbidita_apr: text });
-        updates += 1;
-      }
-    } catch (e) { errors.push(apiErrMsg(e, "Comorbidità")); }
-  }
-
-  // ── Intolleranze / Allergie ───────────────────────────────────────────────────
-  if (selected.intolleranze && extracted.intolleranze?.length) {
-    try {
-      const confirmed = (extracted.intolleranze || []).filter(x => !x._skip);
-      if (confirmed.length > 0) {
-        const text = confirmed.map(x => x.drug + (x.reason ? ` (${x.reason})` : "")).filter(Boolean).join("\n");
-        await patientsApi.patch(patient.id, { allergie_testo: text });
-        updates += 1;
-      }
-    } catch (e) { errors.push(apiErrMsg(e, "Intolleranze")); }
-  }
-
-  // ── Raccordo events (cronologia longitudinale) ───────────────────────────────
-  if (selected.raccordo_events) {
-    const confirmed = (extracted.raccordo_events || []).filter(e => !e._skip);
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[import][save] eventi raccordo da salvare:", confirmed.length);
-    }
-    if (confirmed.length > 0) {
-      try {
-        await clinicalEventsApi.batchCreate(patient.id, {
-          patient_id: patient.id,
-          events: confirmed.map(({ _id, _skip, id, _status, _statusReason, ...e }) => ({
-            ...e,
-            source_filename: e.source_filename || sourceFilename || null,
-          })),
-          visit_id: importedVisitId || null,
-        });
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, "Cronologia raccordo")); }
-    }
-  }
-
-  return { updates, errors };
-}
 
 export default function VisitImportButton({ patient, onImported, open: externalOpen, onOpenChange, visitType = "follow_up", initialText, initialDate, initialMultiBlocks }) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -451,7 +192,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
   const apply = async () => {
     if (!extracted || !patient) return;
     setApplying(true);
-    const { updates, errors } = await _applyOneDraft(extracted, patient, selected, visitType);
+    const { updates, errors } = await applyOneDraft(extracted, patient, selected, visitType);
     setApplying(false);
     if (errors.length === 0) {
       toast.success(`Importazione completata (${updates} sezioni aggiornate)`);
@@ -596,7 +337,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       const v = toApply[i];
       setMultiApplyProgress({ current: i + 1, total: toApply.length, label: v.label });
       const vType = v.draft.visit_type || v.visitType || visitType;
-      const { updates, errors } = await _applyOneDraft(v.draft, currentPatient, v.selected, vType, v.draft.source_filename || null);
+      const { updates, errors } = await applyOneDraft(v.draft, currentPatient, v.selected, vType, v.draft.source_filename || null);
       totalUpdates += updates;
       allErrors.push(...errors);
       // Ricarica paziente tra un draft e il successivo — evita riferimento stale
@@ -3174,6 +2915,31 @@ function WizardVisitStep({
 
 // ── WizardFinalSummary — shown after all visits reviewed ─────────────────────
 
+const IMPORT_SECTION_LABELS = {
+  patient: "Dati paziente",
+  visit_sections: "Visita odierna / EO",
+  exam_imaging: "Esami in visione",
+  assessments: "Clinimetrie",
+  therapies: "Terapie",
+  lab_exams: "Esami di laboratorio",
+  instrumental_findings: "Esami strumentali",
+  sclero_profile: "Profilo SSc",
+  ra_profile: "Profilo AR",
+  spa_profile: "Profilo SpA",
+  sle_profile: "Profilo LES",
+  profilo_generale: "Profilo generale",
+  comorbidita: "Comorbidità",
+  intolleranze: "Intolleranze / Allergie",
+  raccordo_events: "Cronologia clinica",
+};
+
+function draftSectionHasData(draft, key) {
+  const v = draft?.[key];
+  if (Array.isArray(v)) return v.some(x => !x?._skip);
+  if (v && typeof v === "object") return Object.values(v).some(Boolean);
+  return !!v;
+}
+
 function WizardFinalSummary({ visitResults, onApply, applying, applyProgress, onBack }) {
   const included = visitResults.filter(v => v.included !== false);
   const excluded = visitResults.filter(v => v.included === false);
@@ -3183,13 +2949,23 @@ function WizardFinalSummary({ visitResults, onApply, applying, applyProgress, on
 
   for (const v of included) {
     const d = v.draft;
-    const all = [...(d.therapies || []), ...(d.assessments || []), ...(d.lab_exams || [])];
+    const all = [...(d.therapies || []), ...(d.assessments || [])];
     for (const item of all) {
       if (item._status === ITEM_STATUS.NEW)        totalNew++;
       else if (item._status === ITEM_STATUS.DUPLICATE)  totalDup++;
       else if (item._status === ITEM_STATUS.CONTINUITY) totalCont++;
       else if (item._status === ITEM_STATUS.CONFLICT)   totalConflict++;
       else if (item._status === ITEM_STATUS.UPDATE)     totalUpdate++;
+    }
+    for (const ex of (d.lab_exams || [])) {
+      for (const r of (ex.results || [])) {
+        if (r._status === ITEM_STATUS.NEW)        totalNew++;
+        else if (r._status === ITEM_STATUS.DUPLICATE)  totalDup++;
+        else if (r._status === ITEM_STATUS.CONFLICT)   totalConflict++;
+      }
+    }
+    for (const s of [d._ra_profile_status, d._spa_profile_status, d._sle_profile_status, d._sclero_profile_status]) {
+      if (s === ITEM_STATUS.CONFLICT) totalConflict++;
     }
     for (const t of (d.therapies || [])) {
       if (t._skip) continue;
@@ -3200,6 +2976,18 @@ function WizardFinalSummary({ visitResults, onApply, applying, applyProgress, on
   }
 
   const hasChanges = changes.started.length + changes.stopped.length + changes.changed.length > 0;
+
+  const notImported = [];
+  const seenNotImported = new Set();
+  for (const v of included) {
+    const sel = v.selected || {};
+    for (const key of Object.keys(IMPORT_SECTION_LABELS)) {
+      if (sel[key] === false && draftSectionHasData(v.draft, key) && !seenNotImported.has(key)) {
+        seenNotImported.add(key);
+        notImported.push(IMPORT_SECTION_LABELS[key]);
+      }
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -3258,6 +3046,21 @@ function WizardFinalSummary({ visitResults, onApply, applying, applyProgress, on
             I dati in conflitto non verranno sovrascritti.
             Puoi importare comunque o tornare alle visite per risolverli.
           </div>
+        </div>
+      )}
+
+      {/* Sezioni non importate */}
+      {notImported.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Sezioni non importate</div>
+          <div className="flex flex-wrap gap-1.5">
+            {notImported.map((label) => (
+              <span key={label} className="text-[11px] px-2 py-0.5 rounded-md border border-gray-200 bg-white text-gray-500">
+                {label}
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400">Dati presenti nelle lettere ma esclusi dall'importazione.</p>
         </div>
       )}
 
