@@ -88,3 +88,4 @@
 - [Steroid tapering tablet representation](steroid-tapering-tablet-representation.md) — prednisone preferisce ¼/½/¾ della cp da 25 (flag fractionableLarge, solo prednisone); dosi non-quarto su cp da 5; solo rappresentazione, mai dose/date.
 - [Scalaggio steroide due path](steroid-tapering-two-paths.md) — generateTaperingPlan: stepRules (preset, GCA 50mg) vs dosi standard (manuale byDate), gated da config.standardDoseSequence; non rimuovere il gating.
 - [Terapia field insertion paths](terapia-field-insertion-paths.md) — generated therapy text funnels through safeInsertTherapyText; PatientDetail has 2 paths (appendPlanText effect + appendIndicazioni), easy to miss one; Template stays append.
+- [Homunculus joint parser gaps](joint-exam-parser-audit.md) — parseJointExam systemic recall gaps (dolenti gate typo, polso singolare, status-after-joint, destro/sinistro, sacroiliache assenti); audit harness method.
