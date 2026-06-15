@@ -95,8 +95,8 @@ function expandAbbreviations(text) {
 // ── Laterality resolver ───────────────────────────────────────────────────────
 function parseSides(fragment) {
   const f = fragment.toLowerCase();
-  const hasDx = /\b(dx|ds|destra|d\.\s|dex)\b/.test(f);
-  const hasSn = /\b(sn|sinistra|sin\.?|s\.\s)\b/.test(f);
+  const hasDx = /\b(dx|ds|destr[oa]|d\.\s|dex)\b/.test(f);
+  const hasSn = /\b(sn|sinistr[oa]|sin\.?|s\.\s)\b/.test(f);
   const hasBi = /\b(bilateralmente?|bilat\.?|bilatera\w*|entramb[ei])\b/.test(f);
   if (hasBi || (hasDx && hasSn)) return ["_r", "_l"];
   if (hasDx) return ["_r"];
@@ -112,7 +112,7 @@ const JOINT_DEFS = [
   { re: /\b(?:tmj|atm|temporomandibolar\w+)\b/i,              base: "tmj"       },
   { re: /\bspall[ae]\b/i,                                      base: "shoulder", plural: /\bspalle\b/i },
   { re: /\bgomit[oi]\b/i,                                      base: "elbow",    plural: /\bgomiti\b/i },
-  { re: /\bpolsi?\b/i,                                         base: "wrist",    plural: /\bpolsi\b/i  },
+  { re: /\bpols[oi]\b/i,                                       base: "wrist",    plural: /\bpolsi\b/i  },
   { re: /\banch[ae]\b/i,                                       base: "hip",      plural: /\banche\b/i  },
   { re: /\bginocchi[ao]?\b/i,                                  base: "knee",     plural: /\bginocchia\b/i },
   { re: /\bcavigli[ae]\b/i,                                    base: "ankle",    plural: /\bcaviglie\b/i  },
@@ -140,6 +140,8 @@ const NUMBERED_DEFS = [
   { re: /\bIFP\s+piede\b/i,                                           prefix: "toe_pip", range: [1, 5] },
 ];
 
+const NEXT_JOINT_RE = /\b(?:acromioclavicol\w+|sternoclavicol\w+|tmj|atm|temporomandibolar\w+|spall[ae]|gomit[oi]|pols[oi]|anch[ae]|ginocchi[ao]|cavigli[ae]|sottastragal\w+|subtalar|mediotars\w+|midtarsal|tarso|MCP|MCF|PIP|IFP|DIP|MTP|MTF|meta[ck]arpofalang\w+|interfalang\w+|metatarsofalang\w+)\b/i;
+
 // ── Parse a joint list segment → Set of Homunculus keys ──────────────────────
 function resolveJoints(segment, fallbackSides) {
   const keys = new Set();
@@ -147,10 +149,23 @@ function resolveJoints(segment, fallbackSides) {
 
   // Large joints
   for (const jd of JOINT_DEFS) {
-    if (!jd.re.test(segment)) continue;
-    const isPluralForm = jd.plural && jd.plural.test(segment);
-    const useSides = isPluralForm ? ["_r", "_l"] : sides;
-    for (const s of useSides) keys.add(jd.base + s);
+    if (jd.plural && jd.plural.test(segment)) {
+      keys.add(jd.base + "_r");
+      keys.add(jd.base + "_l");
+      continue;
+    }
+    let m;
+    const clone = new RegExp(jd.re.source, "ig");
+    while ((m = clone.exec(segment)) !== null) {
+      // Laterality per-articolazione: leggi solo fino alla joint successiva, così
+      // che il lato di un'altra articolazione nello stesso segmento non sconfini.
+      const end = m.index + m[0].length;
+      const aw = segment.slice(end, end + 40);
+      const nj = aw.search(NEXT_JOINT_RE);
+      const aCut = nj >= 0 ? aw.slice(0, nj) : aw;
+      const jSides = parseSides(m[0] + aCut) ?? sides;
+      for (const s of jSides) keys.add(jd.base + s);
+    }
   }
 
   // Numbered joints
@@ -158,11 +173,17 @@ function resolveJoints(segment, fallbackSides) {
     let match;
     const clone = new RegExp(nd.re.source, "ig");
     while ((match = clone.exec(segment)) !== null) {
-      const afterText = segment.slice(match.index + match[0].length);
-      const nums = extractNumbers(afterText, nd.range[1]) ??
+      const afterEnd = match.index + match[0].length;
+      const afterText = segment.slice(afterEnd);
+      const rawNums = extractNumbers(afterText, nd.range[1]) ??
         Array.from({ length: nd.range[1] - nd.range[0] + 1 }, (_, i) => i + nd.range[0]);
-      // Laterality: read from the text around the match
-      const window = segment.slice(Math.max(0, match.index - 4), match.index + match[0].length + 40);
+      const nums = rawNums.filter((n) => n >= nd.range[0] && n <= nd.range[1]);
+      // Laterality: leggi solo il testo fino alla successiva articolazione, così
+      // che il lato di una joint seguente non sconfini su questa.
+      const afterWin = segment.slice(afterEnd, afterEnd + 40);
+      const nextJ = afterWin.search(NEXT_JOINT_RE);
+      const afterCut = nextJ >= 0 ? afterWin.slice(0, nextJ) : afterWin;
+      const window = segment.slice(Math.max(0, match.index - 4), afterEnd) + afterCut;
       const jSides = parseSides(window) ?? sides;
       for (const n of nums) {
         for (const s of jSides) keys.add(`${nd.prefix}${n}${s}`);
@@ -174,9 +195,9 @@ function resolveJoints(segment, fallbackSides) {
 }
 
 // ── Marker regexes ────────────────────────────────────────────────────────────
-const TENDER_RE  = /\b(dolorabilità|dolente[/i]?|dolore|doloranti?|dolorosa\s+palpazione|positività\s+(?:algica|dolorosa)|FTP)\b/i;
+const TENDER_RE  = /\b(dolorabilità|dolent[ei]|dolore|dolorant[ei]|dolorosa\s+palpazione|positività\s+(?:algica|dolorosa)|FTP)(?![\wàèéìòù])/i;
 const SWOLLEN_RE = /\b(tumefazion[ei]|tumefatt[oai]|tumefatte?|sinovite|artrit[ei]|(?:ipertrofia|versamento)\s+(?:sinoviale|articolare)?|gonfiore\s+(?:articolare)?)\b/i;
-const NEG_RE     = /\b(non\s+(?:si\s+rileva|si\s+rilevano|present[ei]|evidenz\w+)|assenz[ae]\s+di|senza\s+(?:artrit\w+|sinovit\w+|tumefazion\w+|dolorabilità)|negativo|negativa)\b/i;
+const NEG_RE     = /\b(non\s+(?:si\s+rileva|si\s+rilevano|present[ei]|evidenz\w+|dolent[ei]|dolorant[ei]|dolorabilit\w*|tumefatt\w+|tumefazion\w+|sinovit\w+|artrit\w+)|assenz[ae]\s+di|senza\s+(?:artrit\w+|sinovit\w+|tumefazion\w+|dolorabilità)|negativo|negativa)\b/i;
 // Segni di artrosi (OA) — scrosci = crepitio articolare → artrosi, NON artrite.
 // Una articolazione descritta solo con scrosci NON va conteggiata come dolente/tumefatta
 // e NON deve ricevere status carry-forward da articolazioni precedenti.
@@ -259,43 +280,64 @@ export function parseJointExam(text) {
     const hasSwollen = SWOLLEN_RE.test(clause);
     if (!hasTender && !hasSwollen) continue;
 
+    // Lato dichiarato una sola volta per l'intera clausola (fallback quando il
+    // sub-segmento con la joint non riporta il lato, es. "MCP II-V dolenti a destra").
+    const clauseSides = parseSides(clause);
+
     // Split the clause on tender/swollen keywords to get sub-segments
-    const parts = clause.split(/(?=\b(?:dolorabilità|dolent[ei]|dolore|tumefazion[ei]|tumefatt[oai]\w*|sinovite|artrit[ei])\b)/i);
+    const parts = clause.split(/(?=\b(?:dolorabilità|dolent[ei]|dolore|tumefazion[ei]|tumefatt[oai]\w*|sinovite|artrit[ei])(?![\wàèéìòù]))/i);
+
+    const infos = parts.map((part) => ({
+      part,
+      isNeg: NEG_RE.test(part),
+      isTender: TENDER_RE.test(part),
+      isSwollen: SWOLLEN_RE.test(part),
+      joints: resolveJoints(part, clauseSides),
+    }));
 
     // Carry-forward: a sub-part with status but no joints passes its status onward
     let pendingTender  = false;
     let pendingSwollen = false;
 
-    for (const part of parts) {
-      if (NEG_RE.test(part)) { pendingTender = pendingSwollen = false; continue; }
+    for (let i = 0; i < infos.length; i++) {
+      const info = infos[i];
+      if (info.isNeg) { pendingTender = pendingSwollen = false; continue; }
 
-      const isTender  = TENDER_RE.test(part);
-      const isSwollen = SWOLLEN_RE.test(part);
-      const joints    = resolveJoints(part, null);
-
-      if (!joints.size) {
+      if (!info.joints.size) {
         // No joints in this sub-part — accumulate status for next sub-part
-        if (isTender)  pendingTender  = true;
-        if (isSwollen) pendingSwollen = true;
+        if (info.isTender)  pendingTender  = true;
+        if (info.isSwollen) pendingSwollen = true;
         continue;
       }
 
       // OA sign (scrosci) present with joints but NO explicit tender/swollen marker →
       // questa articolazione è affetta da artrosi, non artrite.
       // Annulliamo il carry-forward invece di applicarlo: la joint NON viene marcata.
-      if (OA_SIGN_RE.test(part) && !isTender && !isSwollen) {
+      if (OA_SIGN_RE.test(info.part) && !info.isTender && !info.isSwollen) {
         pendingTender = pendingSwollen = false;
         continue;
       }
 
       // Effective status = this part's status OR carried-forward status
-      const effectiveTender  = isTender  || pendingTender;
-      const effectiveSwollen = isSwollen || pendingSwollen;
+      let effectiveTender  = info.isTender  || pendingTender;
+      let effectiveSwollen = info.isSwollen || pendingSwollen;
+
+      // Carry-backward: un sub-segmento con joint ma senza status proprio eredita
+      // lo status dal sub-segmento successivo se questo è solo-status (nessuna joint),
+      // es. "polsi dolenti", "spalla sinistra dolente", "MCP II-V dolenti".
+      if (!effectiveTender && !effectiveSwollen) {
+        const nxt = infos[i + 1];
+        if (nxt && !nxt.isNeg && !nxt.joints.size && (nxt.isTender || nxt.isSwollen)) {
+          effectiveTender  = nxt.isTender;
+          effectiveSwollen = nxt.isSwollen;
+        }
+      }
+
       pendingTender = pendingSwollen = false; // reset after consuming
 
-      if (effectiveTender && effectiveSwollen) { markTender(joints); markSwollen(joints); }
-      else if (effectiveTender)  markTender(joints);
-      else if (effectiveSwollen) markSwollen(joints);
+      if (effectiveTender && effectiveSwollen) { markTender(info.joints); markSwollen(info.joints); }
+      else if (effectiveTender)  markTender(info.joints);
+      else if (effectiveSwollen) markSwollen(info.joints);
     }
   }
 
