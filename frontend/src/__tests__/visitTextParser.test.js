@@ -358,3 +358,82 @@ describe("Integrazione — testo visita AR completo", () => {
     expect(extracted.sclero_profile).toBeNull();
   });
 });
+
+describe("therapies[]._visit_event — solo decisioni esplicite di questa visita", () => {
+  const BASE_DOM = [
+    "MOTIVO DELLA VISITA: controllo artrite psoriasica.",
+    "TERAPIA IN ATTO:",
+    "Secukinumab 300 mg sc/mese",
+    "Methotrexate 10 mg/settimana",
+  ].join("\n");
+
+  function parse(indText, extraHead = "") {
+    const text = [extraHead, BASE_DOM, "INDICAZIONI:", indText].filter(Boolean).join("\n");
+    return parseVisitText(text, "2026-06-15").extracted;
+  }
+
+  test("vero avvio: 'si avvia' valorizza _visit_event start", () => {
+    const ex = parse("Si avvia Secukinumab 300 mg sc.");
+    expect(findTherapy(ex, "Secukinumab")?._visit_event).toBe("start");
+  });
+
+  test("vera sospensione: 'si sospende' valorizza _visit_event stop", () => {
+    const ex = parse("Si sospende Golimumab per inefficacia.");
+    expect(findTherapy(ex, "Golimumab")?._visit_event).toBe("stop");
+  });
+
+  test("cambio dose: 'si riduce a' valorizza _visit_event change", () => {
+    const ex = parse("Si riduce il Methotrexate a 7.5 mg/settimana.");
+    expect(findTherapy(ex, "Methotrexate")?._visit_event).toBe("change");
+  });
+
+  test("farmaco attivo mantenuto: 'si conferma' non genera evento", () => {
+    const ex = parse("Si conferma Secukinumab 300 mg.");
+    const t = findTherapy(ex, "Secukinumab");
+    expect(t?.status).toBe("active");
+    expect(t?._visit_event).toBeFalsy();
+  });
+
+  test("terapia invariata: 'prosegue invariata' non genera evento", () => {
+    const ex = parse("Prosegue invariata la terapia con Methotrexate.");
+    const t = findTherapy(ex, "Methotrexate");
+    expect(t?.status).toBe("active");
+    expect(t?._visit_event).toBeFalsy();
+  });
+
+  test("terapia storica: sospensione nell'anamnesi non genera evento di visita", () => {
+    const ex = parse(
+      "Prosegue Secukinumab.",
+      "ANAMNESI INTERVALLARE: ha sospeso Adalimumab nel 2019 per inefficacia.\nAdalimumab 40 mg sc",
+    );
+    const ada = findTherapy(ex, "Adalimumab");
+    expect(ada?.status).toBe("discontinued");
+    expect(ada?._visit_event).toBeFalsy();
+    expect(findTherapy(ex, "Secukinumab")?._visit_event).toBeFalsy();
+  });
+
+  test("scalaggio steroideo: 'inizia scalaggio' e' change, non start", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "TERAPIA IN ATTO:",
+      "Prednisone 25 mg/die",
+      "INDICAZIONI:",
+      "Inizia scalaggio del Prednisone fino a 5 mg/die.",
+    ].join("\n");
+    const ex = parseVisitText(text, "2026-06-15").extracted;
+    expect(findTherapy(ex, "Prednisone")?._visit_event).toBe("change");
+  });
+
+  test("switch terapeutico: 'sospende X e avvia Y' genera stop su X e start su Y", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "TERAPIA IN ATTO:",
+      "Golimumab 50 mg sc/mese",
+      "INDICAZIONI:",
+      "Si sospende Golimumab e si avvia Secukinumab 300 mg sc.",
+    ].join("\n");
+    const ex = parseVisitText(text, "2026-06-15").extracted;
+    expect(findTherapy(ex, "Golimumab")?._visit_event).toBe("stop");
+    expect(findTherapy(ex, "Secukinumab")?._visit_event).toBe("start");
+  });
+});

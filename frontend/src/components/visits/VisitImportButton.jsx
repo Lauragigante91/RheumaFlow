@@ -2827,18 +2827,22 @@ function WizardVisitStep({
         {/* E — Terapia in uscita */}
         <WizardSection
           label="E. Terapia in uscita"
-          subtitle="Modifiche terapeutiche decise in questa visita"
+          subtitle="Piano terapeutico in uscita; evidenziate le decisioni di questa visita"
           color="emerald"
           count={therapiesOut.filter(t => !t._skip).length}
           open={sections.E} onToggle={() => toggle("E")}
           empty="Nessuna modifica terapeutica rilevata"
         >
           {(() => {
-            const started   = therapiesOut.filter(t => t._status === ITEM_STATUS.NEW && t.status !== "discontinued");
-            const stopped   = therapiesOut.filter(t => t.status === "discontinued");
-            const changed   = therapiesOut.filter(t => t._status === ITEM_STATUS.UPDATE);
-            const conflicts = therapiesOut.filter(t => t._status === ITEM_STATUS.CONFLICT);
-            const uncertain = therapiesOut.filter(t => t._status === ITEM_STATUS.UNCERTAIN);
+            const started   = therapiesOut.filter(t => t._visit_event === "start");
+            const stopped   = therapiesOut.filter(t => t._visit_event === "stop");
+            const changed   = therapiesOut.filter(t => t._visit_event === "change");
+            const decided   = new Set([...started, ...stopped, ...changed]);
+            const conflicts = therapiesOut.filter(t => !decided.has(t) && t._status === ITEM_STATUS.CONFLICT);
+            const uncertain = therapiesOut.filter(t => !decided.has(t) && t._status === ITEM_STATUS.UNCERTAIN);
+            const flagged   = new Set([...conflicts, ...uncertain]);
+            const ongoing   = therapiesOut.filter(t => !decided.has(t) && !flagged.has(t) && t.status !== "discontinued");
+            const past      = therapiesOut.filter(t => !decided.has(t) && !flagged.has(t) && t.status === "discontinued");
 
             const Group = ({ title, items, dotColor }) => {
               if (!items.length) return null;
@@ -2866,11 +2870,13 @@ function WizardVisitStep({
 
             return (
               <div className="space-y-3">
-                <Group title="▶ Avviati"          items={started}   dotColor="#10b981" />
-                <Group title="✕ Sospesi"           items={stopped}   dotColor="#ef4444" />
-                <Group title="↑ Ripresi/Modificati" items={changed}  dotColor="#f59e0b" />
-                <Group title="⚠ Conflitti"         items={conflicts} dotColor="#ef4444" />
-                <Group title="? Da verificare"     items={uncertain} dotColor="#8b5cf6" />
+                <Group title="▶ Avviati"            items={started}   dotColor="#10b981" />
+                <Group title="✕ Sospesi"            items={stopped}   dotColor="#ef4444" />
+                <Group title="↑ Modificati"         items={changed}   dotColor="#f59e0b" />
+                <Group title="⚠ Conflitti"          items={conflicts} dotColor="#ef4444" />
+                <Group title="? Da verificare"      items={uncertain} dotColor="#8b5cf6" />
+                <Group title="• In corso (invariata)" items={ongoing} dotColor="#6b7280" />
+                <Group title="• Pregresse"          items={past}      dotColor="#9ca3af" />
               </div>
             );
           })()}
@@ -2969,9 +2975,9 @@ function WizardFinalSummary({ visitResults, onApply, applying, applyProgress, on
     }
     for (const t of (d.therapies || [])) {
       if (t._skip) continue;
-      if (t._status === ITEM_STATUS.NEW && t.status !== "discontinued") changes.started.push({ drug: t.drug_name, date: v.date });
-      if (t.status === "discontinued") changes.stopped.push({ drug: t.drug_name, date: v.date });
-      if (t._status === ITEM_STATUS.UPDATE) changes.changed.push({ drug: t.drug_name, date: v.date });
+      if (t._visit_event === "start")  changes.started.push({ drug: t.drug_name, date: v.date });
+      if (t._visit_event === "stop")   changes.stopped.push({ drug: t.drug_name, date: v.date });
+      if (t._visit_event === "change") changes.changed.push({ drug: t.drug_name, date: v.date });
     }
   }
 

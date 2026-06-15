@@ -389,6 +389,36 @@ const PRN_AB_BARE_RE = /(?:^|[\s,;(])ab(?![A-Za-z.])(?!\s*anti)/;
 const PRN_BEFORE_RE = /\bin\s+caso\s+di\s+[^.;\n]{0,80}\s*:?\s*$/i;
 const PRN_NEXT_THERAPY_CUE_RE = /(?:^|[\s.;,\n-])in\s+caso\s+di\s+[^.;\n]{0,80}$/i;
 
+const START_DECISION_RE  = /\b(?:avvia|avviare|avviat[oa]|inizia|iniziare|iniziat[oa]|introduce|introdurre|introdott[oa]|intraprende|intraprendere|intrapres[oa]|imposta|impostare|impostat[oa]|prescrive|prescrivere|prescritt[oa]|riprende|riprendere|ripres[oa]|riavvia|riavviare|reintroduce|reintrodurre)\b/i;
+const STOP_DECISION_RE   = /\b(?:sospende|sospendere|sospendono|sospes[oa]|sospesi|interrompe|interrompere|interrompono|interrott[oa]|cessa|cessare|cessat[oa])\b/i;
+const CHANGE_DECISION_RE = /\b(?:aumenta|aumentare|aumentat[oa]|incrementa|incrementare|riduce|ridurre|ridott[oa]|riduzione|scala|scalare|scalat[oa]|scalando|scalaggio|tapering|decalage|decrementa|decrementare|modifica|modificare|sostituisce|sostituire|switch)\b/i;
+const CHANGE_AFTER_RE    = /\b(?:da\s+\d[\d.,]*\s*\S*\s+a\s+\d|ridott[oa]\s+a|aumentat[oa]\s+a|portat[oa]\s+a)\b/i;
+const VISIT_EVENT_HISTORICAL_RE = /\b(?:in\s+passato|pregress|anamnes|storicamente)\b/i;
+
+function _matchNearestVerb(win, re) {
+  const g = new RegExp(re.source, "gi");
+  let m, last = null;
+  while ((m = g.exec(win)) !== null) last = m;
+  return last;
+}
+
+function inferVisitTherapyEvent(beforeWin, afterWin, drugName) {
+  if (VISIT_EVENT_HISTORICAL_RE.test(beforeWin)) return null;
+  const noOtherDrug = (winText, fromIdx) => {
+    const seg = winText.slice(fromIdx);
+    return !DRUG_PATTERNS.some(([p, n, , cs]) =>
+      n !== drugName && new RegExp(p.source, cs ? "" : "i").test(seg));
+  };
+  const notNegated = (winText, idx) =>
+    !/\b(?:non|mai|senza)\s*$/i.test(winText.slice(Math.max(0, idx - 7), idx));
+  for (const [re, ev] of [[STOP_DECISION_RE, "stop"], [CHANGE_DECISION_RE, "change"], [START_DECISION_RE, "start"]]) {
+    const m = _matchNearestVerb(beforeWin, re);
+    if (m && notNegated(beforeWin, m.index) && noOtherDrug(beforeWin, m.index + m[0].length)) return ev;
+  }
+  if (CHANGE_AFTER_RE.test(afterWin)) return "change";
+  return null;
+}
+
 function getActiveSectionText(text) {
   const m = text.match(
     /(?:TERAPIA\s+IN\s+ATTO|TERAPIA\s+ATTUALE|TERAPIA\s+IN\s+CORSO)\s*([\s\S]*?)(?=\n{2,}|\n[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s']{3,}[:\n]|$)/i
@@ -396,7 +426,7 @@ function getActiveSectionText(text) {
   return m ? m[1] : "";
 }
 
-function extractTherapies(text, today) {
+function extractTherapies(text, today, scopeKind = null) {
   const found = [];
   const seenNames = new Set();
 
@@ -555,7 +585,10 @@ function extractTherapies(text, today) {
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 90);
-      found.push({ drug_name: drugName, category, dose, frequency, route, start_date: null, status, notes, discontinuation_reason, source_fragment: sourceFragment, _prn: isPrn });
+      const _visit_event = scopeKind === "ind"
+        ? inferVisitTherapyEvent(ctxBefore.slice(-48), ctxAfter.slice(0, 30), drugName)
+        : null;
+      found.push({ drug_name: drugName, category, dose, frequency, route, start_date: null, status, notes, discontinuation_reason, source_fragment: sourceFragment, _prn: isPrn, _visit_event });
     }
   }
 
@@ -1554,8 +1587,8 @@ export function parseVisitText(text) {
   let therapies;
 
   if (_domScope && _indScope) {
-    const fromDom = extractTherapies(_domScope, visitDate).filter((t) => RHEUM_CATEGORIES.has(t.category));
-    const fromInd = extractTherapies(_indScope, visitDate).filter((t) => RHEUM_CATEGORIES.has(t.category));
+    const fromDom = extractTherapies(_domScope, visitDate, "dom").filter((t) => RHEUM_CATEGORIES.has(t.category));
+    const fromInd = extractTherapies(_indScope, visitDate, "ind").filter((t) => RHEUM_CATEGORIES.has(t.category));
     const domByName = new Map(fromDom.map((t) => [t.drug_name, t]));
     const indByName = new Map(fromInd.map((t) => [t.drug_name, t]));
 
