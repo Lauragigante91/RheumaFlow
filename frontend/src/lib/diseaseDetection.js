@@ -42,6 +42,13 @@ export function isSpaDiagnosis(d) {
   );
 }
 
+export function isSpaAxialOnly(spaProfile) {
+  return (
+    spaProfile?.axial_involvement === true &&
+    spaProfile?.peripheral_involvement !== true
+  );
+}
+
 export function isSleDiagnosis(d) {
   const s = flatDiagnoses(d).toLowerCase();
   if (!s) return false;

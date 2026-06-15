@@ -16,7 +16,7 @@ import {
   calcDAPSA, interpretDAPSA,
 } from "../../lib/clinimetrics";
 import { detectDiseaseWorkflow, getSymptomDefs } from "../../lib/diseaseWidgets";
-import { isLvvDiagnosis, isPmrDiagnosis, isScleroDiagnosis, isSpaDiagnosis } from "../../lib/diseaseDetection";
+import { isLvvDiagnosis, isPmrDiagnosis, isScleroDiagnosis, isSpaDiagnosis, isSpaAxialOnly } from "../../lib/diseaseDetection";
 import VascularImagingSection from "../imaging/VascularImagingSection";
 import LabImportFromImageDialog from "../labs/LabImportFromImageDialog";
 import ItalianDatePicker from "../shared/ItalianDatePicker";
@@ -591,7 +591,7 @@ export default function TodayVisitSection({
   // ─── SpA phenotype flags ──────────────────────────────────────────────────
   const spaHasPeripheral = spaProfile?.peripheral_involvement === true;
   const spaHasAxial      = spaProfile?.axial_involvement      === true;
-  const spaIsAxialOnly   = spaHasAxial && !spaHasPeripheral;
+  const spaIsAxialOnly   = isSpaAxialOnly(spaProfile);
   const spaProfileKnown  = spaProfile != null;
 
   // ─── SpA scores ───────────────────────────────────────────────────────────
@@ -1132,7 +1132,7 @@ export default function TodayVisitSection({
             {/* SpA / PsA */}
             {workflow.clinimetryType === "spa_asdas" && (
               <div className="space-y-4">
-                {(!spaProfileKnown || spaHasPeripheral) && (
+                {!spaIsAxialOnly && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -1162,7 +1162,7 @@ export default function TodayVisitSection({
                 )}
 
                 {(!spaProfileKnown || spaHasAxial || !spaHasPeripheral) && (
-                  <div className={(!spaProfileKnown || spaHasPeripheral) ? "border-t border-gray-100 pt-3" : ""}>
+                  <div className={!spaIsAxialOnly ? "border-t border-gray-100 pt-3" : ""}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.12em]">Componente assiale</span>
