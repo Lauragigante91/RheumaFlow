@@ -37,17 +37,27 @@ function isEmptyVal(v) {
 }
 
 export function mergeFreeTextConservative(existingText, incomingText) {
-  const norm = (s) =>
-    (s || "").toString().toLowerCase().replace(/\s+/g, " ").replace(/[.;,]+$/g, "").trim();
+  const signature = (s) => {
+    const norm = (s || "")
+      .toString()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!norm) return "";
+    return [...new Set(norm.split(" "))].sort().join(" ");
+  };
   const splitLines = (s) =>
     (s || "").toString().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const existingLines = splitLines(existingText);
-  const seen = new Set(existingLines.map(norm));
+  const seen = new Set(existingLines.map(signature).filter(Boolean));
   const out = [...existingLines];
   for (const line of splitLines(incomingText)) {
-    const n = norm(line);
-    if (!n || seen.has(n)) continue;
-    seen.add(n);
+    const sig = signature(line);
+    if (!sig || seen.has(sig)) continue;
+    seen.add(sig);
     out.push(line);
   }
   return out.join("\n");

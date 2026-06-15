@@ -234,6 +234,8 @@ export default function VisitImportButton({ patient, onImported, open: externalO
         return { block, draft };
       });
 
+      rawResults.sort((a, b) => (a.block.date || "").localeCompare(b.block.date || ""));
+
       // 2. Fetch existing patient data for reconciliation
       let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {

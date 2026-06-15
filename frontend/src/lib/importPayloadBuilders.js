@@ -43,6 +43,7 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
 }
 
 export function buildTherapyUpsertPayload(t, patientId, importedVisitId) {
+  const isHistorical = t.status === "discontinued" && t._action === "new_episode";
   return {
     patient_id:             patientId,
     drug_name:              t.drug_name,
@@ -51,10 +52,12 @@ export function buildTherapyUpsertPayload(t, patientId, importedVisitId) {
     frequency:              t.frequency || null,
     route:                  t.route || null,
     start_date:             t.start_date || null,
+    end_date:               t.end_date || null,
     status:                 t.status || "active",
     discontinuation_reason: t.discontinuation_reason || null,
     notes:                  t.notes || null,
     visit_id:               importedVisitId || null,
+    ...(isHistorical ? { event_type_override: "historical_exposure" } : {}),
   };
 }
 

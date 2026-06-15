@@ -66,6 +66,31 @@ function bothDiffer(a, b) {
   return a !== null && b !== null && a !== b;
 }
 
+function therapyYear(t) {
+  const d = normDate(t.end_date || t.start_date || t.date);
+  return d ? d.slice(0, 4) : "";
+}
+
+function startYear(t) {
+  const d = normDate(t.start_date || t.date);
+  return d ? d.slice(0, 4) : "";
+}
+
+function discIdentity(t) {
+  return {
+    key: normDrug(t.drug_name),
+    year: therapyYear(t),
+    reason: normTextSig(t.discontinuation_reason),
+  };
+}
+
+function discMatch(a, b) {
+  if (a.key !== b.key) return false;
+  const yearOk = !a.year || !b.year || a.year === b.year;
+  const reasonOk = !a.reason || !b.reason || a.reason === b.reason;
+  return yearOk && reasonOk;
+}
+
 /**
  * Derive effective relevance from an existing therapy document.
  * Falls back to category-based heuristic for legacy docs without the field.
@@ -125,15 +150,29 @@ function buildLabValueMap(labs) {
   return map;
 }
 
-function normEventText(s) {
-  return (s || "").toString().toLowerCase().trim().replace(/\s+/g, " ");
+function normTextSig(s) {
+  const norm = (s || "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!norm) return "";
+  return [...new Set(norm.split(" "))].sort().join(" ");
+}
+
+function eventDateKey(e) {
+  const raw = (e.date_value || e.date_estimated || "").toString();
+  if (e.date_precision === "year" || raw.length === 4) return raw.slice(0, 4);
+  return normDate(raw);
 }
 
 function eventKey(e) {
-  const date = normDate(e.date_value || e.date_estimated);
   const drug = e.drug_canonical || e.to_drug || e.from_drug || "";
-  const text = normEventText(e.manifestation || e.detail);
-  return `${e.event_type || ""}::${date}::${normEventText(drug)}::${text}`;
+  const text = normTextSig(e.manifestation || e.detail);
+  return `${e.event_type || ""}::${eventDateKey(e)}::${normTextSig(drug)}::${text}`;
 }
 
 function buildEventSet(events) {
@@ -167,6 +206,28 @@ export function reconcileDrafts(drafts, existingData) {
   const seenAssessments = new Set();
   const seenLabValues   = new Map();
   const seenEvents      = new Set();
+  const seenActiveDrugs = new Set();
+  const seenDisc        = new Map();
+  const activeStartYear = new Map();
+
+  const recordSchedule = (t, key) => {
+    seenDrugs.add(key);
+    if (t.status === "discontinued") {
+      const id = discIdentity(t);
+      const list = seenDisc.get(id.key) || [];
+      list.push(id);
+      seenDisc.set(id.key, list);
+    } else {
+      seenActiveDrugs.add(key);
+      const y = startYear(t);
+      if (y) activeStartYear.set(key, y);
+    }
+  };
+
+  const isDiscDuplicate = (t) => {
+    const id = discIdentity(t);
+    return (seenDisc.get(id.key) || []).some(p => discMatch(p, id));
+  };
 
   return drafts.map((draft, draftIdx) => {
     const out = { ...draft };
@@ -179,17 +240,43 @@ export function reconcileDrafts(drafts, existingData) {
 
         const existing = therapyMap.get(key);
 
-        // Already scheduled by a previous draft in this batch
         if (seenDrugs.has(key)) {
-          // Eccezione: se questa lettera segnala sospensione, non si può ignorare
-          // (es. visita 1 → Colchicina attiva, visita 2 → Colchicina sospesa)
           if (t.status === "discontinued") {
+            if (isDiscDuplicate(t)) {
+              return {
+                ...t,
+                _status: ITEM_STATUS.DUPLICATE,
+                _statusReason: "Sospensione già registrata in un'altra lettera del batch",
+                _skip: true,
+              };
+            }
+            if (seenActiveDrugs.has(key)) {
+              const dy = therapyYear(t);
+              const ay = activeStartYear.get(key);
+              if (dy && ay && dy < ay) {
+                recordSchedule(t, key);
+                return {
+                  ...t,
+                  _status: ITEM_STATUS.NEW,
+                  _statusReason: "Esposizione storica precedente all'episodio attivo",
+                  _action: "new_episode",
+                };
+              }
+              recordSchedule(t, key);
+              return {
+                ...t,
+                _status: ITEM_STATUS.UPDATE,
+                _statusReason: `Lettera precedente la registra attiva — questa segnala sospensione${t.discontinuation_reason ? `: ${t.discontinuation_reason}` : ""}`,
+                _skip: false,
+                _action: "discontinue",
+              };
+            }
+            recordSchedule(t, key);
             return {
               ...t,
-              _status: ITEM_STATUS.UPDATE,
-              _statusReason: `Lettera precedente la registra attiva — questa segnala sospensione${t.discontinuation_reason ? `: ${t.discontinuation_reason}` : ""}`,
-              _skip: false,
-              _action: "discontinue",
+              _status: ITEM_STATUS.NEW,
+              _statusReason: "Sospensione pregressa distinta (farmaco, motivo o data diversi)",
+              _action: "new_episode",
             };
           }
           return {
@@ -204,7 +291,18 @@ export function reconcileDrafts(drafts, existingData) {
           if (existing.status === "active") {
             // ── Bug fix 1: suspension not silently ignored ─────────────────
             if (t.status === "discontinued") {
-              seenDrugs.add(key);
+              const dy = therapyYear(t);
+              const ay = startYear(existing);
+              if (dy && ay && dy < ay) {
+                recordSchedule(t, key);
+                return {
+                  ...t,
+                  _status: ITEM_STATUS.NEW,
+                  _statusReason: "Esposizione storica precedente all'episodio attivo in DB",
+                  _action: "new_episode",
+                };
+              }
+              recordSchedule(t, key);
               return {
                 ...t,
                 _status: ITEM_STATUS.UPDATE,
@@ -219,7 +317,7 @@ export function reconcileDrafts(drafts, existingData) {
             const existingMg = normDoseMg(existing.dose);
             const newMg      = normDoseMg(t.dose);
             if (existingMg !== null && newMg !== null && existingMg !== newMg) {
-              seenDrugs.add(key);
+              recordSchedule(t, key);
               return {
                 ...t,
                 _status: ITEM_STATUS.CONFLICT,
@@ -239,7 +337,7 @@ export function reconcileDrafts(drafts, existingData) {
             const freqChanged  = bothDiffer(normFreq(existing.frequency), normFreq(t.frequency));
             const routeChanged = bothDiffer(normRoute(existing.route), normRoute(t.route));
             if (doseChanged || freqChanged || routeChanged) {
-              seenDrugs.add(key);
+              recordSchedule(t, key);
               const parts = [];
               if (freqChanged)  parts.push(`frequenza: ${existing.frequency} → ${t.frequency}`);
               if (routeChanged) parts.push(`via: ${existing.route} → ${t.route}`);
@@ -261,7 +359,7 @@ export function reconcileDrafts(drafts, existingData) {
             // High-relevance drugs (DMARDs, biologics, GC) record a "continued"
             // event even on continuity, to document the visit confirmation.
             // Low/medium relevance drugs skip continued events to avoid noise.
-            seenDrugs.add(key);
+            recordSchedule(t, key);
             const relevance = getEffectiveRelevance(existing);
             return {
               ...t,
@@ -276,7 +374,7 @@ export function reconcileDrafts(drafts, existingData) {
 
           if (existing.status === "discontinued" || existing.status === "paused") {
             if (t.status === "active") {
-              seenDrugs.add(key);
+              recordSchedule(t, key);
               return {
                 ...t,
                 _status: ITEM_STATUS.UPDATE,
@@ -295,7 +393,7 @@ export function reconcileDrafts(drafts, existingData) {
           }
         }
 
-        seenDrugs.add(key);
+        recordSchedule(t, key);
         return {
           ...t,
           _status: ITEM_STATUS.NEW,

@@ -5,6 +5,7 @@ lab exams, specialist visits.
 import re
 import uuid
 import logging
+import unicodedata
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -146,6 +147,54 @@ async def _find_active_episode(patient_id: str, org_id: str, canonical: str) -> 
         "drug_canonical": {"$exists": False},
         "status": "active",
     }, {"_id": 0})
+
+
+def _norm_reason_sig(s: Optional[str]) -> str:
+    if not s:
+        return ""
+    norm = unicodedata.normalize("NFD", str(s).lower())
+    norm = "".join(c for c in norm if unicodedata.category(c) != "Mn")
+    norm = re.sub(r"[^a-z0-9]+", " ", norm).strip()
+    if not norm:
+        return ""
+    return " ".join(sorted(set(norm.split(" "))))
+
+
+def _year_of(d: Optional[str]) -> str:
+    if not d:
+        return ""
+    s = str(d)
+    return s[:4] if len(s) >= 4 else ""
+
+
+async def _find_duplicate_discontinued(
+    patient_id: str,
+    org_id: str,
+    canonical: str,
+    date_hint: Optional[str],
+    reason: Optional[str],
+) -> Optional[dict]:
+    candidates = await db.therapies.find({
+        "patient_id": patient_id,
+        "organization_id": org_id,
+        "drug_canonical": canonical,
+        "status": "discontinued",
+        "deleted_at": None,
+    }, {"_id": 0}).to_list(length=None)
+    year = _year_of(date_hint)
+    reason_sig = _norm_reason_sig(reason)
+    for c in candidates:
+        c_year = _year_of(c.get("end_date") or c.get("start_date"))
+        c_reason = _norm_reason_sig(c.get("discontinuation_reason"))
+        year_match = bool(year) and bool(c_year) and year == c_year
+        year_conflict = bool(year) and bool(c_year) and year != c_year
+        reason_match = bool(reason_sig) and bool(c_reason) and reason_sig == c_reason
+        reason_conflict = bool(reason_sig) and bool(c_reason) and reason_sig != c_reason
+        if year_conflict or reason_conflict:
+            continue
+        if year_match or reason_match:
+            return c
+    return None
 
 
 async def _auto_discontinue_competing(
@@ -425,19 +474,14 @@ async def upsert_therapy(payload: TherapyUpsert, user: dict = Depends(get_curren
     # Anamnestic past therapy — never touch active episodes.
     # ══════════════════════════════════════════════════════════════════════════
     if override == "historical_exposure":
-        # Search for a similar existing discontinued episode (same canonical,
-        # overlapping years) to avoid duplicates.
-        query = {
-            "patient_id": payload.patient_id,
-            "organization_id": user["organization_id"],
-            "drug_canonical": canonical,
-            "status": "discontinued",
-        }
-        if payload.start_date:
-            query["start_date"] = payload.start_date
-        existing_hist = await db.therapies.find_one(query, {"_id": 0})
+        existing_hist = await _find_duplicate_discontinued(
+            payload.patient_id,
+            user["organization_id"],
+            canonical,
+            payload.end_date or payload.start_date,
+            payload.discontinuation_reason,
+        )
         if existing_hist:
-            # Duplicate detected — return existing without modification
             existing_hist["_duplicate"] = True
             return existing_hist
 
@@ -654,6 +698,18 @@ async def upsert_therapy(payload: TherapyUpsert, user: dict = Depends(get_curren
             )
             await db.therapies.insert_one(t.model_dump())
             return t
+
+        if incoming_status == "discontinued":
+            dup = await _find_duplicate_discontinued(
+                payload.patient_id,
+                user["organization_id"],
+                canonical,
+                payload.end_date or payload.start_date,
+                payload.discontinuation_reason,
+            )
+            if dup:
+                dup["_duplicate"] = True
+                return dup
 
         # Standard: new episode
         if incoming_status == "active":

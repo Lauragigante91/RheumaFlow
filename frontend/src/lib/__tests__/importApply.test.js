@@ -1,4 +1,5 @@
 import { applyOneDraft, mergeFreeTextConservative, fillMissingOnly } from "../importApply";
+import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import {
   patientsApi,
   assessmentsApi,
@@ -85,6 +86,66 @@ describe("mergeFreeTextConservative", () => {
 
   it("testo esistente vuoto -> usa solo l'incoming", () => {
     expect(mergeFreeTextConservative("", "Asma")).toBe("Asma");
+  });
+
+  it("ordine parole diverso (stessa diagnosi) -> non duplica", () => {
+    const out = mergeFreeTextConservative(
+      "Artrite reumatoide sieropositiva",
+      "Sieropositiva artrite reumatoide"
+    );
+    expect(out).toBe("Artrite reumatoide sieropositiva");
+  });
+
+  it("varianti di accenti e punteggiatura -> non duplica", () => {
+    const out = mergeFreeTextConservative(
+      "Sindrome di Sjögren",
+      "sindrome di sjogren.\nSjögren, sindrome di"
+    );
+    expect(out).toBe("Sindrome di Sjögren");
+  });
+
+  it("preserva le negazioni: 'fumatore' e 'non fumatore' restano distinti", () => {
+    const out = mergeFreeTextConservative("Fumatore", "Non fumatore");
+    expect(out).toBe("Fumatore\nNon fumatore");
+  });
+});
+
+describe("buildTherapyUpsertPayload — override esposizione storica", () => {
+  it("pregressa (discontinued + new_episode) -> event_type_override historical_exposure", () => {
+    const p = buildTherapyUpsertPayload(
+      { drug_name: "Adalimumab", status: "discontinued", _action: "new_episode", end_date: "2019-01-01" },
+      "p1",
+      "wv-1"
+    );
+    expect(p.event_type_override).toBe("historical_exposure");
+    expect(p.end_date).toBe("2019-01-01");
+  });
+
+  it("sospensione di terapia attiva (discontinue) -> nessun override", () => {
+    const p = buildTherapyUpsertPayload(
+      { drug_name: "Metotrexato", status: "discontinued", _action: "discontinue" },
+      "p1",
+      "wv-1"
+    );
+    expect(p.event_type_override).toBeUndefined();
+  });
+
+  it("terapia attiva -> nessun override anche con new_episode", () => {
+    const p = buildTherapyUpsertPayload(
+      { drug_name: "Idrossiclorochina", status: "active", _action: "new_episode" },
+      "p1",
+      "wv-1"
+    );
+    expect(p.event_type_override).toBeUndefined();
+  });
+
+  it("import singolo (senza _action) -> nessun override", () => {
+    const p = buildTherapyUpsertPayload(
+      { drug_name: "Prednisone", status: "discontinued" },
+      "p1",
+      "wv-1"
+    );
+    expect(p.event_type_override).toBeUndefined();
   });
 });
 

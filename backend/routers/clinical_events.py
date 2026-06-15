@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Body
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -8,6 +10,30 @@ from routers.auth import get_current_user
 from helpers import verify_patient_in_org
 
 router = APIRouter()
+
+
+def _norm_event_text(s) -> str:
+    if not s:
+        return ""
+    norm = unicodedata.normalize("NFD", str(s).lower())
+    norm = "".join(c for c in norm if unicodedata.category(c) != "Mn")
+    norm = re.sub(r"[^a-z0-9]+", " ", norm).strip()
+    if not norm:
+        return ""
+    return " ".join(sorted(set(norm.split(" "))))
+
+
+def _event_date_key(e: dict) -> str:
+    raw = str(e.get("date_value") or e.get("date_estimated") or "")
+    if e.get("date_precision") == "year" or len(raw) == 4:
+        return raw[:4]
+    return raw[:10]
+
+
+def _clinical_event_sig(e: dict) -> str:
+    drug = e.get("drug_canonical") or e.get("to_drug") or e.get("from_drug") or ""
+    text = _norm_event_text(e.get("manifestation") or e.get("detail"))
+    return f"{e.get('event_type') or ''}::{_event_date_key(e)}::{_norm_event_text(drug)}::{text}"
 
 
 @router.get("/patients/{patient_id}/clinical-events")
@@ -66,7 +92,14 @@ async def batch_create_clinical_events(
     No side-effects on db.therapies in V1 — events are stored independently.
     """
     await verify_patient_in_org(patient_id, user["organization_id"])
+    existing = await db.clinical_events.find({
+        "patient_id": patient_id,
+        "organization_id": user["organization_id"],
+        "deleted_at": None,
+    }, {"_id": 0}).to_list(length=None)
+    seen_sigs = {_clinical_event_sig(e) for e in existing}
     docs = []
+    skipped = 0
     for ev_data in payload.events:
         # Exclude fields set explicitly below (visit_id, confirmed_by_user) to avoid duplicate kwarg error
         base = ev_data.model_dump(exclude={"visit_id", "confirmed_by_user"})
@@ -81,10 +114,16 @@ async def batch_create_clinical_events(
             confirmed_at=datetime.now(timezone.utc).isoformat(),
             confirmed_by=user["id"],
         )
-        docs.append(ev.model_dump())
+        d = ev.model_dump()
+        sig = _clinical_event_sig(d)
+        if sig in seen_sigs:
+            skipped += 1
+            continue
+        seen_sigs.add(sig)
+        docs.append(d)
     if docs:
         await db.clinical_events.insert_many(docs)
-    return {"created": len(docs)}
+    return {"created": len(docs), "skipped": skipped}
 
 
 @router.patch("/patients/{patient_id}/clinical-events/{event_id}")

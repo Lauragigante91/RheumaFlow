@@ -460,3 +460,102 @@ describe("reconcileDrafts — esami di laboratorio a livello di parametro", () =
     expect(out.results[0]._status).toBe(ITEM_STATUS.DUPLICATE);
   });
 });
+
+describe("reconcileDrafts — terapie pregresse cross-batch (bug multi-import)", () => {
+  const pregressa = {
+    drug_name: "Sulfasalazina", category: "csDMARD",
+    status: "discontinued", end_date: "2020-06-01", discontinuation_reason: "inefficacia",
+  };
+
+  it("stessa pregressa (farmaco + motivo + anno) in N lettere -> salvata una sola volta", () => {
+    const drafts = reconcileMultiDraft({ therapies: [] }, [
+      [{ ...pregressa }],
+      [{ ...pregressa }],
+      [{ ...pregressa }],
+    ]);
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[0].therapies[0]._action).toBe("new_episode");
+    expect(drafts[0].therapies[0]._skip).toBeFalsy();
+    expect(drafts[1].therapies[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[1].therapies[0]._skip).toBe(true);
+    expect(drafts[2].therapies[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[2].therapies[0]._skip).toBe(true);
+  });
+
+  it("stessa pregressa senza data (solo motivo) in due lettere -> seconda DUPLICATE", () => {
+    const drafts = reconcileMultiDraft({ therapies: [] }, [
+      [{ drug_name: "Leflunomide", category: "csDMARD", status: "discontinued", discontinuation_reason: "epatotossicità" }],
+      [{ drug_name: "Leflunomide", category: "csDMARD", status: "discontinued", discontinuation_reason: "epatotossicità" }],
+    ]);
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[1].therapies[0]._skip).toBe(true);
+  });
+
+  it("stesso farmaco con anno e motivo diversi -> due episodi storici distinti", () => {
+    const drafts = reconcileMultiDraft({ therapies: [] }, [
+      [{ drug_name: "Adalimumab", category: "bDMARD", status: "discontinued", end_date: "2018-01-01", discontinuation_reason: "inefficacia" }],
+      [{ drug_name: "Adalimumab", category: "bDMARD", status: "discontinued", end_date: "2022-01-01", discontinuation_reason: "intolleranza" }],
+    ]);
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._action).toBe("new_episode");
+    expect(drafts[1].therapies[0]._skip).toBeFalsy();
+  });
+
+  it("attiva poi sospesa nelle lettere successive -> una sola sospensione, non N", () => {
+    const drafts = reconcileMultiDraft({ therapies: [] }, [
+      [{ drug_name: "Prednisone", category: "GC", status: "active", dose: "5 mg", frequency: "die", route: "os" }],
+      [{ drug_name: "Prednisone", category: "GC", status: "discontinued", end_date: "2021-03-01", discontinuation_reason: "remissione" }],
+      [{ drug_name: "Prednisone", category: "GC", status: "discontinued", end_date: "2021-03-01", discontinuation_reason: "remissione" }],
+    ]);
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._status).toBe(ITEM_STATUS.UPDATE);
+    expect(drafts[1].therapies[0]._action).toBe("discontinue");
+    expect(drafts[2].therapies[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[2].therapies[0]._skip).toBe(true);
+  });
+
+  it("attiva poi sospensione storica remota (anno precedente) -> NEW, non chiude l'attiva", () => {
+    const drafts = reconcileMultiDraft({ therapies: [] }, [
+      [{ drug_name: "Metotrexato", category: "csDMARD", status: "active", start_date: "2016-01-01", dose: "15 mg" }],
+      [{ drug_name: "Metotrexato", category: "csDMARD", status: "discontinued", end_date: "2014-01-01", discontinuation_reason: "inefficacia" }],
+    ]);
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].therapies[0]._action).toBe("new_episode");
+    expect(drafts[1].therapies[0]._skip).toBeFalsy();
+  });
+
+  it("attiva in DB + sospensione storica remota -> NEW historical, non discontinue l'attiva in DB", () => {
+    const drafts = reconcileMultiDraft(
+      { therapies: [{ id: "t1", drug_name: "Metotrexato", category: "csDMARD", status: "active", start_date: "2016-01-01" }] },
+      [
+        [{ drug_name: "Metotrexato", category: "csDMARD", status: "discontinued", end_date: "2014-01-01", discontinuation_reason: "inefficacia" }],
+      ]
+    );
+    expect(drafts[0].therapies[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[0].therapies[0]._action).toBe("new_episode");
+  });
+});
+
+describe("reconcileDrafts — eventKey normalizzazione e anno", () => {
+  it("varianti di accenti/maiuscole/ordine nel testo evento -> deduplicate", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "manifestation_onset", date_value: "2020-01-01", manifestation: "Poliartrite simmetrica" }],
+      [{ event_type: "manifestation_onset", date_value: "2020-01-01", manifestation: "poliartrite  simmetrica" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[1].raccordo_events[0]._skip).toBe(true);
+  });
+
+  it("data a livello anno: date_precision year e date_estimated equivalenti -> deduplicate", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "therapy_start", date_value: "2019-01-01", date_precision: "year", drug_canonical: "metotrexato" }],
+      [{ event_type: "therapy_start", date_value: null, date_estimated: "2019", drug_canonical: "metotrexato" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+  });
+});
