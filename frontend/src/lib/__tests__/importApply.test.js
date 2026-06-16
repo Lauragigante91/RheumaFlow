@@ -553,4 +553,61 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     expect(patchPatch.allergie_testo).toBe("Nessuna allergia nota");
     expect(patchPatch.allergie_testo).not.toContain("Penicillina");
   });
+
+  it("checklist completezza per-visita: ogni visita conserva raccordo/anamnesi/EO/clinimetrie/esami/indicazioni e le storiche non vengono impoverite", async () => {
+    const mkFull = (date, score) => ({
+      date,
+      visitType: "follow_up",
+      label: `V ${date}`,
+      selected: ALL_SELECTED,
+      draft: {
+        visit_date: date,
+        visit_type: "follow_up",
+        patient: { diagnosi: `Dx ${date}` },
+        profilo_generale: { terapia_domiciliare: `Terapia ${date}`, anamnesi_fisiologica: `Anam ${date}` },
+        visit_sections: {
+          raccordo: `Raccordo ${date}`,
+          anamnesi: `Anamnesi ${date}`,
+          esame_obj: `EO ${date}`,
+          conclusioni: `Conclusioni ${date}`,
+          indicazioni: `Indicazioni ${date}`,
+        },
+        assessments: [{ index_type: "DAS28", score }],
+        exam_imaging: [{ examLabel: `Ecografia ${date}`, reportText: `Referto ${date}` }],
+      },
+    });
+    const d = ["2022-02-01", "2023-05-10", "2024-09-30"];
+    const drafts = [mkFull(d[0], 4.1), mkFull(d[1], 3.0), mkFull(d[2], 1.8)];
+    const patient = basePatient({ diagnosi: "" });
+    await applyDraftBatch(drafts, patient, { defaultVisitType: "follow_up" });
+
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
+    const wv = workupVisitsApi.create.mock.calls.map((c) => c[1]);
+
+    expect(wv.map((p) => p.visit_date)).toEqual(d);
+    expect(wv.map((p) => p.rheumatologic_history_summary)).toEqual(d.map((x) => `Raccordo ${x}`));
+    expect(wv.map((p) => p.interval_history)).toEqual(d.map((x) => `Anamnesi ${x}`));
+    expect(wv.map((p) => p.physical_exam)).toEqual(d.map((x) => `EO ${x}`));
+    expect(wv.map((p) => p.conclusions)).toEqual(d.map((x) => `Conclusioni ${x}`));
+    expect(wv.map((p) => p.referral_note)).toEqual(d.map((x) => `Indicazioni ${x}`));
+    wv.forEach((p, i) => {
+      expect(p.labs_imaging).toContain(`Ecografia ${d[i]}`);
+      expect(p.labs_imaging).toContain(`Referto ${d[i]}`);
+      expect(p.home_therapies_text).toBe(`Terapia ${d[i]}`);
+    });
+
+    expect(assessmentsApi.create).toHaveBeenCalledTimes(3);
+    expect(assessmentsApi.create.mock.calls.map((c) => c[0].date)).toEqual(d);
+    expect(assessmentsApi.create.mock.calls.map((c) => c[0].score)).toEqual([4.1, 3.0, 1.8]);
+
+    expect(instrumentalExamsApi.create).toHaveBeenCalledTimes(3);
+    expect(instrumentalExamsApi.create.mock.calls.map((c) => c[0].exam_date)).toEqual(d);
+
+    expect(patientsApi.update).toHaveBeenCalledTimes(1);
+    expect(patientsApi.update.mock.calls[0][1].diagnosi).toBe(`Dx ${d[2]}`);
+    expect(patientsApi.update.mock.calls[0][1].diagnosi).not.toContain("\n");
+    expect(patientsApi.patch).toHaveBeenCalledTimes(1);
+    expect(patientsApi.patch.mock.calls[0][1].terapia_domiciliare).toBe(`Terapia ${d[2]}`);
+    expect(patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica).toBe(`Anam ${d[2]}`);
+  });
 });
