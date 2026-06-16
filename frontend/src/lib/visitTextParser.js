@@ -1520,6 +1520,65 @@ function pharmaPartOfIndicazioni(text) {
   return kept;
 }
 
+const _NARR_STRONG_RE = new RegExp(
+  [
+    "\\bcirca\\s+\\d+\\s+\\S+\\s+fa\\b",
+    "\\b\\d+\\s+(?:giorn[io]|settiman\\w+|mes\\w+|ann[io])\\s+fa\\b",
+    "\\bcompars\\w*\\b",
+    "\\besordi\\w*\\b",
+    "\\binsorg\\w*\\b",
+    "\\briferi(?:sce|va|to|ta)\\b",
+    "\\blamenta\\w*\\b",
+    "\\baccusa\\w*\\b",
+    "\\bscarsa\\s+rispost\\w*",
+    "\\bha\\s+assunt\\w*\\b",
+    "\\bha\\s+present\\w*\\b",
+    "\\bha\\s+sviluppat\\w*\\b",
+    "\\bha\\s+lamentat\\w*\\b",
+    "\\bha\\s+accusat\\w*\\b",
+    "\\bin\\s+seguito\\b",
+    "\\bsuccessivamente\\b",
+    "\\bin\\s+anamnesi\\b",
+  ].join("|"),
+  "i",
+);
+
+const _NARR_WEAK_RE = new RegExp(
+  [
+    "\\bda\\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\\b",
+    "\\bal\\s+controllo\\b",
+    "\\ba(?:lla)?\\s+visita\\b",
+  ].join("|"),
+  "gi",
+);
+
+function _firstNarrativeCut(text) {
+  let cut = -1;
+  const sm = text.match(_NARR_STRONG_RE);
+  if (sm && sm.index != null) cut = sm.index;
+  _NARR_WEAK_RE.lastIndex = 0;
+  let wm;
+  while ((wm = _NARR_WEAK_RE.exec(text)) !== null) {
+    const before = text.slice(0, wm.index);
+    const atBoundary = before === "" || /[\n.;]\s*$/.test(before);
+    if (!atBoundary) continue;
+    const after = text.slice(wm.index + wm[0].length, wm.index + wm[0].length + 60);
+    if (_textHasKnownDrug(after) || _THERAPY_DOSE_RE.test(after)) continue;
+    if (cut === -1 || wm.index < cut) cut = wm.index;
+    break;
+  }
+  return cut;
+}
+
+function stripNarrativeFromHomeTherapy(text) {
+  if (!text) return text;
+  const idx = _firstNarrativeCut(text);
+  if (idx < 0) return text;
+  const head = text.slice(0, idx).replace(/[\s.,;:]+$/, "").trim();
+  if (!head || !_unitIsPharma(head)) return text;
+  return head;
+}
+
 export function parseVisitText(text) {
   if (!text?.trim()) return { extracted: {}, _trace: [] };
 
@@ -1768,7 +1827,7 @@ export function parseVisitText(text) {
     anamnesi_familiare:   S.ANAMNESI_FAMILIARE   || null,
     comorbidita_apr:      _comorbiditaItems.length ? _comorbiditaItems.join("\n\n") : null,
     terapia_domiciliare:  S.TERAPIA_DOMICILIARE
-      ? S.TERAPIA_DOMICILIARE
+      ? stripNarrativeFromHomeTherapy(S.TERAPIA_DOMICILIARE)
           .replace(/\s*\b(?:nega|nessuna?|non\s+ri(?:porta|ferisce|sulta))\s+allergi[ae][^.\n]*\.?\s*/gi, " ")
           .replace(/\s*\bNAF\b\.?\s*/g, " ")
           .trim() || null

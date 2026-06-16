@@ -793,6 +793,45 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
     expect(uscita).not.toContain("(ricostruito)");
   });
 
+  it("parser: TERAPIA DOMICILIARE si ferma al farmaco e non ingloba la narrativa clinica senza header RACCORDO", () => {
+    const referto = [
+      "TERAPIA DOMICILIARE",
+      "Perindopril/amlodipina. Medrol 16 mg 3/4 cp",
+      "Circa 1 mese fa comparsa di notte al risveglio di dolore lombare. Scarsa risposta a FANS. Ha assunto steroide con beneficio. A visita si rilevava tumefazione.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const dom = extracted.profilo_generale.terapia_domiciliare;
+    expect(dom).toContain("Perindopril/amlodipina");
+    expect(dom).toContain("Medrol 16 mg 3/4 cp");
+    expect(dom).not.toContain("Circa 1 mese fa");
+    expect(dom).not.toContain("comparsa");
+    expect(dom).not.toContain("Scarsa risposta");
+    expect(dom).not.toContain("Ha assunto");
+    expect(dom).not.toContain("A visita");
+  });
+
+  it("parser: TERAPIA DOMICILIARE non viene troncata da 'Da <mese>' se seguito da un farmaco", () => {
+    const referto = [
+      "TERAPIA DOMICILIARE",
+      "Medrol 4 mg. Da aprile Metotrexato 15 mg a settimana.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const dom = extracted.profilo_generale.terapia_domiciliare;
+    expect(dom).toContain("Medrol 4 mg");
+    expect(dom).toContain("Metotrexato 15 mg");
+  });
+
+  it("parser: TERAPIA DOMICILIARE non viene troncata da 'al controllo' interno a un'istruzione di terapia", () => {
+    const referto = [
+      "TERAPIA DOMICILIARE",
+      "Medrol 16 mg fino al controllo.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const dom = extracted.profilo_generale.terapia_domiciliare;
+    expect(dom).toContain("Medrol 16 mg");
+    expect(dom).toContain("controllo");
+  });
+
   it("import singolo: visit_sections.terapia_uscita viene salvato in exit_therapy_text", async () => {
     const ORIG = [
       "PRESCRIZIONE TERAPEUTICA: Upadacitinib 15 mg/die.",
