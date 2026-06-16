@@ -74,11 +74,12 @@ export function fillMissingOnly(existing, incoming, options = {}) {
   return out;
 }
 
-export async function applyOneDraft(extracted, patient, selected, visitType, sourceFilename = null) {
+export async function applyOneDraft(extracted, patient, selected, visitType, sourceFilename = null, options = {}) {
   const errors = [];
   let updates = 0;
+  const skipPatientState = options.skipPatientState === true;
 
-  if (selected.patient && extracted.patient) {
+  if (!skipPatientState && selected.patient && extracted.patient) {
     try {
       const patch = {};
       const pp = extracted.patient;
@@ -226,7 +227,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     } catch (e) { errors.push(apiErrMsg(e, "Profilo LES")); }
   }
 
-  if (selected.profilo_generale && extracted.profilo_generale) {
+  if (!skipPatientState && selected.profilo_generale && extracted.profilo_generale) {
     try {
       const pg = extracted.profilo_generale;
       const patch = {};
@@ -249,7 +250,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     } catch (e) { errors.push(apiErrMsg(e, "Profilo generale")); }
   }
 
-  if (selected.comorbidita && extracted.comorbidita?.length) {
+  if (!skipPatientState && selected.comorbidita && extracted.comorbidita?.length) {
     try {
       const confirmed = (extracted.comorbidita || []).filter(x => !x._skip);
       if (confirmed.length > 0) {
@@ -263,7 +264,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     } catch (e) { errors.push(apiErrMsg(e, "Comorbidità")); }
   }
 
-  if (selected.intolleranze && extracted.intolleranze?.length) {
+  if (!skipPatientState && selected.intolleranze && extracted.intolleranze?.length) {
     try {
       const confirmed = (extracted.intolleranze || []).filter(x => !x._skip);
       if (confirmed.length > 0) {
@@ -297,5 +298,110 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     }
   }
 
+  return { updates, errors };
+}
+
+const STATE_ANAGRAFICA = ["nome", "cognome", "data_nascita", "sesso", "codice_fiscale", "diagnosi"];
+const STATE_PROFILE = ["anamnesi_fisiologica", "anamnesi_familiare", "terapia_domiciliare", "comorbidita_apr", "allergie_testo"];
+
+function draftComorbidita(draft, selected) {
+  if (selected.comorbidita) {
+    const items = (draft.comorbidita || [])
+      .filter((x) => !x._skip)
+      .map((x) => x.text)
+      .filter(Boolean);
+    if (items.length > 0) return items.join("\n");
+  }
+  if (selected.profilo_generale && draft.profilo_generale?.comorbidita_apr) {
+    return draft.profilo_generale.comorbidita_apr;
+  }
+  return "";
+}
+
+function draftAllergie(draft, selected) {
+  if (selected.intolleranze) {
+    const items = (draft.intolleranze || [])
+      .filter((x) => !x._skip)
+      .map((x) => x.drug + (x.reason ? ` (${x.reason})` : ""))
+      .filter(Boolean);
+    if (items.length > 0) return items.join("\n");
+  }
+  if (selected.profilo_generale && draft.profilo_generale?.allergie) {
+    return draft.profilo_generale.allergie;
+  }
+  return "";
+}
+
+export function extractDraftState(draft, selected = {}) {
+  const out = {};
+  const pp = draft.patient || {};
+  if (selected.patient) {
+    STATE_ANAGRAFICA.forEach((k) => { if (pp[k]) out[k] = pp[k]; });
+  }
+  const pg = draft.profilo_generale || {};
+  if (selected.profilo_generale) {
+    if (pg.anamnesi_fisiologica) out.anamnesi_fisiologica = pg.anamnesi_fisiologica;
+    if (pg.anamnesi_familiare)   out.anamnesi_familiare   = pg.anamnesi_familiare;
+    if (pg.terapia_domiciliare)  out.terapia_domiciliare  = pg.terapia_domiciliare;
+  }
+  const comorb = draftComorbidita(draft, selected);
+  if (comorb) out.comorbidita_apr = comorb;
+  const allerg = draftAllergie(draft, selected);
+  if (allerg) out.allergie_testo = allerg;
+  return out;
+}
+
+export function computeLongitudinalState(draftsAsc = []) {
+  const result = {};
+  for (const { draft, selected } of draftsAsc) {
+    const s = extractDraftState(draft, selected || {});
+    Object.entries(s).forEach(([k, v]) => { if (v) result[k] = v; });
+  }
+  return result;
+}
+
+export async function applyLongitudinalState(draftsAsc, patient) {
+  const errors = [];
+  let updates = 0;
+  const state = computeLongitudinalState(draftsAsc);
+  const updatePatch = {};
+  const patchPatch = {};
+  STATE_ANAGRAFICA.forEach((k) => {
+    if (state[k] && state[k] !== (patient[k] || "")) updatePatch[k] = state[k];
+  });
+  STATE_PROFILE.forEach((k) => {
+    if (state[k] && state[k] !== (patient[k] || "")) patchPatch[k] = state[k];
+  });
+  if (Object.keys(updatePatch).length > 0) {
+    try { await patientsApi.update(patient.id, updatePatch); updates += 1; }
+    catch (e) { errors.push(apiErrMsg(e, "Dati paziente")); }
+  }
+  if (Object.keys(patchPatch).length > 0) {
+    try { await patientsApi.patch(patient.id, patchPatch); updates += 1; }
+    catch (e) { errors.push(apiErrMsg(e, "Profilo generale")); }
+  }
+  return { updates, errors };
+}
+
+export async function applyDraftBatch(toApply, patient, opts = {}) {
+  const errors = [];
+  let updates = 0;
+  for (let i = 0; i < toApply.length; i++) {
+    const v = toApply[i];
+    opts.onProgress?.({ current: i + 1, total: toApply.length, label: v.label });
+    const vType = v.draft?.visit_type || v.visitType || opts.defaultVisitType || "follow_up";
+    const res = await applyOneDraft(
+      v.draft, patient, v.selected, vType, v.draft?.source_filename || null,
+      { skipPatientState: true }
+    );
+    updates += res.updates;
+    errors.push(...res.errors);
+  }
+  const longitudinal = await applyLongitudinalState(
+    toApply.map((v) => ({ draft: v.draft, selected: v.selected })),
+    patient
+  );
+  updates += longitudinal.updates;
+  errors.push(...longitudinal.errors);
   return { updates, errors };
 }

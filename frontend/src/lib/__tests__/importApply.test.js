@@ -1,4 +1,10 @@
-import { applyOneDraft, mergeFreeTextConservative, fillMissingOnly } from "../importApply";
+import {
+  applyOneDraft,
+  mergeFreeTextConservative,
+  fillMissingOnly,
+  applyDraftBatch,
+  computeLongitudinalState,
+} from "../importApply";
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import {
   patientsApi,
@@ -414,5 +420,137 @@ describe("applyOneDraft — lab in conflitto non inviato a upsert", () => {
       "follow_up"
     );
     expect(labExamsApi.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudinale una volta", () => {
+  const mkDraft = (date, { diagnosi = "", anamnesi = "", terapia = "" }) => ({
+    visit_date: date,
+    visit_type: "follow_up",
+    patient: { diagnosi },
+    profilo_generale: { anamnesi_fisiologica: anamnesi, terapia_domiciliare: terapia },
+    visit_sections: { anamnesi: `controllo ${date}`, esame_obj: `EO ${date}` },
+    assessments: [{ index_type: "DAS28", score: 2.5 }],
+  });
+
+  const toApply = [
+    {
+      date: "2023-01-10", visitType: "follow_up", label: "V1", selected: ALL_SELECTED,
+      draft: mkDraft("2023-01-10", { diagnosi: "Artrite reumatoide", anamnesi: "Non fumatore", terapia: "MTX 10mg" }),
+    },
+    {
+      date: "2023-06-15", visitType: "follow_up", label: "V2", selected: ALL_SELECTED,
+      draft: mkDraft("2023-06-15", { diagnosi: "Artrite reumatoide sieropositiva", anamnesi: "Ex fumatore", terapia: "MTX 15mg" }),
+    },
+    {
+      date: "2024-02-20", visitType: "follow_up", label: "V3", selected: ALL_SELECTED,
+      draft: mkDraft("2024-02-20", { diagnosi: "Artrite reumatoide sieropositiva erosiva", anamnesi: "Ex fumatore, sospeso 2023", terapia: "MTX 15mg + ADA" }),
+    },
+  ];
+
+  it("crea N workup_visit e N assessment, uno per visita, con date e referti distinti", async () => {
+    const patient = basePatient({ diagnosi: "" });
+    await applyDraftBatch(toApply, patient, { defaultVisitType: "follow_up" });
+
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
+    expect(assessmentsApi.create).toHaveBeenCalledTimes(3);
+
+    const visitDates = workupVisitsApi.create.mock.calls.map((c) => c[1].visit_date);
+    expect(visitDates).toEqual(["2023-01-10", "2023-06-15", "2024-02-20"]);
+
+    const intervalHistories = workupVisitsApi.create.mock.calls.map((c) => c[1].interval_history);
+    expect(intervalHistories).toEqual(["controllo 2023-01-10", "controllo 2023-06-15", "controllo 2024-02-20"]);
+
+    const exams = workupVisitsApi.create.mock.calls.map((c) => c[1].physical_exam);
+    expect(exams).toEqual(["EO 2023-01-10", "EO 2023-06-15", "EO 2024-02-20"]);
+
+    const assessmentDates = assessmentsApi.create.mock.calls.map((c) => c[0].date);
+    expect(assessmentDates).toEqual(["2023-01-10", "2023-06-15", "2024-02-20"]);
+  });
+
+  it("aggiorna lo stato del paziente UNA sola volta con i valori dell'ultima visita (no concatenazione)", async () => {
+    const patient = basePatient({ diagnosi: "" });
+    await applyDraftBatch(toApply, patient, { defaultVisitType: "follow_up" });
+
+    expect(patientsApi.update).toHaveBeenCalledTimes(1);
+    const updatePatch = patientsApi.update.mock.calls[0][1];
+    expect(updatePatch.diagnosi).toBe("Artrite reumatoide sieropositiva erosiva");
+    expect(updatePatch.diagnosi).not.toContain("\n");
+
+    expect(patientsApi.patch).toHaveBeenCalledTimes(1);
+    const patchPatch = patientsApi.patch.mock.calls[0][1];
+    expect(patchPatch.anamnesi_fisiologica).toBe("Ex fumatore, sospeso 2023");
+    expect(patchPatch.anamnesi_fisiologica).not.toContain("Non fumatore");
+    expect(patchPatch.terapia_domiciliare).toBe("MTX 15mg + ADA");
+  });
+
+  it("guardia anti-vuoto: una visita più recente senza diagnosi non cancella quella precedente", async () => {
+    const patient = basePatient({ diagnosi: "" });
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1", selected: ALL_SELECTED,
+        draft: mkDraft("2023-01-10", { diagnosi: "LES", anamnesi: "A", terapia: "X" }),
+      },
+      {
+        date: "2024-02-20", visitType: "follow_up", label: "V2", selected: ALL_SELECTED,
+        draft: mkDraft("2024-02-20", { diagnosi: "", anamnesi: "B", terapia: "Y" }),
+      },
+    ];
+    await applyDraftBatch(drafts, patient, {});
+
+    expect(patientsApi.update).toHaveBeenCalledTimes(1);
+    expect(patientsApi.update.mock.calls[0][1].diagnosi).toBe("LES");
+  });
+
+  it("skip-if-same: stato già allineato non genera scritture sul paziente", async () => {
+    const patient = basePatient({
+      diagnosi: "Artrite reumatoide sieropositiva erosiva",
+      anamnesi_fisiologica: "Ex fumatore, sospeso 2023",
+      terapia_domiciliare: "MTX 15mg + ADA",
+    });
+    await applyDraftBatch(toApply, patient, {});
+
+    expect(patientsApi.update).not.toHaveBeenCalled();
+    expect(patientsApi.patch).not.toHaveBeenCalled();
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
+  });
+
+  it("computeLongitudinalState: latest-non-empty per campo", () => {
+    const state = computeLongitudinalState(toApply.map((v) => ({ draft: v.draft, selected: v.selected })));
+    expect(state.diagnosi).toBe("Artrite reumatoide sieropositiva erosiva");
+    expect(state.anamnesi_fisiologica).toBe("Ex fumatore, sospeso 2023");
+    expect(state.terapia_domiciliare).toBe("MTX 15mg + ADA");
+  });
+
+  it("comorbidità/allergie: precedenza structured + fallback profilo, latest-wins senza concatenazione", async () => {
+    const patient = basePatient();
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1", selected: ALL_SELECTED,
+        draft: {
+          visit_date: "2023-01-10",
+          visit_type: "follow_up",
+          profilo_generale: { comorbidita_apr: "Ipertensione" },
+          intolleranze: [{ drug: "Penicillina", reason: "orticaria" }],
+        },
+      },
+      {
+        date: "2024-02-20", visitType: "follow_up", label: "V2", selected: ALL_SELECTED,
+        draft: {
+          visit_date: "2024-02-20",
+          visit_type: "follow_up",
+          comorbidita: [{ text: "Diabete" }],
+          profilo_generale: { allergie: "Nessuna allergia nota" },
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, {});
+
+    expect(patientsApi.patch).toHaveBeenCalledTimes(1);
+    const patchPatch = patientsApi.patch.mock.calls[0][1];
+    expect(patchPatch.comorbidita_apr).toBe("Diabete");
+    expect(patchPatch.comorbidita_apr).not.toContain("Ipertensione");
+    expect(patchPatch.allergie_testo).toBe("Nessuna allergia nota");
+    expect(patchPatch.allergie_testo).not.toContain("Penicillina");
   });
 });

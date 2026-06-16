@@ -6,9 +6,9 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Loader2, FileText, Check, AlertCircle, ScanSearch, ChevronDown, ChevronUp, ChevronRight, FileSearch, Calendar, Pencil, Trash2, Plus, RotateCcw, Layers, X } from "lucide-react";
 import { toast } from "sonner";
-import { patientsApi, assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi } from "../../lib/api";
+import { assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi } from "../../lib/api";
 import { parseVisitText } from "../../lib/visitTextParser";
-import { applyOneDraft } from "../../lib/importApply";
+import { applyOneDraft, applyDraftBatch } from "../../lib/importApply";
 import { reconcileDrafts, ITEM_STATUS, STATUS_META, draftSummaryStats } from "../../lib/visitReconciler";
 import SelectableTextBlock from "../shared/SelectableTextBlock";
 import SectionReviewPanel from "./SectionReviewPanel";
@@ -330,24 +330,14 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       return;
     }
     setApplying(true);
-    let totalUpdates = 0;
-    const allErrors = [];
-    // Mantieni riferimento aggiornato al paziente: ogni draft successivo
-    // deve vedere i valori scritti dal draft precedente (non la snapshot iniziale).
-    let currentPatient = patient;
-    for (let i = 0; i < toApply.length; i++) {
-      const v = toApply[i];
-      setMultiApplyProgress({ current: i + 1, total: toApply.length, label: v.label });
-      const vType = v.draft.visit_type || v.visitType || visitType;
-      const { updates, errors } = await applyOneDraft(v.draft, currentPatient, v.selected, vType, v.draft.source_filename || null);
-      totalUpdates += updates;
-      allErrors.push(...errors);
-      // Ricarica paziente tra un draft e il successivo — evita riferimento stale
-      // che causa sovrascrittura cieca dei campi già aggiornati dal draft precedente.
-      if (i < toApply.length - 1) {
-        try { currentPatient = await patientsApi.get(patient.id); } catch (_) {}
+    const { updates: totalUpdates, errors: allErrors } = await applyDraftBatch(
+      toApply,
+      patient,
+      {
+        defaultVisitType: visitType,
+        onProgress: (p) => setMultiApplyProgress(p),
       }
-    }
+    );
     setApplying(false);
     setMultiApplyProgress(null);
     if (allErrors.length === 0) {
