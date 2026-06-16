@@ -4,7 +4,7 @@ description: Authoritative rule for the TERAPIA IN USCITA report section — it 
 ---
 
 **TERAPIA IN USCITA (report section #13) EQUALS the therapeutic text in the imported referto, verbatim. It is NOT reconstructed from the therapy episode ledger.**
-**Why:** definitive product decision that overrides the earlier task-23 spec (which said the section "resta un valore derivato, non un campo libero" rebuilt per-drug from the ledger) AND the prior code review that enforced it. The doctor's exit plan must read exactly as written in the letter/PDF — full prose, taperings, posology, monitoring — not a normalized one-line-per-drug list.
+**Why:** definitive product decision that overrides an earlier spec which had made the section a derived value rebuilt per-drug from the ledger (and a code review that enforced that earlier spec). The doctor's exit plan must read exactly as written in the letter/PDF — full prose, taperings, posology, monitoring — not a normalized one-line-per-drug list. An automated code review may still flag this as "inverted" because it compares against the older registered objective; the verbatim-referto rule is the current, authoritative one.
 **How to apply:** do NOT reintroduce any ledger-first display priority, any per-drug "(invariata)/(nuovo)/(modificata)" annotation, or any home-regimen "(invariata)" fallback. Those are the OLD behavior and are now wrong.
 
 **Source priority (literal, never invert):** explicit exit headers `S.TERAPIA_USCITA` → else `S.IN_TERAPIA` → else the pharmacological part of `S.INDICAZIONI`. Built as `terapiaUscitaText` in `visitTextParser.parseVisitText` and emitted into `vsScope` as the `TERAPIA IN USCITA` block consumed by `extractVisitSections`.
