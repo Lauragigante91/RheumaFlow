@@ -1,4 +1,6 @@
-export function buildTerapiaUscita({ regimen, exitText } = {}) {
+export function buildTerapiaUscita({ originalText, regimen, exitText } = {}) {
+  const original = (originalText || "").trim();
+  if (original) return original;
   const exit = (exitText || "").trim();
   if (exit) return exit;
   const reg = (regimen || "").trim();

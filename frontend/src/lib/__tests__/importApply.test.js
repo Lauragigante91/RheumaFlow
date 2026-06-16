@@ -679,4 +679,96 @@ describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () =
       expect(uscita).toContain("(invariata)");
     });
   });
+
+  it("buildTerapiaUscita: il testo originale del referto ha priorità su exitText e regimen, verbatim", () => {
+    const ORIG = [
+      "Prednisone 25 mg/die con scalaggio di 2,5 mg ogni 7 giorni fino a 5 mg/die.",
+      "Controllo emocromo, transaminasi e PCR a 4 settimane.",
+      "Rivalutazione clinica a 3 mesi.",
+    ].join("\n");
+    const out = buildTerapiaUscita({
+      originalText: ORIG,
+      exitText: "Prednisone 25 mg (invariata)",
+      regimen: "Metotrexato 15 mg/sett",
+    });
+    expect(out).toBe(ORIG);
+  });
+
+  it("buildTerapiaUscita: il testo originale non viene mai marcato (invariata)", () => {
+    const ORIG = "Metotrexato 15 mg/sett invariato. Folina 5 mg/sett.";
+    const out = buildTerapiaUscita({ originalText: ORIG, regimen: "MTX 15 mg" });
+    expect(out).toBe(ORIG);
+    expect(out).not.toContain("(invariata)");
+  });
+
+  it("buildTerapiaUscita: testo originale vuoto o solo spazi ricade su exitText/regimen", () => {
+    expect(buildTerapiaUscita({ originalText: "", exitText: "Adalimumab 40 mg/2sett" }))
+      .toBe("Adalimumab 40 mg/2sett");
+    const r = buildTerapiaUscita({ originalText: "   ", regimen: "MTX 10 mg" });
+    expect(r).toContain("MTX 10 mg");
+    expect(r).toContain("(invariata)");
+  });
+
+  it("buildTerapiaUscita: la terapia in uscita resta distinta dalla modifica terapeutica (#14)", () => {
+    const visit = {
+      exit_therapy_text: "Secukinumab 300 mg s.c. mensile.\nMonitoraggio epatico ogni 3 mesi.",
+      therapy_modification: "Sospeso Metotrexato; avviato Secukinumab",
+      home_therapies_text: "Metotrexato 15 mg/sett",
+    };
+    const uscita = buildTerapiaUscita({
+      originalText: visit.exit_therapy_text,
+      regimen: visit.home_therapies_text,
+      exitText: visit.exit_therapies_text,
+    });
+    expect(uscita).toBe(visit.exit_therapy_text);
+    expect(uscita).not.toContain(visit.therapy_modification);
+  });
+
+  it("import singolo: visit_sections.terapia_uscita viene salvato in exit_therapy_text", async () => {
+    const ORIG = [
+      "PRESCRIZIONE TERAPEUTICA: Upadacitinib 15 mg/die.",
+      "Controllo lipidi e transaminasi a 4 settimane. Rivalutazione a 3 mesi.",
+    ].join("\n");
+    await applyOneDraft(
+      {
+        visit_date: "2024-05-10",
+        visit_type: "follow_up",
+        visit_sections: { anamnesi: "controllo", esame_obj: "ndr", terapia_uscita: ORIG },
+      },
+      basePatient(),
+      ALL_SELECTED,
+      "follow_up"
+    );
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(1);
+    const payload = workupVisitsApi.create.mock.calls[0][1];
+    expect(payload.exit_therapy_text).toBe(ORIG);
+  });
+
+  it("multi-import: ogni visita conserva il proprio testo terapia in uscita (isolamento per-visita)", async () => {
+    const texts = {
+      "2022-04-01": "Metotrexato 15 mg/sett invariato. Folina 5 mg/sett.",
+      "2023-04-01": "Aggiunto Adalimumab 40 mg s.c. ogni 2 settimane. Screening TBC eseguito.",
+      "2024-04-01": "Sospeso Adalimumab; avviato Secukinumab 300 mg mensile. Controllo a 3 mesi.",
+    };
+    const drafts = Object.entries(texts).map(([date, t]) => ({
+      date,
+      visitType: "follow_up",
+      label: `Visita ${date}`,
+      selected: ALL_SELECTED,
+      draft: {
+        visit_date: date,
+        visit_type: "follow_up",
+        visit_sections: { anamnesi: `controllo ${date}`, esame_obj: `EO ${date}`, terapia_uscita: t },
+      },
+    }));
+
+    await applyDraftBatch(drafts, basePatient(), { defaultVisitType: "follow_up" });
+
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
+    const byDate = {};
+    workupVisitsApi.create.mock.calls.forEach((c) => {
+      byDate[c[1].visit_date] = c[1].exit_therapy_text;
+    });
+    expect(byDate).toEqual(texts);
+  });
 });

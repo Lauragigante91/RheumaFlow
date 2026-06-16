@@ -1143,6 +1143,11 @@ function extractVisitSections(text) {
       key: "esame_obj",
       re: /^(?:ESAME\s+(?:OBIETTIVO(?:\s+REUMATOLOGICO)?|FISICO|REUMATOLOGICO)|OBIETTIVIT[AÀ]'?|OBB?IETTIVAMENTE|REPERTO\s+OBIETTIVO|EO)\b/im,
     },
+    // Exit/discharge therapy — original verbatim text (controlled header from vsScope)
+    {
+      key: "terapia_uscita",
+      re: /^TERAPIA\s+IN\s+USCITA\b/im,
+    },
     // Recommendations and follow-up plan
     // NOTE: PROGRAMMA removed — too generic, matches "In programma biopsia..."
     // causing a false-positive that corrupts indicazioni and esame_obj.
@@ -1748,11 +1753,12 @@ export function parseVisitText(text) {
     stripVisitIncipit(_ivVO.cleaned ?? S.VISITA_ODIERNA),
   ].filter(Boolean).join("\n\n") || null;
   const vsScope = [
-    raccordoText    ? `RACCORDO ANAMNESTICO\n${raccordoText}`       : null,
-    _anamnesisText  ? `ANAMNESI INTERVALLARE\n${_anamnesisText}`    : null,
+    raccordoText      ? `RACCORDO ANAMNESTICO\n${raccordoText}`     : null,
+    _anamnesisText    ? `ANAMNESI INTERVALLARE\n${_anamnesisText}`  : null,
     S.ESAME_OBIETTIVO ? `ESAME OBIETTIVO\n${S.ESAME_OBIETTIVO}`     : null,
-    S.INDICAZIONI   ? `INDICAZIONI\n${S.INDICAZIONI}`               : null,
-    S.CONCLUSIONI   ? `CONCLUSIONI\n${S.CONCLUSIONI}`               : null,
+    S.CONCLUSIONI     ? `CONCLUSIONI\n${S.CONCLUSIONI}`             : null,
+    S.TERAPIA_USCITA  ? `TERAPIA IN USCITA\n${S.TERAPIA_USCITA}`    : null,
+    S.INDICAZIONI     ? `INDICAZIONI\n${S.INDICAZIONI}`             : null,
   ].filter(Boolean).join("\n\n");
   const visit_sections = extractVisitSections(vsScope || text);
 

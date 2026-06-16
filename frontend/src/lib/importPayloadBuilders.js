@@ -35,6 +35,7 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
     physical_exam:                 vs.esame_obj   || null,
     conclusions:                   vs.conclusioni || null,
     referral_note:                 vs.indicazioni || null,
+    exit_therapy_text:             vs.terapia_uscita || null,
     labs_imaging:                  labs_imaging_v,
     requested_tests:               wantReqTests ? extracted.requested_tests : null,
     home_therapies_text:           extracted.profilo_generale?.terapia_domiciliare || null,

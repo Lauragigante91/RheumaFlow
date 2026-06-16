@@ -33,6 +33,15 @@ const SECTION_DEFS = [
     re: /^(?:COMORBI(?:DIT[AÀ]|LIT[AÀ])'?(?:\s*\/\s*APR)?|PATOLOGIE\s+CONCOMITANTI|INTERVENTI\s+CHIRURGICI)(?=\W|$)/i,
   },
 
+  // Therapy prescribed leaving the visit — exit/discharge therapy.
+  // Must precede TERAPIA_DOMICILIARE and INDICAZIONI so exit-specific headers
+  // (and "INDICAZIONI TERAPEUTICHE") route here instead of home therapy / referral.
+  // Bare "TERAPIA" is intentionally excluded (= baseline home therapy).
+  {
+    key: "TERAPIA_USCITA",
+    re: /^(?:TERAPIA\s+(?:IN\s+USCITA|ALLA\s+DIMISSIONE|CONSIGLIATA(?:\s+ALLA\s+DIMISSIONE)?|PRESCRITTA|PROPOSTA|DOMICILIARE\s+CONSIGLIATA)|INDICAZIONI\s+TERAPEUTICHE|PRESCRIZIONE\s+(?:TERAPEUTICA|FARMACOLOGICA))\b/i,
+  },
+
   // Therapy — baseline drugs the patient is already taking
   // TERAPIA\s*:?\s*$ catches standalone "TERAPIA" or "TERAPIA:" as a section header
   // TERAPIE (plural) + qualificatore completo (IN ATTO, IN CORSO, etc.) esplicitato
@@ -137,7 +146,7 @@ const SECTION_DEFS = [
 // Patterns are sorted from most-specific to least-specific.
 // Short patterns (RX, TC, RM) are word-boundary anchored to avoid false
 // positives inside sentences ("Indicata TC per...").
-const EO_STOP_RE = /^(?:in\s+visione|reca\s+in\s+visione|porta\s+in\s+(?:visione|visita)|accertamenti(?:\s+in\s+visione)?|esami?\s+in\s+visione|esami?\s+di\s+laboratorio|esami?\s+strumentali?|laboratorio|conclusioni?|valutazione(?:\s+clinica)?|assessment|indicazioni|programma(?:\s+(?:terapeutico|diagnostico))?|terapia(?:\s+in\s+(?:corso|atto)|\s+domiciliare|\s+attuale|\s+prescritta)?|si\s+consiglia|follow[\s\-]?up|rx\b|ecografia|tc\b|rm\b|radiografia)\b/i;
+const EO_STOP_RE = /^(?:in\s+visione|reca\s+in\s+visione|porta\s+in\s+(?:visione|visita)|accertamenti(?:\s+in\s+visione)?|esami?\s+in\s+visione|esami?\s+di\s+laboratorio|esami?\s+strumentali?|laboratorio|conclusioni?|valutazione(?:\s+clinica)?|assessment|indicazioni|programma(?:\s+(?:terapeutico|diagnostico))?|terapia(?:\s+in\s+(?:corso|atto|uscita)|\s+domiciliare|\s+attuale|\s+prescritta|\s+consigliata|\s+proposta|\s+alla\s+dimissione)?|si\s+consiglia|follow[\s\-]?up|rx\b|ecografia|tc\b|rm\b|radiografia)\b/i;
 
 /**
  * Clips ESAME_OBIETTIVO text at the first line that looks like a subsequent
@@ -158,7 +167,7 @@ function clipEsameObiettivo(text) {
   return lines.slice(0, stopIdx).join("\n").trim();
 }
 
-const INLINE_HEADER_SPLIT_RE = /[ \t]+(RACCORDO[ \t]+ANAMNESTICO|ANAMNESI[ \t]+REUMATOLOGICA|STORIA[ \t]+CLINICA|VISITA[ \t]+ODIERNA|CONCLUSIONI|INDICAZIONI|TERAPIA[ \t]+IN[ \t]+ATTO|TERAPIA[ \t]+DOMICILIARE)[ \t]*:/g;
+const INLINE_HEADER_SPLIT_RE = /[ \t]+(RACCORDO[ \t]+ANAMNESTICO|ANAMNESI[ \t]+REUMATOLOGICA|STORIA[ \t]+CLINICA|VISITA[ \t]+ODIERNA|CONCLUSIONI|INDICAZIONI[ \t]+TERAPEUTICHE|INDICAZIONI|PRESCRIZIONE[ \t]+(?:TERAPEUTICA|FARMACOLOGICA)|TERAPIA[ \t]+IN[ \t]+USCITA|TERAPIA[ \t]+IN[ \t]+ATTO|TERAPIA[ \t]+DOMICILIARE)[ \t]*:/g;
 
 /**
  * segmentLetterSections(text)

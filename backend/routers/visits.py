@@ -63,6 +63,7 @@ class WorkupVisitBase(BaseModel):
     therapy_modification: Optional[str] = None           # 6 · Piano: modifica terapeutica
     referred_to_gp: Optional[bool] = None                # 7 · Referral: restituzione al MMG
     referral_note: Optional[str] = None                  # 7 · Referral: note / lettera al MMG
+    exit_therapy_text: Optional[str] = None              # Terapia in uscita: testo originale del referto
     comorbidities_text: Optional[str] = None              # Snapshot comorbidità testo (report)
     home_therapies_text: Optional[str] = None            # Snapshot terapia domiciliare (report)
     notes: Optional[str] = None                          # Note aggiuntive libere

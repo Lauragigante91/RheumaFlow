@@ -437,3 +437,69 @@ describe("therapies[]._visit_event — solo decisioni esplicite di questa visita
     expect(findTherapy(ex, "Secukinumab")?._visit_event).toBe("start");
   });
 });
+
+describe("Terapia in uscita — routing sezione", () => {
+  test("header 'TERAPIA IN USCITA' raccolto verbatim in visit_sections.terapia_uscita", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "ESAME OBIETTIVO:",
+      "Articolazioni indolenti.",
+      "TERAPIA IN USCITA:",
+      "Prednisone 25 mg/die con scalaggio di 2,5 mg ogni 7 giorni fino a 5 mg.",
+      "Controllo emocromo e PCR a 4 settimane.",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    const tu = extracted.visit_sections?.terapia_uscita || "";
+    expect(tu).toContain("Prednisone 25 mg/die");
+    expect(tu).toContain("scalaggio");
+    expect(tu).toContain("Controllo emocromo e PCR a 4 settimane");
+  });
+
+  test("'INDICAZIONI' (follow-up) resta in indicazioni, non in terapia_uscita", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "ESAME OBIETTIVO:",
+      "Nei limiti.",
+      "INDICAZIONI:",
+      "Si consiglia rivalutazione tra 6 mesi con esami ematici.",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    expect(extracted.visit_sections?.indicazioni || "").toContain("rivalutazione tra 6 mesi");
+    expect(extracted.visit_sections?.terapia_uscita || "").toBe("");
+  });
+
+  test("'INDICAZIONI TERAPEUTICHE' instrada su terapia_uscita", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "ESAME OBIETTIVO:",
+      "Nei limiti.",
+      "INDICAZIONI TERAPEUTICHE:",
+      "Avviare Upadacitinib 15 mg/die. Controllo transaminasi a 4 settimane.",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    expect(extracted.visit_sections?.terapia_uscita || "").toContain("Upadacitinib 15 mg/die");
+  });
+
+  test("bare 'TERAPIA IN ATTO' resta terapia domiciliare, non terapia in uscita", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "TERAPIA IN ATTO:",
+      "Metotrexato 15 mg/sett.",
+      "ESAME OBIETTIVO:",
+      "Nei limiti.",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    expect(extracted.visit_sections?.terapia_uscita || "").toBe("");
+    expect(findTherapy(extracted, "Methotrexate")).toBeTruthy();
+  });
+
+  test("header inline 'PRESCRIZIONE TERAPEUTICA:' instrada su terapia_uscita", () => {
+    const text = [
+      "MOTIVO: controllo.",
+      "ESAME OBIETTIVO: nei limiti.",
+      "CONCLUSIONI: quadro clinico stabile. PRESCRIZIONE TERAPEUTICA: Upadacitinib 15 mg/die. Controllo transaminasi a 4 settimane.",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    expect(extracted.visit_sections?.terapia_uscita || "").toContain("Upadacitinib 15 mg/die");
+  });
+});

@@ -209,6 +209,7 @@ function makeEmptyForm() {
     therapy_modification:          "",
     referred_to_gp:                false,
     referral_note:                 "",
+    exit_therapy_text:             "",
     notes:                         "",
   };
 }
@@ -602,6 +603,7 @@ export default function WorkupVisitPage() {
       therapy_modification:          visit.therapy_modification          || "",
       referred_to_gp:                visit.referred_to_gp               || false,
       referral_note:                 visit.referral_note                 || "",
+      exit_therapy_text:             visit.exit_therapy_text             || "",
       notes:                         visit.notes                         || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -783,6 +785,7 @@ export default function WorkupVisitPage() {
         therapy_modification:  form.therapy_modification || null,
         referred_to_gp:        form.referred_to_gp || null,
         referral_note:         form.referral_note || null,
+        exit_therapy_text:     form.exit_therapy_text     || null,
         comorbidities_text:    form.comorbidities_text    || null,
         home_therapies_text:   form.home_therapies_text   || null,
         notes:                 form.notes || null,
