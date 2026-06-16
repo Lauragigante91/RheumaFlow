@@ -680,31 +680,34 @@ describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () =
     });
   });
 
-  it("buildTerapiaUscita: il testo originale del referto ha priorità su exitText e regimen, verbatim", () => {
+  it("buildTerapiaUscita: lo snapshot del ledger (exitText) prevale sull'eventuale testo originale del referto", () => {
     const ORIG = [
       "Prednisone 25 mg/die con scalaggio di 2,5 mg ogni 7 giorni fino a 5 mg/die.",
       "Controllo emocromo, transaminasi e PCR a 4 settimane.",
       "Rivalutazione clinica a 3 mesi.",
     ].join("\n");
+    const SNAP = "Prednisone 25 mg (invariata)\nMetotrexato sospeso";
     const out = buildTerapiaUscita({
       originalText: ORIG,
-      exitText: "Prednisone 25 mg (invariata)",
+      exitText: SNAP,
       regimen: "Metotrexato 15 mg/sett",
     });
-    expect(out).toBe(ORIG);
+    expect(out).toBe(SNAP);
+    expect(out).not.toBe(ORIG);
   });
 
-  it("buildTerapiaUscita: il testo originale non viene mai marcato (invariata)", () => {
+  it("buildTerapiaUscita: senza snapshot ricade sul regime in corso (invariata), ignorando il testo originale", () => {
     const ORIG = "Metotrexato 15 mg/sett invariato. Folina 5 mg/sett.";
     const out = buildTerapiaUscita({ originalText: ORIG, regimen: "MTX 15 mg" });
-    expect(out).toBe(ORIG);
-    expect(out).not.toContain("(invariata)");
+    expect(out).toContain("MTX 15 mg");
+    expect(out).toContain("(invariata)");
+    expect(out).not.toBe(ORIG);
   });
 
-  it("buildTerapiaUscita: testo originale vuoto o solo spazi ricade su exitText/regimen", () => {
-    expect(buildTerapiaUscita({ originalText: "", exitText: "Adalimumab 40 mg/2sett" }))
-      .toBe("Adalimumab 40 mg/2sett");
-    const r = buildTerapiaUscita({ originalText: "   ", regimen: "MTX 10 mg" });
+  it("buildTerapiaUscita: snapshot vuoto o solo spazi ricade su regime in corso (invariata)", () => {
+    expect(buildTerapiaUscita({ exitText: "", regimen: "Adalimumab 40 mg/2sett" }))
+      .toContain("Adalimumab 40 mg/2sett");
+    const r = buildTerapiaUscita({ exitText: "   ", regimen: "MTX 10 mg" });
     expect(r).toContain("MTX 10 mg");
     expect(r).toContain("(invariata)");
   });
@@ -712,16 +715,34 @@ describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () =
   it("buildTerapiaUscita: la terapia in uscita resta distinta dalla modifica terapeutica (#14)", () => {
     const visit = {
       exit_therapy_text: "Secukinumab 300 mg s.c. mensile.\nMonitoraggio epatico ogni 3 mesi.",
+      exit_therapies_text: "Secukinumab 300 mg (nuovo)\nMetotrexato sospeso",
       therapy_modification: "Sospeso Metotrexato; avviato Secukinumab",
       home_therapies_text: "Metotrexato 15 mg/sett",
     };
     const uscita = buildTerapiaUscita({
-      originalText: visit.exit_therapy_text,
-      regimen: visit.home_therapies_text,
       exitText: visit.exit_therapies_text,
+      regimen: visit.home_therapies_text,
     });
-    expect(uscita).toBe(visit.exit_therapy_text);
+    expect(uscita).toBe(visit.exit_therapies_text);
     expect(uscita).not.toContain(visit.therapy_modification);
+    expect(uscita).not.toBe(visit.exit_therapy_text);
+  });
+
+  it("visita importata con prosa + eventi terapeutici: la sezione TERAPIA IN USCITA mostra il regime per-farmaco annotato, non la prosa", () => {
+    const visit = {
+      exit_therapy_text: "Si conferma Secukinumab, si sospende Metotrexato. Controllo a 3 mesi.",
+      exit_therapies_text: "Secukinumab 300 mg (invariata)\nMetotrexato sospeso",
+      home_therapies_text: "Secukinumab 300 mg · Metotrexato 10 mg/sett",
+    };
+    const uscita = buildTerapiaUscita({
+      originalText: visit.exit_therapy_text,
+      exitText: visit.exit_therapies_text,
+      regimen: visit.home_therapies_text,
+    });
+    expect(uscita).toBe(visit.exit_therapies_text);
+    expect(uscita).toContain("(invariata)");
+    expect(uscita).toContain("sospeso");
+    expect(uscita).not.toContain(visit.exit_therapy_text);
   });
 
   it("import singolo: visit_sections.terapia_uscita viene salvato in exit_therapy_text", async () => {
