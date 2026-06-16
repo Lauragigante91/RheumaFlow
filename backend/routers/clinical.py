@@ -24,7 +24,7 @@ from models import (
     SpecialistVisit, SpecialistVisitBase,
     InstrumentalExam, InstrumentalExamBase, InstrumentalExamUpdate,
 )
-from helpers import verify_patient_in_org, _episode_state_at, _therapy_state_at
+from helpers import verify_patient_in_org, _episode_state_at, _therapy_state_at, compute_exit_therapies_text
 
 router = APIRouter()
 
@@ -428,8 +428,40 @@ async def create_therapy(payload: TherapyBase, user: dict = Depends(get_current_
     return t
 
 
+async def _refresh_exit_snapshot_for_visit(
+    visit_id: Optional[str], patient_id: str, organization_id: str
+) -> None:
+    if not visit_id:
+        return
+    visit = await db.workup_visits.find_one(
+        {"id": visit_id, "organization_id": organization_id},
+        {"_id": 0, "visit_date": 1},
+    )
+    if not visit:
+        return
+    visit_date = visit.get("visit_date") or ""
+    if not visit_date:
+        return
+    episodes = await db.therapies.find(
+        {"patient_id": patient_id, "organization_id": organization_id},
+        {"_id": 0},
+    ).to_list(2000)
+    await db.workup_visits.update_one(
+        {"id": visit_id, "organization_id": organization_id},
+        {"$set": {"exit_therapies_text": compute_exit_therapies_text(episodes, visit_date)}},
+    )
+
+
 @router.post("/therapies/upsert", response_model=Therapy)
 async def upsert_therapy(payload: TherapyUpsert, user: dict = Depends(get_current_user)):
+    result = await _upsert_therapy_impl(payload, user)
+    await _refresh_exit_snapshot_for_visit(
+        payload.visit_id, payload.patient_id, user["organization_id"]
+    )
+    return result
+
+
+async def _upsert_therapy_impl(payload: TherapyUpsert, user: dict):
     """
     Episode-aware upsert.
 

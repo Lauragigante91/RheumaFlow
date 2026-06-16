@@ -78,7 +78,7 @@ class WorkupVisit(WorkupVisitBase):
     created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: Optional[str] = None
-    exit_therapies_text: Optional[str] = None   # Terapia in uscita (derivato a lettura, non persistito)
+    exit_therapies_text: Optional[str] = None   # Terapia in uscita: snapshot persistito post-upsert; fallback calcolato a lettura
 
 
 # ── Visit Templates ───────────────────────────────────────────────────────────
@@ -169,7 +169,8 @@ async def list_workup_visits(
         {"_id": 0},
     ).to_list(2000)
     for v in visits:
-        v["exit_therapies_text"] = compute_exit_therapies_text(episodes, v.get("visit_date") or "")
+        if not (v.get("exit_therapies_text") or "").strip():
+            v["exit_therapies_text"] = compute_exit_therapies_text(episodes, v.get("visit_date") or "")
     return visits
 
 
