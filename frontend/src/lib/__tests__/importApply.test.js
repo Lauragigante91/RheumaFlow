@@ -7,6 +7,7 @@ import {
 } from "../importApply";
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import { buildTerapiaUscita } from "../terapiaUscita";
+import { parseVisitText } from "../visitTextParser";
 import {
   patientsApi,
   assessmentsApi,
@@ -613,136 +614,138 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
   });
 });
 
-describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () => {
+describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("buildTerapiaUscita: il regime calcolato (exitText) ha priorità e non viene mai sostituito dalla modifica", () => {
-    const out = buildTerapiaUscita({
-      regimen: "Metotrexato 10 mg",
-      exitText: "Secukinumab 300 mg (invariata)\nMetotrexato sospeso",
-    });
-    expect(out).toBe("Secukinumab 300 mg (invariata)\nMetotrexato sospeso");
+  it("buildTerapiaUscita: restituisce il testo del referto verbatim, senza marcatura", () => {
+    const ref = "Secukinumab 300 mg s.c. ogni 4 settimane.\nMethotrexate 10 mg i.m. una volta a settimana.";
+    const out = buildTerapiaUscita({ refertoText: ref, ricostruito: "Adalimumab 40 mg" });
+    expect(out).toBe(ref);
+    expect(out).not.toContain("(ricostruito)");
+    expect(out).not.toContain("(invariata)");
   });
 
-  it("buildTerapiaUscita: senza regime calcolato mostra il regime in corso marcato (invariata)", () => {
-    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett" });
+  it("buildTerapiaUscita: senza testo del referto ricade sul ledger marcato (ricostruito)", () => {
+    const out = buildTerapiaUscita({ ricostruito: "Metotrexato 15 mg/sett" });
     expect(out).toContain("Metotrexato 15 mg/sett");
-    expect(out).toContain("(invariata)");
+    expect(out).toContain("(ricostruito)");
+    expect(out).not.toContain("(invariata)");
   });
 
-  it("buildTerapiaUscita: la modifica terapeutica NON è più contenuto della terapia in uscita", () => {
-    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett" });
-    expect(out).not.toContain("Sospeso MTX");
-    expect(out).toContain("(invariata)");
+  it("buildTerapiaUscita: testo del referto vuoto o solo spazi ricade sul ledger (ricostruito)", () => {
+    const a = buildTerapiaUscita({ refertoText: "", ricostruito: "MTX 10 mg" });
+    expect(a).toContain("MTX 10 mg");
+    expect(a).toContain("(ricostruito)");
+    const b = buildTerapiaUscita({ refertoText: "   ", ricostruito: "MTX 10 mg" });
+    expect(b).toContain("MTX 10 mg");
+    expect(b).toContain("(ricostruito)");
   });
 
   it("buildTerapiaUscita: nessun dato restituisce null", () => {
-    expect(buildTerapiaUscita({ regimen: "" })).toBeNull();
     expect(buildTerapiaUscita({})).toBeNull();
+    expect(buildTerapiaUscita({ refertoText: "", ricostruito: "" })).toBeNull();
   });
 
-  it("buildTerapiaUscita: exitText vuoto o solo spazi ricade sul regime in corso (invariata)", () => {
-    const a = buildTerapiaUscita({ regimen: "MTX 10 mg", exitText: "" });
-    expect(a).toContain("MTX 10 mg");
-    expect(a).toContain("(invariata)");
-    const b = buildTerapiaUscita({ regimen: "MTX 10 mg", exitText: "   " });
-    expect(b).toContain("MTX 10 mg");
-    expect(b).toContain("(invariata)");
+  it("buildTerapiaUscita: non fabbrica mai '(invariata)'", () => {
+    expect(buildTerapiaUscita({ ricostruito: "MTX 15 mg/sett" })).not.toContain("(invariata)");
+    expect(buildTerapiaUscita({ refertoText: "MTX 15 mg/sett" })).not.toContain("(invariata)");
   });
 
-  it("multi-import 3 visite con terapia invariata: ogni visita ha terapia in uscita valorizzata, marcata (invariata), senza modifica terapeutica falsa", async () => {
-    const TERAPIA = "Metotrexato 15 mg/sett · Acido folico 5 mg/sett";
-    const dates = ["2022-03-01", "2023-03-01", "2024-03-01"];
-    const drafts = dates.map((date) => ({
-      date,
-      visitType: "follow_up",
-      label: `Visita ${date}`,
-      selected: ALL_SELECTED,
-      draft: {
-        visit_date: date,
-        visit_type: "follow_up",
-        profilo_generale: { terapia_domiciliare: TERAPIA },
-        visit_sections: { anamnesi: `controllo ${date}`, esame_obj: `EO ${date}` },
-      },
-    }));
-
-    await applyDraftBatch(drafts, basePatient(), { defaultVisitType: "follow_up" });
-
-    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
-    const payloads = workupVisitsApi.create.mock.calls.map((c) => c[1]);
-    payloads.forEach((p) => {
-      expect(p.home_therapies_text).toBe(TERAPIA);
-      expect(p.therapy_modification == null || p.therapy_modification === "").toBe(true);
-
-      const uscita = buildTerapiaUscita({ regimen: p.home_therapies_text });
-      expect(uscita).toContain(TERAPIA);
-      expect(uscita).toContain("(invariata)");
-    });
-  });
-
-  it("buildTerapiaUscita: lo snapshot del ledger (exitText) prevale sull'eventuale testo originale del referto", () => {
-    const ORIG = [
-      "Prednisone 25 mg/die con scalaggio di 2,5 mg ogni 7 giorni fino a 5 mg/die.",
-      "Controllo emocromo, transaminasi e PCR a 4 settimane.",
-      "Rivalutazione clinica a 3 mesi.",
+  it("parser (a): una sezione IN TERAPIA lunga diventa la TERAPIA IN USCITA verbatim, non una lista farmaco+dose", () => {
+    const referto = [
+      "CONCLUSIONI",
+      "Artrite psoriasica in buon controllo di malattia.",
+      "",
+      "IN TERAPIA:",
+      "- Secukinumab 300 mg s.c. ogni 4 settimane.",
+      "- Methotrexate 10 mg i.m. una volta a settimana.",
+      "- Acido folico 5 mg il giorno dopo il methotrexate.",
+      "- Controllo emocromo, AST, ALT e creatinina ogni 8-12 settimane.",
     ].join("\n");
-    const SNAP = "Prednisone 25 mg (invariata)\nMetotrexato sospeso";
-    const out = buildTerapiaUscita({
-      originalText: ORIG,
-      exitText: SNAP,
-      regimen: "Metotrexato 15 mg/sett",
-    });
-    expect(out).toBe(SNAP);
-    expect(out).not.toBe(ORIG);
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("Secukinumab 300 mg");
+    expect(uscita).toContain("ogni 4 settimane");
+    expect(uscita).toContain("Methotrexate 10 mg");
+    expect(uscita).toContain("una volta a settimana");
+    expect(uscita).toContain("Acido folico 5 mg");
+    expect(uscita).toContain("Controllo emocromo");
+    expect(uscita).not.toContain("(invariata)");
+    expect(uscita).not.toContain("(ricostruito)");
   });
 
-  it("buildTerapiaUscita: senza snapshot ricade sul regime in corso (invariata), ignorando il testo originale", () => {
-    const ORIG = "Metotrexato 15 mg/sett invariato. Folina 5 mg/sett.";
-    const out = buildTerapiaUscita({ originalText: ORIG, regimen: "MTX 15 mg" });
-    expect(out).toContain("MTX 15 mg");
-    expect(out).toContain("(invariata)");
-    expect(out).not.toBe(ORIG);
+  it("parser (b): senza IN TERAPIA, la TERAPIA IN USCITA contiene solo la parte farmacologica di INDICAZIONI", () => {
+    const referto = [
+      "CONCLUSIONI",
+      "Artrite reumatoide in fase attiva.",
+      "",
+      "INDICAZIONI",
+      "- Aumentare metotrexato a 15 mg a settimana.",
+      "- Aggiungere acido folico 5 mg.",
+      "- Controllo emocromo e transaminasi tra 6 settimane.",
+      "- Rivalutazione clinica tra 3 mesi.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("metotrexato");
+    expect(uscita).toContain("15 mg");
+    expect(uscita).toContain("acido folico 5 mg");
+    expect(uscita).not.toContain("emocromo");
+    expect(uscita).not.toContain("Rivalutazione");
   });
 
-  it("buildTerapiaUscita: snapshot vuoto o solo spazi ricade su regime in corso (invariata)", () => {
-    expect(buildTerapiaUscita({ exitText: "", regimen: "Adalimumab 40 mg/2sett" }))
-      .toContain("Adalimumab 40 mg/2sett");
-    const r = buildTerapiaUscita({ exitText: "   ", regimen: "MTX 10 mg" });
-    expect(r).toContain("MTX 10 mg");
-    expect(r).toContain("(invariata)");
+  it("parser (c): le terapie pregresse del raccordo non entrano nella TERAPIA IN USCITA", () => {
+    const referto = [
+      "RACCORDO ANAMNESTICO",
+      "In passato trattata con Adalimumab dal 2018 al 2020, sospeso per inefficacia.",
+      "Etanercept dal 2020, sospeso per reazione cutanea.",
+      "",
+      "IN TERAPIA:",
+      "- Secukinumab 300 mg s.c. ogni 4 settimane.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("Secukinumab");
+    expect(uscita).not.toContain("Adalimumab");
+    expect(uscita).not.toContain("Etanercept");
   });
 
-  it("buildTerapiaUscita: la terapia in uscita resta distinta dalla modifica terapeutica (#14)", () => {
-    const visit = {
-      exit_therapy_text: "Secukinumab 300 mg s.c. mensile.\nMonitoraggio epatico ogni 3 mesi.",
-      exit_therapies_text: "Secukinumab 300 mg (nuovo)\nMetotrexato sospeso",
-      therapy_modification: "Sospeso Metotrexato; avviato Secukinumab",
-      home_therapies_text: "Metotrexato 15 mg/sett",
-    };
-    const uscita = buildTerapiaUscita({
-      exitText: visit.exit_therapies_text,
-      regimen: visit.home_therapies_text,
-    });
-    expect(uscita).toBe(visit.exit_therapies_text);
-    expect(uscita).not.toContain(visit.therapy_modification);
-    expect(uscita).not.toBe(visit.exit_therapy_text);
+  it("buildTerapiaUscita (d): con ledger discordante segue il testo del referto, non il ledger", () => {
+    const referto = "Secukinumab 300 mg s.c. ogni 4 settimane.\nMethotrexate 10 mg i.m. una volta a settimana.";
+    const ledger = "Adalimumab 40 mg (invariata)\nPrednisone 5 mg";
+    const out = buildTerapiaUscita({ refertoText: referto, ricostruito: ledger });
+    expect(out).toBe(referto);
+    expect(out).not.toContain("Adalimumab");
+    expect(out).not.toContain("(invariata)");
   });
 
-  it("visita importata con prosa + eventi terapeutici: la sezione TERAPIA IN USCITA mostra il regime per-farmaco annotato, non la prosa", () => {
-    const visit = {
-      exit_therapy_text: "Si conferma Secukinumab, si sospende Metotrexato. Controllo a 3 mesi.",
-      exit_therapies_text: "Secukinumab 300 mg (invariata)\nMetotrexato sospeso",
-      home_therapies_text: "Secukinumab 300 mg · Metotrexato 10 mg/sett",
-    };
-    const uscita = buildTerapiaUscita({
-      originalText: visit.exit_therapy_text,
-      exitText: visit.exit_therapies_text,
-      regimen: visit.home_therapies_text,
-    });
-    expect(uscita).toBe(visit.exit_therapies_text);
-    expect(uscita).toContain("(invariata)");
-    expect(uscita).toContain("sospeso");
-    expect(uscita).not.toContain(visit.exit_therapy_text);
+  it("parser: una IN TERAPIA breve inline non viene scartata dalla soglia di lunghezza", () => {
+    const { extracted } = parseVisitText("IN TERAPIA: MTX 10 mg");
+    expect(extracted.visit_sections.terapia_uscita).toContain("MTX 10 mg");
+  });
+
+  it("parser: un header esplicito TERAPIA IN USCITA breve viene preservato", () => {
+    const { extracted } = parseVisitText("TERAPIA IN USCITA: Humira");
+    expect(extracted.visit_sections.terapia_uscita).toContain("Humira");
+  });
+
+  it("parser: la parte farmacologica di INDICAZIONI esclude monitoraggi di laboratorio e follow-up", () => {
+    const referto = [
+      "CONCLUSIONI",
+      "Artrite reumatoide.",
+      "",
+      "INDICAZIONI",
+      "- Aumentare metotrexato a 15 mg a settimana.",
+      "- Mantenere PCR < 5 mg/L.",
+      "- Controllo Hb 12 g/dL.",
+      "- Rivalutazione clinica tra 3 mesi.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("metotrexato");
+    expect(uscita).not.toContain("PCR");
+    expect(uscita).not.toContain("Hb");
+    expect(uscita).not.toContain("Rivalutazione");
   });
 
   it("import singolo: visit_sections.terapia_uscita viene salvato in exit_therapy_text", async () => {

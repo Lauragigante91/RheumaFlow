@@ -1,40 +1,26 @@
 ---
 name: Terapia in uscita (exit regimen)
-description: Display priority for the TERAPIA IN USCITA report section, why the original report text is preserved verbatim, and the rules for the ledger-derived fallback.
+description: Authoritative rule for the TERAPIA IN USCITA report section — it equals the imported referto's therapeutic text, never a ledger-reconstructed regimen.
 ---
 
-TERAPIA IN USCITA (report section #13) has a strict display priority:
-**original report text (persisted) > ledger-derived regimen > current regimen + "(invariata)".**
+**TERAPIA IN USCITA (report section #13) EQUALS the therapeutic text in the imported referto, verbatim. It is NOT reconstructed from the therapy episode ledger.**
+**Why:** definitive product decision that overrides the earlier task-23 spec (which said the section "resta un valore derivato, non un campo libero" rebuilt per-drug from the ledger) AND the prior code review that enforced it. The doctor's exit plan must read exactly as written in the letter/PDF — full prose, taperings, posology, monitoring — not a normalized one-line-per-drug list.
+**How to apply:** do NOT reintroduce any ledger-first display priority, any per-drug "(invariata)/(nuovo)/(modificata)" annotation, or any home-regimen "(invariata)" fallback. Those are the OLD behavior and are now wrong.
 
-**Original report text wins and is verbatim.** When a visit was imported from a letter/PDF, the exit-therapy section of the original report (schema, taperings, warnings, lab monitoring, follow-up timing) is captured and persisted as its own field, and rendered as-is.
-**Why:** the section must preserve the doctor's full prose plan, not a normalized one-line-per-drug list. The earlier bug reduced it to a drug list and lost the clinical nuance.
-**How to apply:** the priority lives in the single display helper consumed by every record builder (first visit, workup/follow-up, timeline). The verbatim original is NEVER annotated "(invariata)"; only the regimen fallback is.
+**Source priority (literal, never invert):** explicit exit headers `S.TERAPIA_USCITA` → else `S.IN_TERAPIA` → else the pharmacological part of `S.INDICAZIONI`. Built as `terapiaUscitaText` in `visitTextParser.parseVisitText` and emitted into `vsScope` as the `TERAPIA IN USCITA` block consumed by `extractVisitSections`.
+- `S.*` come from `segmentLetterSections` (letterSectionParser). Duplicate headers are last-wins, which is the intended outgoing value; keep the literal priority, do not try to be clever.
+- Pregresse (past therapies in the raccordo/anamnesi) are excluded unless they literally appear inside IN TERAPIA / INDICAZIONI.
 
-**Capture is header-scoped, not drug-parsed.** Exit-specific headers (TERAPIA IN USCITA / CONSIGLIATA / ALLA DIMISSIONE / PRESCRITTA / PROPOSTA / DOMICILIARE CONSIGLIATA, INDICAZIONI TERAPEUTICHE, PRESCRIZIONE TERAPEUTICA|FARMACOLOGICA) route to the exit section. Bare TERAPIA = home therapy; bare INDICAZIONI = referral note — both excluded. The exit section def must sit BEFORE home-therapy and indicazioni in the ordered section list, and exit-header variants must also be mirrored in the inline-header split so same-line headers are caught.
-**Why:** ordering and the bare-vs-qualified distinction are the whole correctness story; a misorder silently misroutes the section.
+**`pharmaPartOfIndicazioni(text)`** keeps only the therapeutic lines of INDICAZIONI (the rest is the referral note = `visit_sections.indicazioni` → referral_note). A line is kept if it has a known drug (`DRUG_PATTERNS`), a dose (`_THERAPY_DOSE_RE`), or a therapy verb (`_THERAPY_VERB_RE`). It is a deterministic best-effort heuristic, not perfect.
+- `_THERAPY_DOSE_RE` has a negative lookahead `(?!\s*\/\s*d?l)` so concentration units (`mg/L`, `g/dL`) used in lab-monitoring lines do NOT count as a dose; `mg/die` still matches (the lookahead needs `/…l`, not `/die`).
+- Verb stems are Italian present-tense (`riduc\w*`, `mantien\w*` …); infinitives like `ridurre`/`mantenere` deliberately don't match → fewer false positives. Don't broaden without regression tests.
 
-**Persistence: the full-replace PUT will wipe it.** The workup-visit update replaces the whole document from the request body, so any editor form that saves a visit must load AND resend the exit-therapy field, or an edit erases the imported text.
+**`extractVisitSections` length gate:** other sections require `content.length >= 16`, but `terapia_uscita` uses `minLen = 1` — a terse but valid exit therapy (`IN TERAPIA: MTX 10 mg`, `TERAPIA IN USCITA: Humira`) must NOT be discarded by the noise gate, or display silently falls back to the ledger.
 
-**therapy_modification stays a SEPARATE section** ("MODIFICHE TERAPEUTICHE"), never folded into TERAPIA IN USCITA. The modifica is the doctor's manual note about what changed; the exit section is the full resulting plan.
+**Display helper `buildTerapiaUscita({ refertoText, ricostruito })`** (single source consumed by every record builder): returns `refertoText.trim()` if present (verbatim, no marker); else `"(ricostruito)\n" + ricostruito` if present; else `null`. The ledger snapshot is ONLY a fallback when there is no referto text, and it is always explicitly marked `(ricostruito)`. It NEVER fabricates `(invariata)`.
+- Workup/follow-up records pass `{ refertoText: visit.exit_therapy_text, ricostruito: visit.exit_therapies_text }`.
+- prima-visita and previous-clinimetric records set `terapia_uscita: null` (they don't carry imported referto exit text).
 
-**Display priority (single helper `buildTerapiaUscita`): original prose > ledger snapshot > home regimen + "(invariata)".** The ledger snapshot is reconstructed deterministically from the therapy episode ledger: one line per active drug, annotated (invariata)/(nuovo)/(modificata)/sospeso; never fabricates events.
-- Entry regimen looked up at visit_date - 1, exit at visit_date; a drug stopped ON the visit date is excluded from exit and rendered "sospeso".
-- Do NOT filter deleted_at in the exit fetch — the home-regimen path never does, and filtering would make the two diverge.
-- Episodes are sorted by (start_date, end_date, id) before fill so stop+restart of the same drug resolves to the latest-start episode regardless of DB order.
+**Persistence (unchanged):** import maps `visit_sections.terapia_uscita` → `WorkupVisit.exit_therapy_text`. The full-replace visit PUT must load+resend `exit_therapy_text` or an edit erases the imported text. `exit_therapies_text` (the ledger snapshot) stays a persisted immutable per-visit field, populated post-upsert; it is now only the labelled `(ricostruito)` fallback, no longer the primary value.
 
-**An episode's activity is NOT decided from start/end dates alone — status and founding event matter.**
-**Why:** pregresse imported from anamnesi land as episodes with no end_date and founding event `historical_exposure` (or status `discontinued`), and a discontinuation can live as a dated event rather than as `end_date`. Reconstructing activity from dates only made these unbounded episodes look perpetually active, so the exit/home regimen rendered already-stopped drugs (Golimumab, Leflunomide) as "(invariata)".
-**How to apply:** compute an *effective end* = end_date, else the date of the last `discontinued`/`paused` lifecycle event, cleared if a later `resumed_within` reopens it. Then: an episode with effective_end None is active ONLY if its last lifecycle event isn't a closure AND its status isn't `discontinued` AND its founding event isn't `historical_exposure`; otherwise treat it as not assertable → hide it. Regimen reconstruction must walk *non-voided* events sorted by (date, created_at), never the raw events list.
-
-**Effective end must be evaluated AS-OF the target date; the "unbounded pregressa" guard must NOT.**
-**Why:** a within-episode `resumed_within` dated AFTER the visit was clearing the closure globally, so a drug discontinued ON the visit date rendered "(invariata)" instead of "sospeso" (and home snapshots taken in the stop→resume gap showed it active). But the opposite mistake also bites: making the guard date-aware hid a legitimately-active drug at the day-before date, because its own (future) discontinuation hadn't happened yet → effective_end looked None → guard fired.
-**How to apply:** `_effective_end(episode, as_of)` ignores events dated after `as_of`; all eligibility comparisons (start/end in `_episode_state_at` and `_episode_active_before/after`) use this as-of end. The hide-unbounded-pregressa guard instead uses the date-UNAWARE `_effective_end(episode)` (`final_end`): hide only when there is NO closure date ANYWHERE in the ledger; a dated closure is left to the start/end eligibility comparison, never the guard.
-
-**Section #13 (TERAPIA IN USCITA) is deterministic/derived; verbatim prose must NEVER drive it.**
-**Why:** task-23 spec is explicit — terapia in uscita "resta un valore derivato, non un campo libero"; it must be the per-drug annotated regimen rebuilt from the ledger, not the letter's free text. A drift once made the reconstructed section show `exit_therapy_text` prose first; a code review caught it as a behavioral mismatch with the task.
-**How to apply:** the display priority for the reconstructed section is `exit_therapies_text` (ledger snapshot) → else `home_therapies_text` + "(invariata)". `exit_therapy_text` (singular, the imported/letter's verbatim "terapia in uscita" text) MAY stay persisted as a separate textual/report field and is fine in the manual visit editor, but it must NOT override or feed the derived section.
-
-**The ledger snapshot (`exit_therapies_text`) is a persisted immutable field, NOT compute-on-read.**
-**Why:** if recomputed on every read, editing the therapy ledger later silently rewrites a past visit's TERAPIA IN USCITA — it must be a fotografia of that visit, like `home_therapies_text`.
-**How to apply:** populate it post-upsert — the therapy upsert endpoint, when the payload carries a `visit_id`, recomputes `compute_exit_therapies_text` for that visit and `$set`s it. Import creates the visit BEFORE the therapy upserts, so the final upsert in the loop yields the complete snapshot (do NOT try to compute it at visit-create — episodes aren't there yet). The field lives on the `WorkupVisit` subclass, NOT `WorkupVisitBase`, so the full-replace visit PUT never carries it and can't clobber it. `list_workup_visits` returns the stored value when present and computes on read ONLY when absent (legacy visits) — reads stay side-effect-free.
-**The frontend home-regimen fallback (Step 3) is KEPT** (`regimen: visit.home_therapies_text` into `buildTerapiaUscita`). It is safe now because `home_therapies_text` is generated from the same fixed `_episode_state_at` (so it excludes pregresse for new visits) and the ledger-snapshot tier sits before it in priority. An earlier attempt removed this fallback to dodge stale old snapshots — that violated the spec; don't remove it again.
+**therapy_modification stays a SEPARATE section** ("MODIFICHE TERAPEUTICHE"), never folded into TERAPIA IN USCITA.

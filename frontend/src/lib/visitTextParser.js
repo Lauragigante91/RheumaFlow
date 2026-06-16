@@ -1179,7 +1179,8 @@ function extractVisitSections(text) {
     const content      = text.slice(contentStart, contentEnd)
       .replace(/^[\s:–\-\n]+/, "")
       .trim();
-    if (content.length > 15) sections[found[i].key] = content;
+    const minLen = found[i].key === "terapia_uscita" ? 1 : 16;
+    if (content.length >= minLen) sections[found[i].key] = content;
   }
 
   return Object.keys(sections).length ? sections : null;
@@ -1476,6 +1477,34 @@ function normalizeImportedText(raw) {
     .replace(/[ \t]{2,}/g, ' ');  // collassa spazi multipli
 }
 
+const _THERAPY_DOSE_RE = /\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|gamma|g|cp|compress\w*|fiala|fiale|fl|ml|gtt|u\.?i\.?|mui|unit\w*)\b(?!\s*\/\s*d?l)/i;
+const _THERAPY_VERB_RE = /\b(?:prosegu\w*|continu\w*|sospend\w*|riduc\w*|aument\w*|introdu\w*|aggiung\w*|avvi\w*|scala\w*|switch|associ\w*|mantien\w*|assum\w*|inizi\w*)/i;
+
+function _textHasKnownDrug(text) {
+  if (!text) return false;
+  for (const [pattern, , , caseSensitive] of DRUG_PATTERNS) {
+    if (new RegExp(pattern.source, caseSensitive ? "" : "i").test(text)) return true;
+  }
+  return false;
+}
+
+function _splitTherapyUnits(text) {
+  let t = text.replace(/\b([a-zA-Z])\.([a-zA-Z])\./g, "$1\u0001$2\u0001");
+  t = t.replace(/([.;])\s+(?=[A-ZÀ-Ý])/g, "$1\n");
+  return t
+    .split(/\n+/)
+    .map((u) => u.replace(/\u0001/g, ".").replace(/^[-–—•*>]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function pharmaPartOfIndicazioni(text) {
+  if (!text || !text.trim()) return null;
+  const kept = _splitTherapyUnits(text).filter(
+    (u) => _textHasKnownDrug(u) || _THERAPY_DOSE_RE.test(u) || _THERAPY_VERB_RE.test(u),
+  );
+  return kept.length ? kept.join("\n") : null;
+}
+
 export function parseVisitText(text) {
   if (!text?.trim()) return { extracted: {}, _trace: [] };
 
@@ -1752,12 +1781,17 @@ export function parseVisitText(text) {
     _ivAI.cleaned ?? _cleanAI,
     stripVisitIncipit(_ivVO.cleaned ?? S.VISITA_ODIERNA),
   ].filter(Boolean).join("\n\n") || null;
+  const terapiaUscitaText =
+    S.TERAPIA_USCITA ||
+    S.IN_TERAPIA ||
+    pharmaPartOfIndicazioni(S.INDICAZIONI) ||
+    null;
   const vsScope = [
     raccordoText      ? `RACCORDO ANAMNESTICO\n${raccordoText}`     : null,
     _anamnesisText    ? `ANAMNESI INTERVALLARE\n${_anamnesisText}`  : null,
     S.ESAME_OBIETTIVO ? `ESAME OBIETTIVO\n${S.ESAME_OBIETTIVO}`     : null,
     S.CONCLUSIONI     ? `CONCLUSIONI\n${S.CONCLUSIONI}`             : null,
-    S.TERAPIA_USCITA  ? `TERAPIA IN USCITA\n${S.TERAPIA_USCITA}`    : null,
+    terapiaUscitaText ? `TERAPIA IN USCITA\n${terapiaUscitaText}`   : null,
     S.INDICAZIONI     ? `INDICAZIONI\n${S.INDICAZIONI}`             : null,
   ].filter(Boolean).join("\n\n");
   const visit_sections = extractVisitSections(vsScope || text);

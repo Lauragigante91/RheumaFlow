@@ -72,7 +72,7 @@ function buildPrimaVisitaRecord(firstVisit, patient, linkedAssessments) {
     clinimetria:           buildClinietriaText(linkedAssessments),
     esami:                 esamiParts.join("\n\n") || null,
     conclusioni:           conclusioniLines.join("\n\n") || null,
-    terapia_uscita:        buildTerapiaUscita({ regimen: patient?.terapia_domiciliare }),
+    terapia_uscita:        null,
     modifiche_terapeutiche: firstVisit?.therapy_modification?.trim() || null,
     indicazioni:           firstVisit.outcome_notes?.trim() || null,
   };
@@ -115,7 +115,7 @@ function buildWorkupRecord(visit, patient, linkedAssessments) {
     clinimetria:           buildClinietriaText(linkedAssessments),
     esami:                 visit.labs_imaging?.trim() || null,
     conclusioni:           conclusioniParts.join("\n\n") || null,
-    terapia_uscita:        buildTerapiaUscita({ exitText: visit.exit_therapies_text, regimen: visit.home_therapies_text }),
+    terapia_uscita:        buildTerapiaUscita({ refertoText: visit.exit_therapy_text, ricostruito: visit.exit_therapies_text }),
     modifiche_terapeutiche: visit?.therapy_modification?.trim() || null,
     indicazioni:           visit.referral_note?.trim() || null,
   };
@@ -174,7 +174,7 @@ function buildPreviousVisitRecord(group, patient) {
     clinimetria:           buildClinietriaText(assessments),
     esami:                 firstField("labs_imaging"),
     conclusioni:           firstField("conclusions"),
-    terapia_uscita:        buildTerapiaUscita({ regimen: terapiaTesto }),
+    terapia_uscita:        null,
     modifiche_terapeutiche: null,
     indicazioni:           null,
   };
