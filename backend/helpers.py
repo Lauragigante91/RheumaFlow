@@ -23,6 +23,51 @@ async def verify_patient_in_org(patient_id: str, organization_id: str) -> None:
 
 # ── Point-in-time therapy reconstruction (shared across routers) ──────────────
 
+def _non_voided_events(episode: dict) -> List[dict]:
+    """Episode events without voided ones, sorted by (date, created_at) for determinism."""
+    evs = [e for e in episode.get("events", []) if not e.get("voided")]
+    return sorted(evs, key=lambda e: ((e.get("date") or "")[:10], e.get("created_at") or ""))
+
+
+def _founding_event_type(episode: dict) -> Optional[str]:
+    """Type of the episode's founding event: started | noted | historical_exposure | None."""
+    for ev in _non_voided_events(episode):
+        t = ev.get("type")
+        if t in ("started", "noted", "historical_exposure"):
+            return t
+    return None
+
+
+def _last_lifecycle_event(episode: dict) -> Optional[str]:
+    """Type of the most recent discontinued / paused / resumed_within event, if any."""
+    last: Optional[str] = None
+    for ev in _non_voided_events(episode):
+        if ev.get("type") in ("discontinued", "paused", "resumed_within"):
+            last = ev.get("type")
+    return last
+
+
+def _effective_end(episode: dict) -> Optional[str]:
+    """
+    Closure date used for point-in-time eligibility.
+
+    Starts from the episode-level end_date; a dated 'discontinued'/'paused' event
+    moves the closure, a later 'resumed_within' clears it (episode reopened). An
+    undated closure event leaves the prior value intact. Returns None for an open
+    episode or one with no determinable closure.
+    """
+    pending = (episode.get("end_date") or "")[:10] or None
+    for ev in _non_voided_events(episode):
+        t = ev.get("type")
+        if t in ("discontinued", "paused"):
+            d = (ev.get("date") or "")[:10]
+            if d:
+                pending = d
+        elif t == "resumed_within":
+            pending = None
+    return pending
+
+
 def _episode_state_at(episode: dict, target_date: str) -> Optional[dict]:
     """
     Reconstruct a single therapy episode's clinical state at target_date.
@@ -41,7 +86,21 @@ def _episode_state_at(episode: dict, target_date: str) -> Optional[dict]:
       (= latest value, accurate for fields that never changed).
     """
     start = (episode.get("start_date") or "")[:10]
-    end   = (episode.get("end_date")   or "")[:10] or None
+    end   = _effective_end(episode)
+
+    # Pregresse / discontinued episodes with no determinable closure cannot be
+    # asserted active in any current regimen: a historical exposure from anamnesis,
+    # or an episode flagged discontinued without a closure date, is never "in corso"
+    # (unless a later resumed_within reopened it).
+    if (
+        end is None
+        and _last_lifecycle_event(episode) != "resumed_within"
+        and (
+            episode.get("status") == "discontinued"
+            or _founding_event_type(episode) == "historical_exposure"
+        )
+    ):
+        return None
 
     if not start:
         # "noted" without known start — conservative: active until end_date
@@ -55,7 +114,7 @@ def _episode_state_at(episode: dict, target_date: str) -> Optional[dict]:
             return None
         status_label = "active_approximate" if episode.get("date_approximate") else "active"
 
-    events = sorted(episode.get("events", []), key=lambda e: (e.get("date") or ""))
+    events = _non_voided_events(episode)
 
     # Episode-level values as fallback for fields that predate the extended model
     current_dose      = episode.get("dose")
@@ -139,7 +198,7 @@ def _day_before(target_date: str) -> str:
 def _episode_active_before(episode: dict, visit_date: str) -> bool:
     """True if the episode belonged to the regimen entering the visit (before visit_date)."""
     start = (episode.get("start_date") or "")[:10] or None
-    end   = (episode.get("end_date")   or "")[:10] or None
+    end   = _effective_end(episode)
     if start and start >= visit_date:
         return False
     if end and end < visit_date:
@@ -150,7 +209,7 @@ def _episode_active_before(episode: dict, visit_date: str) -> bool:
 def _episode_active_after(episode: dict, visit_date: str) -> bool:
     """True if the episode belongs to the regimen leaving the visit (after visit_date)."""
     start = (episode.get("start_date") or "")[:10] or None
-    end   = (episode.get("end_date")   or "")[:10] or None
+    end   = _effective_end(episode)
     if start and start > visit_date:
         return False
     if end and end <= visit_date:

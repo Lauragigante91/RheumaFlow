@@ -17,7 +17,15 @@ TERAPIA IN USCITA (report section #13) has a strict display priority:
 
 **therapy_modification stays a SEPARATE section** ("MODIFICHE TERAPEUTICHE"), never folded into TERAPIA IN USCITA. The modifica is the doctor's manual note about what changed; the exit section is the full resulting plan.
 
-**Ledger-derived fallback (only when no original text and no manual regimen).** Reconstructed deterministically from the therapy episode ledger: one line per active drug, annotated (invariata)/(nuovo)/(modificata)/sospeso; never fabricates events.
+**Ledger-derived fallback (only when no original text).** Reconstructed deterministically from the therapy episode ledger: one line per active drug, annotated (invariata)/(nuovo)/(modificata)/sospeso; never fabricates events.
 - Entry regimen looked up at visit_date - 1, exit at visit_date; a drug stopped ON the visit date is excluded from exit and rendered "sospeso".
 - Do NOT filter deleted_at in the exit fetch — the home-regimen path never does, and filtering would make the two diverge.
 - Episodes are sorted by (start_date, end_date, id) before fill so stop+restart of the same drug resolves to the latest-start episode regardless of DB order.
+
+**An episode's activity is NOT decided from start/end dates alone — status and founding event matter.**
+**Why:** pregresse imported from anamnesi land as episodes with no end_date and founding event `historical_exposure` (or status `discontinued`), and a discontinuation can live as a dated event rather than as `end_date`. Reconstructing activity from dates only made these unbounded episodes look perpetually active, so the exit/home regimen rendered already-stopped drugs (Golimumab, Leflunomide) as "(invariata)".
+**How to apply:** compute an *effective end* = end_date, else the date of the last `discontinued`/`paused` lifecycle event, cleared if a later `resumed_within` reopens it. Then: an episode with effective_end None is active ONLY if its last lifecycle event isn't a closure AND its status isn't `discontinued` AND its founding event isn't `historical_exposure`; otherwise treat it as not assertable → hide it. Regimen reconstruction must walk *non-voided* events sorted by (date, created_at), never the raw events list.
+
+**The exit display must never fall back to the stored home-regimen snapshot.**
+**Why:** `home_therapies_text` is an immutable snapshot computed at visit-create time; snapshots written before this fix can still contain pregresse. If the corrected ledger is empty (patient has only pregresse), falling back to that stale snapshot reintroduces the exact bug in TERAPIA IN USCITA.
+**How to apply:** the exit chain is original prose > compute-on-read ledger only. When both are empty the section shows nothing — the regimen still appears in the separate "terapie in corso" field. NOTE: that "terapie in corso" field still reads the stored snapshot, so old visits can show stale pregresse there until re-imported or the snapshot is recomputed; not changed here to preserve the immutable-snapshot decision.

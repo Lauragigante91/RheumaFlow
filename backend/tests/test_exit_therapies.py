@@ -10,7 +10,7 @@ from routers.visits import WorkupVisitBase
 
 
 def ep(drug, start=None, end=None, dose=None, frequency=None, route=None,
-       relevance="medium", events=None, canonical=None):
+       relevance="medium", events=None, canonical=None, status=None):
     return {
         "drug_name": drug,
         "drug_canonical": canonical or drug.lower(),
@@ -20,6 +20,7 @@ def ep(drug, start=None, end=None, dose=None, frequency=None, route=None,
         "frequency": frequency,
         "route": route,
         "relevance": relevance,
+        "status": status,
         "events": events or [],
     }
 
@@ -101,6 +102,115 @@ def test_same_drug_stop_and_restart_at_visit_is_deterministic_nuovo():
     out_a = compute_exit_therapies_text(episodes, "2024-06-16")
     out_b = compute_exit_therapies_text(list(reversed(episodes)), "2024-06-16")
     assert out_a == out_b == "Metotrexato 15 mg (nuovo)"
+
+
+def test_unbounded_historical_exposure_is_hidden():
+    # Pregressa da anamnesi senza data di stop: founding event historical_exposure,
+    # nessun end_date -> non deve comparire come "(invariata)" nella terapia in uscita.
+    episodes = [
+        ep("Secukinumab", start="2024-01-01", dose="300 mg", relevance="high"),
+        ep("Golimumab", start=None, end=None, dose="50 mg", relevance="high",
+           status="discontinued",
+           events=[{"type": "historical_exposure", "date": "2018-01-01", "dose": "50 mg"}]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (invariata)"
+
+
+def test_unbounded_discontinued_status_is_hidden():
+    # Episodio flaggato discontinued ma senza closure date e senza evento di chiusura:
+    # non asseribile come attivo -> escluso dalla terapia in uscita.
+    episodes = [
+        ep("Secukinumab", start="2024-01-01", dose="300 mg", relevance="high"),
+        ep("Leflunomide", start="2019-01-01", end=None, dose="20 mg", relevance="high",
+           status="discontinued"),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (invariata)"
+
+
+def test_discontinued_via_event_before_visit_is_gone():
+    # end_date assente, ma un evento 'discontinued' anni prima della visita chiude
+    # l'episodio: non deve comparire né come attivo né come "sospeso" a questa visita.
+    episodes = [
+        ep("Secukinumab", start="2024-01-01", dose="300 mg", relevance="high"),
+        ep("Adalimumab", start="2020-01-01", end=None, dose="40 mg", relevance="high",
+           status="discontinued",
+           events=[
+               {"type": "started", "date": "2020-01-01", "dose": "40 mg"},
+               {"type": "discontinued", "date": "2022-03-01"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (invariata)"
+
+
+def test_discontinued_via_event_at_visit_is_sospeso():
+    # end_date assente ma evento 'discontinued' alla data della visita: il farmaco era
+    # attivo entrando (entry) e viene chiuso -> "sospeso".
+    episodes = [
+        ep("Secukinumab", start="2024-01-01", dose="300 mg", relevance="high"),
+        ep("Metotrexato", start="2023-01-01", end=None, dose="10 mg", relevance="medium",
+           status="discontinued",
+           events=[
+               {"type": "started", "date": "2023-01-01", "dose": "10 mg"},
+               {"type": "discontinued", "date": "2024-06-16"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (invariata)\nMetotrexato sospeso"
+
+
+def test_resumed_after_discontinued_stays_active():
+    # Episodio chiuso e poi riaperto (resumed_within) prima della visita: l'effective
+    # end torna aperto -> resta attivo -> "(invariata)".
+    episodes = [
+        ep("Adalimumab", start="2020-01-01", end=None, dose="40 mg", relevance="high",
+           status="active",
+           events=[
+               {"type": "started", "date": "2020-01-01", "dose": "40 mg"},
+               {"type": "discontinued", "date": "2023-01-01"},
+               {"type": "resumed_within", "date": "2023-06-01"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Adalimumab 40 mg (invariata)"
+
+
+def test_secukinumab_dose_increase_150_to_300_is_modificata():
+    # Aumento di dose alla visita: la terapia in uscita riporta 300 mg "(modificata)".
+    episodes = [
+        ep("Secukinumab", start="2023-01-01", dose="300 mg", relevance="high",
+           events=[
+               {"type": "noted", "date": "2023-01-01", "dose": "150 mg"},
+               {"type": "dose_increased", "date": "2024-06-16",
+                "dose_before": "150 mg", "dose_after": "300 mg"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (modificata)"
+
+
+def test_pregresse_plus_dose_increase_real_world_combo():
+    # Caso clinico reale: pregresse (Golimumab, Leflunomide) già sospese prima della
+    # visita + Secukinumab aumentato 150->300. La terapia in uscita deve mostrare solo
+    # il farmaco attivo aggiornato, senza le pregresse.
+    episodes = [
+        ep("Golimumab", start=None, end=None, dose="50 mg", relevance="high",
+           status="discontinued",
+           events=[{"type": "historical_exposure", "date": "2017-01-01", "dose": "50 mg"}]),
+        ep("Leflunomide", start=None, end=None, dose="20 mg", relevance="high",
+           status="discontinued",
+           events=[{"type": "historical_exposure", "date": "2019-01-01", "dose": "20 mg"}]),
+        ep("Secukinumab", start="2023-01-01", dose="300 mg", relevance="high",
+           events=[
+               {"type": "noted", "date": "2023-01-01", "dose": "150 mg"},
+               {"type": "dose_increased", "date": "2024-06-16",
+                "dose_before": "150 mg", "dose_after": "300 mg"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (modificata)"
 
 
 def test_workup_visit_base_persists_exit_therapy_text_round_trip():

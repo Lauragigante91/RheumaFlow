@@ -115,7 +115,7 @@ function buildWorkupRecord(visit, patient, linkedAssessments) {
     clinimetria:           buildClinietriaText(linkedAssessments),
     esami:                 visit.labs_imaging?.trim() || null,
     conclusioni:           conclusioniParts.join("\n\n") || null,
-    terapia_uscita:        buildTerapiaUscita({ originalText: visit.exit_therapy_text, regimen: visit.home_therapies_text, exitText: visit.exit_therapies_text }),
+    terapia_uscita:        buildTerapiaUscita({ originalText: visit.exit_therapy_text, exitText: visit.exit_therapies_text }),
     modifiche_terapeutiche: visit?.therapy_modification?.trim() || null,
     indicazioni:           visit.referral_note?.trim() || null,
   };
