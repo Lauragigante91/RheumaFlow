@@ -616,21 +616,38 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
 describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("buildTerapiaUscita: modifica esplicita mostrata senza marcatore invariata", () => {
-    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett", modifica: "Sospeso MTX, avviato Adalimumab" });
-    expect(out).toBe("Sospeso MTX, avviato Adalimumab");
-    expect(out).not.toContain("(invariata)");
+  it("buildTerapiaUscita: il regime calcolato (exitText) ha priorità e non viene mai sostituito dalla modifica", () => {
+    const out = buildTerapiaUscita({
+      regimen: "Metotrexato 10 mg",
+      exitText: "Secukinumab 300 mg (invariata)\nMetotrexato sospeso",
+    });
+    expect(out).toBe("Secukinumab 300 mg (invariata)\nMetotrexato sospeso");
   });
 
-  it("buildTerapiaUscita: nessuna modifica ma regime presente mostra il regime marcato (invariata)", () => {
-    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett", modifica: "" });
+  it("buildTerapiaUscita: senza regime calcolato mostra il regime in corso marcato (invariata)", () => {
+    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett" });
     expect(out).toContain("Metotrexato 15 mg/sett");
     expect(out).toContain("(invariata)");
   });
 
+  it("buildTerapiaUscita: la modifica terapeutica NON è più contenuto della terapia in uscita", () => {
+    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett" });
+    expect(out).not.toContain("Sospeso MTX");
+    expect(out).toContain("(invariata)");
+  });
+
   it("buildTerapiaUscita: nessun dato restituisce null", () => {
-    expect(buildTerapiaUscita({ regimen: "", modifica: null })).toBeNull();
+    expect(buildTerapiaUscita({ regimen: "" })).toBeNull();
     expect(buildTerapiaUscita({})).toBeNull();
+  });
+
+  it("buildTerapiaUscita: exitText vuoto o solo spazi ricade sul regime in corso (invariata)", () => {
+    const a = buildTerapiaUscita({ regimen: "MTX 10 mg", exitText: "" });
+    expect(a).toContain("MTX 10 mg");
+    expect(a).toContain("(invariata)");
+    const b = buildTerapiaUscita({ regimen: "MTX 10 mg", exitText: "   " });
+    expect(b).toContain("MTX 10 mg");
+    expect(b).toContain("(invariata)");
   });
 
   it("multi-import 3 visite con terapia invariata: ogni visita ha terapia in uscita valorizzata, marcata (invariata), senza modifica terapeutica falsa", async () => {
@@ -657,7 +674,7 @@ describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () =
       expect(p.home_therapies_text).toBe(TERAPIA);
       expect(p.therapy_modification == null || p.therapy_modification === "").toBe(true);
 
-      const uscita = buildTerapiaUscita({ regimen: p.home_therapies_text, modifica: p.therapy_modification });
+      const uscita = buildTerapiaUscita({ regimen: p.home_therapies_text });
       expect(uscita).toContain(TERAPIA);
       expect(uscita).toContain("(invariata)");
     });

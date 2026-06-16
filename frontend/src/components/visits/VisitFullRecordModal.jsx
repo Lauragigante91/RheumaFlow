@@ -32,7 +32,8 @@ const SECTION_DEFS = [
   { key: "esami",                 num: "11", label: "ESAMI DI LABORATORIO · IMAGING · STRUMENTALI",  titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
   { key: "conclusioni",           num: "12", label: "CONCLUSIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
   { key: "terapia_uscita",        num: "13", label: "TERAPIA IN USCITA",                             titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
-  { key: "indicazioni",           num: "14", label: "INDICAZIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "modifiche_terapeutiche", num: "14", label: "MODIFICHE TERAPEUTICHE",                       titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "indicazioni",           num: "15", label: "INDICAZIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
 ];
 
 const PRINT_COLORS = {

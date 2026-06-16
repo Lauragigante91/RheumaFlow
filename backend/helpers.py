@@ -2,7 +2,8 @@
 Shared helpers used by multiple domain routers.
 """
 import logging
-from typing import List, Optional
+from datetime import date, timedelta
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 from database import db
@@ -124,6 +125,120 @@ def _format_therapy_snapshot(states: List[dict]) -> str:
         if t.get("route"):     parts.append(t["route"])
         if t.get("frequency"): parts.append(t["frequency"])
         lines.append(" ".join(parts))
+    return "\n".join(lines)
+
+
+def _day_before(target_date: str) -> str:
+    """Return the ISO date (YYYY-MM-DD) immediately preceding target_date."""
+    try:
+        return (date.fromisoformat(target_date[:10]) - timedelta(days=1)).isoformat()
+    except (ValueError, TypeError):
+        return target_date
+
+
+def _episode_active_before(episode: dict, visit_date: str) -> bool:
+    """True if the episode belonged to the regimen entering the visit (before visit_date)."""
+    start = (episode.get("start_date") or "")[:10] or None
+    end   = (episode.get("end_date")   or "")[:10] or None
+    if start and start >= visit_date:
+        return False
+    if end and end < visit_date:
+        return False
+    return True
+
+
+def _episode_active_after(episode: dict, visit_date: str) -> bool:
+    """True if the episode belongs to the regimen leaving the visit (after visit_date)."""
+    start = (episode.get("start_date") or "")[:10] or None
+    end   = (episode.get("end_date")   or "")[:10] or None
+    if start and start > visit_date:
+        return False
+    if end and end <= visit_date:
+        return False
+    return True
+
+
+def _exit_drug_key(episode: dict) -> str:
+    return (episode.get("drug_canonical") or episode.get("drug_name") or "").lower().strip()
+
+
+def _regimen_signature(state: dict) -> tuple:
+    def _n(value: Optional[str]) -> str:
+        return (value or "").strip()
+    return (_n(state.get("dose")), _n(state.get("frequency")), _n(state.get("route")))
+
+
+def compute_exit_therapies_text(episodes: List[dict], visit_date: str) -> str:
+    """
+    Build the post-visit ("terapia in uscita") regimen text for a single visit.
+
+    Compares the regimen entering the visit (state the day before visit_date) with the
+    regimen leaving it (state at visit_date) and annotates every drug:
+      - "(invariata)"  unchanged,
+      - "(nuovo)"      started at this visit,
+      - "(modificata)" posology / frequency / route changed at this visit,
+      - "<drug> sospeso" discontinued at this visit.
+
+    Pure and deterministic: derived from the therapy event ledger, never fabricates
+    events. Returns "" when there is no therapy data to report.
+    """
+    vd = (visit_date or "")[:10]
+    if not vd:
+        return ""
+    before = _day_before(vd)
+
+    ordered = sorted(
+        episodes,
+        key=lambda e: (
+            (e.get("start_date") or "")[:10],
+            (e.get("end_date") or "")[:10],
+            e.get("id") or "",
+        ),
+    )
+
+    entry: Dict[str, dict] = {}
+    exit_: Dict[str, dict] = {}
+    for ep in ordered:
+        key = _exit_drug_key(ep)
+        if not key:
+            continue
+        if _episode_active_before(ep, vd):
+            s = _episode_state_at(ep, before)
+            if s is not None:
+                entry[key] = s
+        if _episode_active_after(ep, vd):
+            s = _episode_state_at(ep, vd)
+            if s is not None:
+                exit_[key] = s
+
+    if not entry and not exit_:
+        return ""
+
+    rel_order = {"high": 0, "medium": 1, "low": 2}
+
+    def _sort_key(item):
+        s = item[1]
+        rel = s.get("relevance") or "low"
+        return (rel_order.get(rel, 9), (s.get("drug_name") or "").lower())
+
+    lines: List[str] = []
+    for key, s in sorted(exit_.items(), key=_sort_key):
+        if key not in entry:
+            suffix = "(nuovo)"
+        elif _regimen_signature(entry[key]) != _regimen_signature(s):
+            suffix = "(modificata)"
+        else:
+            suffix = "(invariata)"
+        parts = [s.get("drug_name") or "?"]
+        if s.get("dose"):      parts.append(s["dose"])
+        if s.get("route"):     parts.append(s["route"])
+        if s.get("frequency"): parts.append(s["frequency"])
+        lines.append(f"{' '.join(parts)} {suffix}")
+
+    suspended = [(k, s) for k, s in entry.items() if k not in exit_]
+    for key, s in sorted(suspended, key=lambda it: (it[1].get("drug_name") or "").lower()):
+        lines.append(f"{s.get('drug_name') or '?'} sospeso")
+
     return "\n".join(lines)
 
 

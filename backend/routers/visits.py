@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from database import db
 from auth_utils import get_current_user
-from helpers import verify_patient_in_org, generate_home_therapies_text
+from helpers import verify_patient_in_org, generate_home_therapies_text, compute_exit_therapies_text
 
 router = APIRouter()
 
@@ -77,6 +77,7 @@ class WorkupVisit(WorkupVisitBase):
     created_by_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: Optional[str] = None
+    exit_therapies_text: Optional[str] = None   # Terapia in uscita (derivato a lettura, non persistito)
 
 
 # ── Visit Templates ───────────────────────────────────────────────────────────
@@ -161,7 +162,14 @@ async def list_workup_visits(
     }
     if visit_type and visit_type in VISIT_TYPES:
         query["visit_type"] = visit_type
-    return await db.workup_visits.find(query, {"_id": 0}).sort("visit_date", -1).to_list(500)
+    visits = await db.workup_visits.find(query, {"_id": 0}).sort("visit_date", -1).to_list(500)
+    episodes = await db.therapies.find(
+        {"patient_id": patient_id, "organization_id": user["organization_id"]},
+        {"_id": 0},
+    ).to_list(2000)
+    for v in visits:
+        v["exit_therapies_text"] = compute_exit_therapies_text(episodes, v.get("visit_date") or "")
+    return visits
 
 
 @router.put("/workup-visits/{visit_id}", response_model=WorkupVisit)
