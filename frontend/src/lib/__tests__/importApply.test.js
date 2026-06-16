@@ -6,6 +6,7 @@ import {
   computeLongitudinalState,
 } from "../importApply";
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
+import { buildTerapiaUscita } from "../terapiaUscita";
 import {
   patientsApi,
   assessmentsApi,
@@ -609,5 +610,56 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
     expect(patientsApi.patch.mock.calls[0][1].terapia_domiciliare).toBe(`Terapia ${d[2]}`);
     expect(patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica).toBe(`Anam ${d[2]}`);
+  });
+});
+
+describe("terapia in uscita (TERAPIA IN USCITA) — derivazione invariata", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("buildTerapiaUscita: modifica esplicita mostrata senza marcatore invariata", () => {
+    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett", modifica: "Sospeso MTX, avviato Adalimumab" });
+    expect(out).toBe("Sospeso MTX, avviato Adalimumab");
+    expect(out).not.toContain("(invariata)");
+  });
+
+  it("buildTerapiaUscita: nessuna modifica ma regime presente mostra il regime marcato (invariata)", () => {
+    const out = buildTerapiaUscita({ regimen: "Metotrexato 15 mg/sett", modifica: "" });
+    expect(out).toContain("Metotrexato 15 mg/sett");
+    expect(out).toContain("(invariata)");
+  });
+
+  it("buildTerapiaUscita: nessun dato restituisce null", () => {
+    expect(buildTerapiaUscita({ regimen: "", modifica: null })).toBeNull();
+    expect(buildTerapiaUscita({})).toBeNull();
+  });
+
+  it("multi-import 3 visite con terapia invariata: ogni visita ha terapia in uscita valorizzata, marcata (invariata), senza modifica terapeutica falsa", async () => {
+    const TERAPIA = "Metotrexato 15 mg/sett · Acido folico 5 mg/sett";
+    const dates = ["2022-03-01", "2023-03-01", "2024-03-01"];
+    const drafts = dates.map((date) => ({
+      date,
+      visitType: "follow_up",
+      label: `Visita ${date}`,
+      selected: ALL_SELECTED,
+      draft: {
+        visit_date: date,
+        visit_type: "follow_up",
+        profilo_generale: { terapia_domiciliare: TERAPIA },
+        visit_sections: { anamnesi: `controllo ${date}`, esame_obj: `EO ${date}` },
+      },
+    }));
+
+    await applyDraftBatch(drafts, basePatient(), { defaultVisitType: "follow_up" });
+
+    expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
+    const payloads = workupVisitsApi.create.mock.calls.map((c) => c[1]);
+    payloads.forEach((p) => {
+      expect(p.home_therapies_text).toBe(TERAPIA);
+      expect(p.therapy_modification == null || p.therapy_modification === "").toBe(true);
+
+      const uscita = buildTerapiaUscita({ regimen: p.home_therapies_text, modifica: p.therapy_modification });
+      expect(uscita).toContain(TERAPIA);
+      expect(uscita).toContain("(invariata)");
+    });
   });
 });

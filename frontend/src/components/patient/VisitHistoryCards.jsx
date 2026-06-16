@@ -3,6 +3,7 @@ import { Calendar, Trash2 } from "lucide-react";
 import { INDEX_LABELS } from "../../lib/clinimetrics";
 import { serializePhysicalExam } from "../clinical/PhysicalExamSection";
 import VisitFullRecordModal from "../visits/VisitFullRecordModal";
+import { buildTerapiaUscita } from "../../lib/terapiaUscita";
 
 // ── Date helper ───────────────────────────────────────────────────────────────
 export function fmtVisitDate(iso) {
@@ -71,7 +72,7 @@ function buildPrimaVisitaRecord(firstVisit, patient, linkedAssessments) {
     clinimetria:           buildClinietriaText(linkedAssessments),
     esami:                 esamiParts.join("\n\n") || null,
     conclusioni:           conclusioniLines.join("\n\n") || null,
-    terapia_uscita:        firstVisit.therapy_modification?.trim() || null,
+    terapia_uscita:        buildTerapiaUscita({ regimen: patient?.terapia_domiciliare, modifica: firstVisit.therapy_modification }),
     indicazioni:           firstVisit.outcome_notes?.trim() || null,
   };
 }
@@ -113,7 +114,7 @@ function buildWorkupRecord(visit, patient, linkedAssessments) {
     clinimetria:           buildClinietriaText(linkedAssessments),
     esami:                 visit.labs_imaging?.trim() || null,
     conclusioni:           conclusioniParts.join("\n\n") || null,
-    terapia_uscita:        visit.therapy_modification?.trim() || null,
+    terapia_uscita:        buildTerapiaUscita({ regimen: visit.home_therapies_text, modifica: visit.therapy_modification }),
     indicazioni:           visit.referral_note?.trim() || null,
   };
 }
@@ -171,7 +172,7 @@ function buildPreviousVisitRecord(group, patient) {
     clinimetria:           buildClinietriaText(assessments),
     esami:                 firstField("labs_imaging"),
     conclusioni:           firstField("conclusions"),
-    terapia_uscita:        null,
+    terapia_uscita:        buildTerapiaUscita({ regimen: terapiaTesto, modifica: null }),
     indicazioni:           null,
   };
 }
