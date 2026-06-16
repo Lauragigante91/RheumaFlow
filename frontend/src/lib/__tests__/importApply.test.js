@@ -729,23 +729,68 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
     expect(extracted.visit_sections.terapia_uscita).toContain("Humira");
   });
 
-  it("parser: la parte farmacologica di INDICAZIONI esclude monitoraggi di laboratorio e follow-up", () => {
+  it("parser: la parte farmacologica di INDICAZIONI si ferma prima di accertamenti, controlli e saluti", () => {
     const referto = [
       "CONCLUSIONI",
       "Artrite reumatoide.",
       "",
       "INDICAZIONI",
-      "- Aumentare metotrexato a 15 mg a settimana.",
-      "- Mantenere PCR < 5 mg/L.",
-      "- Controllo Hb 12 g/dL.",
-      "- Rivalutazione clinica tra 3 mesi.",
+      "- Prosegue Medrol 16 mg 1/4 cp al giorno per 1 mese, poi 1/4 cp a giorni alterni per 1 mese, poi STOP.",
+      "- RIPRENDE Metotrexato 7.5 mg 1 fl sc ogni 7 giorni (es il lunedì) seguita dopo 24 ore da Folina 5 mg (es il martedì). Monitoraggio mensile degli esami come da impegnativa per 3 mesi.",
+      "- Deursil 450 mg 1 cp a pranzo.",
+      "- Colecalciferolo 10.000 UI 40 gtt a settimana.",
+      "Si prescrivono i seguenti accertamenti ematochimici: emocromo, PCR, creatinina, transaminasi.",
+      "Controllo clinico programmato tra 3 mesi.",
+      "Cordiali saluti.",
     ].join("\n");
     const { extracted } = parseVisitText(referto);
     const uscita = extracted.visit_sections.terapia_uscita;
-    expect(uscita).toContain("metotrexato");
-    expect(uscita).not.toContain("PCR");
-    expect(uscita).not.toContain("Hb");
-    expect(uscita).not.toContain("Rivalutazione");
+    expect(uscita).toContain("Medrol 16 mg");
+    expect(uscita).toContain("RIPRENDE Metotrexato 7.5 mg");
+    expect(uscita).toContain("Folina 5 mg");
+    expect(uscita).toContain("Monitoraggio mensile degli esami");
+    expect(uscita).toContain("Deursil 450 mg");
+    expect(uscita).toContain("Colecalciferolo 10.000 UI");
+    expect(uscita).not.toContain("accertamenti");
+    expect(uscita).not.toContain("emocromo");
+    expect(uscita).not.toContain("Controllo clinico");
+    expect(uscita).not.toContain("Cordiali saluti");
+    expect(uscita).not.toContain("(ricostruito)");
+  });
+
+  it("parser: una INDICAZIONI che inizia con 'Si prescrive <farmaco>' non viene tagliata a vuoto", () => {
+    const referto = [
+      "CONCLUSIONI",
+      "Artrite reumatoide.",
+      "",
+      "INDICAZIONI",
+      "Si prescrive Methotrexate 15 mg a settimana e acido folico 5 mg.",
+      "Si prescrivono i seguenti accertamenti: emocromo, creatinina.",
+      "Controllo tra 3 mesi.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("Methotrexate 15 mg");
+    expect(uscita).toContain("acido folico 5 mg");
+    expect(uscita).not.toContain("accertamenti");
+    expect(uscita).not.toContain("emocromo");
+    expect(uscita).not.toContain("Controllo tra");
+    expect(uscita).not.toContain("(ricostruito)");
+  });
+
+  it("parser: il blocco non farmacologico in minuscolo dopo punto viene comunque tagliato", () => {
+    const referto = [
+      "CONCLUSIONI",
+      "Artrite reumatoide.",
+      "",
+      "INDICAZIONI",
+      "Prosegue prednisone 5 mg al giorno. esami ematici di controllo tra 1 mese.",
+    ].join("\n");
+    const { extracted } = parseVisitText(referto);
+    const uscita = extracted.visit_sections.terapia_uscita;
+    expect(uscita).toContain("prednisone 5 mg");
+    expect(uscita).not.toContain("esami ematici");
+    expect(uscita).not.toContain("(ricostruito)");
   });
 
   it("import singolo: visit_sections.terapia_uscita viene salvato in exit_therapy_text", async () => {

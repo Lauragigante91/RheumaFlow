@@ -1478,7 +1478,7 @@ function normalizeImportedText(raw) {
 }
 
 const _THERAPY_DOSE_RE = /\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|gamma|g|cp|compress\w*|fiala|fiale|fl|ml|gtt|u\.?i\.?|mui|unit\w*)\b(?!\s*\/\s*d?l)/i;
-const _THERAPY_VERB_RE = /\b(?:prosegu\w*|continu\w*|sospend\w*|riduc\w*|aument\w*|introdu\w*|aggiung\w*|avvi\w*|scala\w*|switch|associ\w*|mantien\w*|assum\w*|inizi\w*)/i;
+const _THERAPY_VERB_RE = /\b(?:prosegu\w*|continu\w*|sospend\w*|riduc\w*|aument\w*|introdu\w*|aggiung\w*|avvi\w*|scala\w*|switch|associ\w*|mantien\w*|assum\w*|inizi\w*|riprend\w*)/i;
 
 function _textHasKnownDrug(text) {
   if (!text) return false;
@@ -1488,21 +1488,36 @@ function _textHasKnownDrug(text) {
   return false;
 }
 
-function _splitTherapyUnits(text) {
-  let t = text.replace(/\b([a-zA-Z])\.([a-zA-Z])\./g, "$1\u0001$2\u0001");
-  t = t.replace(/([.;])\s+(?=[A-ZÀ-Ý])/g, "$1\n");
-  return t
-    .split(/\n+/)
-    .map((u) => u.replace(/\u0001/g, ".").replace(/^[-–—•*>]\s*/, "").trim())
-    .filter(Boolean);
+const _PHARMA_STOP_RE = /^(?:accertament\w*|esam[ei]\b|esegu[ie]\w*|da\s+esegui\w*|si\s+esegu\w*|si\s+prescriv\w*|prescriv\w*|si\s+richied\w*|richiest[ao]|controll\w*|ricontroll\w*|rivaluta\w*|rivalutazion\w*|prossim[ao]\b|appuntament\w*|visit[ae]\b|prenotat\w*|emocromo|cordiali\s+saluti|distinti\s+saluti|cordialit[àa]|restando\s+a\s+(?:vostra\s+|sua\s+)?disposizion\w*|si\s+resta\s+a\s+disposizion\w*|rimaniamo\s+a\s+disposizion\w*|in\s+attesa\s+di\b|si\s+invia\b|si\s+rinvia\b|si\s+dimette\b)/i;
+
+function _unitIsPharma(unit) {
+  return _textHasKnownDrug(unit) || _THERAPY_DOSE_RE.test(unit) || _THERAPY_VERB_RE.test(unit);
 }
 
 function pharmaPartOfIndicazioni(text) {
   if (!text || !text.trim()) return null;
-  const kept = _splitTherapyUnits(text).filter(
-    (u) => _textHasKnownDrug(u) || _THERAPY_DOSE_RE.test(u) || _THERAPY_VERB_RE.test(u),
-  );
-  return kept.length ? kept.join("\n") : null;
+  const prot = text.replace(/\b([a-zA-Z])\.([a-zA-Z])\./g, "$1\u0001$2\u0001");
+  const boundaryRe = /[.;]\s+(?=[A-Za-zÀ-ÿ])|\n+/g;
+  const starts = [0];
+  let m;
+  while ((m = boundaryRe.exec(prot)) !== null) {
+    starts.push(m.index + m[0].length);
+  }
+  let cut = text.length;
+  for (let i = 0; i < starts.length; i++) {
+    const s = starts[i];
+    const end = i + 1 < starts.length ? starts[i + 1] : text.length;
+    const unit = text.slice(s, end);
+    const lead = unit.replace(/^[-–—•*>\s]+/, "");
+    if (_PHARMA_STOP_RE.test(lead) && !_unitIsPharma(unit)) {
+      cut = s;
+      break;
+    }
+  }
+  const kept = text.slice(0, cut).trim();
+  if (!kept) return null;
+  if (!_unitIsPharma(kept)) return null;
+  return kept;
 }
 
 export function parseVisitText(text) {
