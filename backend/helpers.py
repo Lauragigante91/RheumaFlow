@@ -47,20 +47,24 @@ def _last_lifecycle_event(episode: dict) -> Optional[str]:
     return last
 
 
-def _effective_end(episode: dict) -> Optional[str]:
+def _effective_end(episode: dict, as_of: Optional[str] = None) -> Optional[str]:
     """
-    Closure date used for point-in-time eligibility.
+    Closure date used for point-in-time eligibility, evaluated as of `as_of`.
 
     Starts from the episode-level end_date; a dated 'discontinued'/'paused' event
-    moves the closure, a later 'resumed_within' clears it (episode reopened). An
-    undated closure event leaves the prior value intact. Returns None for an open
-    episode or one with no determinable closure.
+    moves the closure, a later 'resumed_within' clears it (episode reopened). When
+    `as_of` is given, dated events occurring after it are ignored, so a future
+    'resumed_within' never retroactively reopens an episode that was closed at or
+    before `as_of`. An undated closure event leaves the prior value intact. Returns
+    None for an open episode or one with no determinable closure.
     """
     pending = (episode.get("end_date") or "")[:10] or None
     for ev in _non_voided_events(episode):
         t = ev.get("type")
+        d = (ev.get("date") or "")[:10]
+        if as_of is not None and d and d > as_of:
+            continue
         if t in ("discontinued", "paused"):
-            d = (ev.get("date") or "")[:10]
             if d:
                 pending = d
         elif t == "resumed_within":
@@ -85,15 +89,17 @@ def _episode_state_at(episode: dict, target_date: str) -> Optional[dict]:
       Fields without event history fall back to the episode-level value
       (= latest value, accurate for fields that never changed).
     """
-    start = (episode.get("start_date") or "")[:10]
-    end   = _effective_end(episode)
+    start     = (episode.get("start_date") or "")[:10]
+    end       = _effective_end(episode, target_date)
+    final_end = _effective_end(episode)
 
-    # Pregresse / discontinued episodes with no determinable closure cannot be
-    # asserted active in any current regimen: a historical exposure from anamnesis,
-    # or an episode flagged discontinued without a closure date, is never "in corso"
-    # (unless a later resumed_within reopened it).
+    # Pregresse / discontinued episodes with no determinable closure ANYWHERE in the
+    # ledger cannot be asserted active in any current regimen: a historical exposure
+    # from anamnesis, or an episode flagged discontinued without any closure date, is
+    # never "in corso" (unless a later resumed_within reopened it). A dated closure is
+    # handled by the start/end eligibility checks below, not by this guard.
     if (
-        end is None
+        final_end is None
         and _last_lifecycle_event(episode) != "resumed_within"
         and (
             episode.get("status") == "discontinued"
@@ -198,7 +204,7 @@ def _day_before(target_date: str) -> str:
 def _episode_active_before(episode: dict, visit_date: str) -> bool:
     """True if the episode belonged to the regimen entering the visit (before visit_date)."""
     start = (episode.get("start_date") or "")[:10] or None
-    end   = _effective_end(episode)
+    end   = _effective_end(episode, visit_date)
     if start and start >= visit_date:
         return False
     if end and end < visit_date:
@@ -209,7 +215,7 @@ def _episode_active_before(episode: dict, visit_date: str) -> bool:
 def _episode_active_after(episode: dict, visit_date: str) -> bool:
     """True if the episode belongs to the regimen leaving the visit (after visit_date)."""
     start = (episode.get("start_date") or "")[:10] or None
-    end   = _effective_end(episode)
+    end   = _effective_end(episode, visit_date)
     if start and start > visit_date:
         return False
     if end and end <= visit_date:

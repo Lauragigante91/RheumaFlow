@@ -177,6 +177,39 @@ def test_resumed_after_discontinued_stays_active():
     assert out == "Adalimumab 40 mg (invariata)"
 
 
+def test_discontinued_at_visit_with_later_resume_is_sospeso():
+    # Sospeso ALLA data della visita con un resumed_within SUCCESSIVO: il resume
+    # futuro non deve riaprire retroattivamente l'episodio alla data della visita;
+    # entrando era attivo, alla visita viene chiuso -> "sospeso".
+    episodes = [
+        ep("Secukinumab", start="2024-01-01", dose="300 mg", relevance="high"),
+        ep("Metotrexato", start="2024-01-01", end=None, dose="10 mg", relevance="medium",
+           status="active",
+           events=[
+               {"type": "started", "date": "2024-01-01", "dose": "10 mg"},
+               {"type": "discontinued", "date": "2024-06-16"},
+               {"type": "resumed_within", "date": "2024-07-01"},
+           ]),
+    ]
+    out = compute_exit_therapies_text(episodes, "2024-06-16")
+    assert out == "Secukinumab 300 mg (invariata)\nMetotrexato sospeso"
+
+
+def test_future_resume_does_not_reopen_earlier_dates():
+    # Lo stesso episodio sospeso 16/6 e ripreso 1/7: a una visita nel mezzo (20/6)
+    # il farmaco resta inattivo (il resume futuro non lo riapre); dopo il resume
+    # (1/8) torna attivo come "(invariata)".
+    episode = ep("Metotrexato", start="2024-01-01", end=None, dose="10 mg",
+                 relevance="high", status="active",
+                 events=[
+                     {"type": "started", "date": "2024-01-01", "dose": "10 mg"},
+                     {"type": "discontinued", "date": "2024-06-16"},
+                     {"type": "resumed_within", "date": "2024-07-01"},
+                 ])
+    assert compute_exit_therapies_text([episode], "2024-06-20") == ""
+    assert compute_exit_therapies_text([episode], "2024-08-01") == "Metotrexato 10 mg (invariata)"
+
+
 def test_secukinumab_dose_increase_150_to_300_is_modificata():
     # Aumento di dose alla visita: la terapia in uscita riporta 300 mg "(modificata)".
     episodes = [
