@@ -1,4 +1,5 @@
 import { reconcileDrafts, ITEM_STATUS } from "../visitReconciler";
+import { parseVisitText } from "../visitTextParser";
 
 function reconcileTherapy(existingTherapies, draftTherapy) {
   const [draft] = reconcileDrafts(
@@ -557,5 +558,65 @@ describe("reconcileDrafts — eventKey normalizzazione e anno", () => {
     ]);
     expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
     expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+  });
+});
+
+describe("reconcileDrafts — aumento dose biologico (DB esistente)", () => {
+  it("Secukinumab 150 mg in DB -> 300 mg importato: dose_change", () => {
+    const out = reconcileTherapy(
+      [{ id: "t-sec", drug_name: "Secukinumab", category: "bDMARD", dose: "150 mg", frequency: "ogni 4 settimane", route: "s.c.", status: "active" }],
+      { drug_name: "Secukinumab", dose: "300 mg", frequency: "ogni 4 settimane", route: "s.c.", status: "active" }
+    );
+    expect(out._status).toBe(ITEM_STATUS.CONFLICT);
+    expect(out._action).toBe("dose_change");
+    expect(out._skip).toBe(false);
+  });
+});
+
+describe("E2E multi-import — l'ultima visita determina lo stato attivo", () => {
+  function findT(therapies, drug) {
+    return therapies.find((t) => t.drug_name.toLowerCase() === drug.toLowerCase()) || null;
+  }
+
+  it("Secukinumab 300 + MTX attivi; Leflunomide/Golimumab storici discontinued", () => {
+    const visitA = [
+      "VISITA 10/01/2021",
+      "TERAPIA IN ATTO:",
+      "Golimumab 50 mg sc/mese",
+      "Leflunomide 20 mg/die",
+    ].join("\n");
+    const visitB = [
+      "VISITA 20/03/2024",
+      "TERAPIA IN ATTO:",
+      "Secukinumab 300 mg sc/mese",
+      "Metotrexato 10 mg/settimana",
+      "TERAPIE PREGRESSE:",
+      "Leflunomide, Golimumab",
+    ].join("\n");
+
+    const dA = parseVisitText(visitA, "2024-03-20").extracted;
+    const dB = parseVisitText(visitB, "2024-03-20").extracted;
+
+    const reconciled = reconcileDrafts(
+      [{ therapies: dA.therapies }, { therapies: dB.therapies }],
+      { therapies: [] }
+    );
+
+    const finalT = reconciled[1].therapies;
+    const sec = findT(finalT, "Secukinumab");
+    const mtx = findT(finalT, "Methotrexate");
+    const lef = findT(finalT, "Leflunomide");
+    const goli = findT(finalT, "Golimumab");
+
+    expect(sec?.status).toBe("active");
+    expect(sec?.dose).toBe("300 mg");
+    expect(sec?._skip).not.toBe(true);
+
+    expect(mtx?.status).toBe("active");
+
+    expect(lef?.status).toBe("discontinued");
+    expect(lef?._action).toBe("discontinue");
+    expect(goli?.status).toBe("discontinued");
+    expect(goli?._action).toBe("discontinue");
   });
 });

@@ -503,3 +503,98 @@ describe("Terapia in uscita — routing sezione", () => {
     expect(extracted.visit_sections?.terapia_uscita || "").toContain("Upadacitinib 15 mg/die");
   });
 });
+
+describe("Dose escalation — 'da X a Y' usa la dose finale", () => {
+  test("'da 150 mg a 300 mg' estrae 300 mg come dose corrente", () => {
+    const { extracted } = parseVisitText(
+      "INDICAZIONI:\nSi aumenta Secukinumab da 150 mg a 300 mg.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Secukinumab")?.dose).toBe("300 mg");
+  });
+
+  test("'da 150 a 300 mg' estrae 300 mg come dose corrente", () => {
+    const { extracted } = parseVisitText(
+      "INDICAZIONI:\nSi aumenta Secukinumab da 150 a 300 mg.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Secukinumab")?.dose).toBe("300 mg");
+  });
+
+  test("range con unita di laboratorio (mg/L) non e' interpretato come dose", () => {
+    const { extracted } = parseVisitText(
+      "TERAPIA IN ATTO:\nSecukinumab 300 mg sc; PCR da 2 mg/L a 4 mg/L.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Secukinumab")?.dose).toBe("300 mg");
+  });
+
+  test("'da X a Y' con cambio di frequenza usa la frequenza finale", () => {
+    const { extracted } = parseVisitText(
+      "INDICAZIONI:\nSi aumenta Secukinumab da 150 mg ogni 4 settimane a 300 mg ogni 2 settimane.",
+      "2026-06-15"
+    );
+    const t = findTherapy(extracted, "Secukinumab");
+    expect(t?.dose).toBe("300 mg");
+    expect(t?.frequency).toBe("ogni 2 settimane");
+  });
+
+  test("range con livelli sierici (µg/mL) non e' interpretato come dose", () => {
+    const { extracted } = parseVisitText(
+      "TERAPIA IN ATTO:\nAdalimumab 40 mg sc; livelli da 2 µg/mL a 6 µg/mL.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Adalimumab")?.dose).toBe("40 mg");
+  });
+
+  test("range con concentrazione (ng/mL) non e' interpretato come dose", () => {
+    const { extracted } = parseVisitText(
+      "TERAPIA IN ATTO:\nInfliximab 100 mg ev; livelli da 100 ng/mL a 200 ng/mL.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Infliximab")?.dose).toBe("100 mg");
+  });
+
+  test("'da X' e 'a Y' su righe diverse non formano un range di dose", () => {
+    const { extracted } = parseVisitText(
+      "TERAPIA IN ATTO:\nSecukinumab 150 mg da gennaio\n\na 300 mg in altro contesto.",
+      "2026-06-15"
+    );
+    expect(findTherapy(extracted, "Secukinumab")?.dose).toBe("150 mg");
+  });
+});
+
+describe("TERAPIE PREGRESSE — scope storico separato dalla domiciliare", () => {
+  const TEXT = [
+    "TERAPIA DOMICILIARE:",
+    "Metotrexato 10 mg/settimana",
+    "TERAPIE PREGRESSE:",
+    "Leflunomide, Golimumab",
+  ].join("\n");
+
+  test("farmaci in TERAPIE PREGRESSE senza verbo di sospensione -> discontinued", () => {
+    const { extracted } = parseVisitText(TEXT, "2026-06-15");
+    expect(findTherapy(extracted, "Methotrexate")?.status).toBe("active");
+    expect(findTherapy(extracted, "Leflunomide")?.status).toBe("discontinued");
+    expect(findTherapy(extracted, "Golimumab")?.status).toBe("discontinued");
+  });
+
+  test("TERAPIE PREGRESSE non contamina il testo terapia_domiciliare", () => {
+    const { extracted } = parseVisitText(TEXT, "2026-06-15");
+    const home = extracted.profilo_generale?.terapia_domiciliare || "";
+    expect(home).toMatch(/Metotrexato/i);
+    expect(home).not.toMatch(/Leflunomide/i);
+    expect(home).not.toMatch(/Golimumab/i);
+  });
+
+  test("TERAPIA DOMICILIARE normale resta attiva (no regressione)", () => {
+    const text = [
+      "TERAPIA DOMICILIARE:",
+      "Metotrexato 10 mg/settimana",
+      "Secukinumab 300 mg sc/mese",
+    ].join("\n");
+    const { extracted } = parseVisitText(text, "2026-06-15");
+    expect(findTherapy(extracted, "Methotrexate")?.status).toBe("active");
+    expect(findTherapy(extracted, "Secukinumab")?.status).toBe("active");
+  });
+});

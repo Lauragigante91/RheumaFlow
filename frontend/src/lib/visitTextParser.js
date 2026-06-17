@@ -240,6 +240,7 @@ const DRUG_PATTERNS = (() => {
 })();
 
 const DOSE_RE = /(\d+(?:[.,]\d+)?)\s*(?:mg|mcg|µg|μg|g\b|ml\b|mL\b|UI\b|IU\b)\b/i;
+const DOSE_RANGE_RE = /\bda[ \t]+\d+(?:[.,]\d+)?[ \t]*(?:mg|mcg|µg|μg|g|ml|mL|UI|IU)?(?:[ \t]+ogni[ \t]+\d+[ \t]+(?:settiman[ae]|mes[ei]|giorn[oi]))?[ \t]+a[ \t]+(\d+(?:[.,]\d+)?[ \t]*(?:mg|mcg|µg|μg|g|ml|mL|UI|IU))\b(?![ \t]*\/(?![ \t]*(?:die|giorn[oi]|d[iì]|gg|settiman[ae]|sett|mes[ei]|kg|m2|m²|h|ora)\b))/i;
 const FREQ_PER_WEEK = /(\d+(?:[.,]\d+)?)\s*mg\s*\/\s*(?:sett(?:imana)?|week)/i;
 // FREQ_INTERVAL — specific interval patterns extracted from FREQ_GENERAL to give
 // them priority over generic abbreviations (die/bid/tid) when both are present.
@@ -284,7 +285,12 @@ function extractDoseAndFrequency(context) {
   const weekly = context.match(FREQ_PER_WEEK);
   if (weekly) return { dose: weekly[0].trim(), frequency: weekly[0].trim() };
 
-  const doseM = context.match(DOSE_RE);
+  const rangeM = context.match(DOSE_RANGE_RE);
+  const doseCtx = rangeM
+    ? context.slice(rangeM.index + rangeM[0].length - rangeM[1].length)
+    : context;
+
+  const doseM = doseCtx.match(DOSE_RE);
   let dose = null;
   let afterDose = "";
   let dayPartsM = null;
@@ -293,7 +299,7 @@ function extractDoseAndFrequency(context) {
     const unitDose = Number(doseM[1].replace(",", "."));
     const unit = doseM[0].match(/(mg|mcg|µg|μg|g\b|ml\b|mL\b|UI\b|IU\b)/i)?.[1] || "";
     let multiplier = 1;
-    afterDose = context.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 80);
+    afterDose = doseCtx.slice(doseM.index + doseM[0].length, doseM.index + doseM[0].length + 80);
 
     dayPartsM = afterDose.match(/^\s*:?\s*(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)\s+(?:la\s+)?mattina\s+e\s+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|mezz[ao]|[¼½])\s*(?:cp|cpr|cps|compress[ae]|compresse|tab(?:\.|lette?)?)?\s+(?:la\s+)?sera\b/i);
     if (dayPartsM) {
@@ -316,8 +322,10 @@ function extractDoseAndFrequency(context) {
   }
 
   const freqPwM = weekly;
-  const freqIntM = context.match(FREQ_INTERVAL);
-  const freqGenM = context.match(FREQ_GENERAL);
+  const freqCtx =
+    rangeM && (FREQ_INTERVAL.test(doseCtx) || FREQ_GENERAL.test(doseCtx)) ? doseCtx : context;
+  const freqIntM = freqCtx.match(FREQ_INTERVAL);
+  const freqGenM = freqCtx.match(FREQ_GENERAL);
   const dailyM = afterDose.match(/(?:^|[\s/])(?:al\s+(?:di|dì|giorno|day)|die|dì|giorno|day|qd)(?=$|[\s,.;)])/i);
   const twoDaysWeekM = context.match(/\b(?:2|due)\s+giorni\s+(?:a|alla)\s+settimana\b/i);
 
@@ -1735,6 +1743,18 @@ export function parseVisitText(text) {
   } else {
     const therapyScope = [_domScope, _indScope].filter(Boolean).join("\n\n") || text;
     therapies = extractTherapies(therapyScope, visitDate).filter((t) => RHEUM_CATEGORIES.has(t.category));
+  }
+
+  const _pastScope = S.TERAPIA_PREGRESSA
+    ? withHeader("TERAPIA IN ATTO", S.TERAPIA_PREGRESSA)
+    : null;
+  if (_pastScope) {
+    const _activeKeys = new Set(therapies.map((t) => t.drug_name));
+    const _pastTherapies = extractTherapies(_pastScope, visitDate, "dom")
+      .filter((t) => RHEUM_CATEGORIES.has(t.category))
+      .filter((t) => !_activeKeys.has(t.drug_name))
+      .map((t) => ({ ...t, status: "discontinued" }));
+    if (_pastTherapies.length) therapies = therapies.concat(_pastTherapies);
   }
 
   // Secondo passaggio: corregge lo status di farmaci classificati come "active"

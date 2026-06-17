@@ -42,6 +42,11 @@ const SECTION_DEFS = [
     re: /^(?:TERAPIA\s+(?:IN\s+USCITA|ALLA\s+DIMISSIONE|CONSIGLIATA(?:\s+ALLA\s+DIMISSIONE)?|PRESCRITTA|PROPOSTA|DOMICILIARE\s+CONSIGLIATA)|INDICAZIONI\s+TERAPEUTICHE|PRESCRIZIONE\s+(?:TERAPEUTICA|FARMACOLOGICA))\b/i,
   },
 
+  {
+    key: "TERAPIA_PREGRESSA",
+    re: /^(?:TERAPI[AE]\s+(?:PREGRESS[AE]|SOSPES[AE]|STORIC[AH]E?|PASSAT[AE]|PRECEDENT[EI])|FARMACI\s+(?:SOSPESI|PREGRESSI|PASSATI))\b/i,
+  },
+
   // Therapy — baseline drugs the patient is already taking
   // TERAPIA\s*:?\s*$ catches standalone "TERAPIA" or "TERAPIA:" as a section header
   // TERAPIE (plural) + qualificatore completo (IN ATTO, IN CORSO, etc.) esplicitato
