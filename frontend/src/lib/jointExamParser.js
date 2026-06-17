@@ -323,13 +323,15 @@ export function parseJointExam(text) {
       let effectiveSwollen = info.isSwollen || pendingSwollen;
 
       // Carry-backward: un sub-segmento con joint ma senza status proprio eredita
-      // lo status dal sub-segmento successivo se questo è solo-status (nessuna joint),
-      // es. "polsi dolenti", "spalla sinistra dolente", "MCP II-V dolenti".
+      // lo status dai sub-segmenti successivi solo-status (nessuna joint), inclusi
+      // più stati concatenati, es. "spalla sinistra dolente", "MCP II-V dolenti",
+      // "ginocchio sinistra dolente e tumefatto".
       if (!effectiveTender && !effectiveSwollen) {
-        const nxt = infos[i + 1];
-        if (nxt && !nxt.isNeg && !nxt.joints.size && (nxt.isTender || nxt.isSwollen)) {
-          effectiveTender  = nxt.isTender;
-          effectiveSwollen = nxt.isSwollen;
+        for (let j = i + 1; j < infos.length; j++) {
+          const nxt = infos[j];
+          if (nxt.isNeg || nxt.joints.size || (!nxt.isTender && !nxt.isSwollen)) break;
+          if (nxt.isTender)  effectiveTender  = true;
+          if (nxt.isSwollen) effectiveSwollen = true;
         }
       }
 

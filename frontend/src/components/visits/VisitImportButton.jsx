@@ -10,6 +10,8 @@ import { assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseasePro
 import { parseVisitText } from "../../lib/visitTextParser";
 import { applyOneDraft, applyDraftBatch } from "../../lib/importApply";
 import { reconcileDrafts, ITEM_STATUS, STATUS_META, draftSummaryStats } from "../../lib/visitReconciler";
+import { parseJointExam } from "../../lib/jointExamParser";
+import Homunculus from "../imaging/Homunculus";
 import SelectableTextBlock from "../shared/SelectableTextBlock";
 import SectionReviewPanel from "./SectionReviewPanel";
 import LabValueReviewPanel from "./LabValueReviewPanel";
@@ -114,8 +116,10 @@ export default function VisitImportButton({ patient, onImported, open: externalO
   function buildEditableDraft(ext) {
     if (!ext) return null;
     const stamp = (arr) => (arr || []).map((item, i) => ({ ...item, _id: i, _skip: false }));
+    const jointExam = parseJointExam(ext.visit_sections?.esame_obj || "");
     return {
       ...ext,
+      physical_exam_joint_exam: jointExam.found ? jointExam.joints : {},
       therapies:             stamp(ext.therapies),
       lab_exams:             stamp(ext.lab_exams),
       lab_review_items:      (ext.lab_review_items || []).map((item, i) => ({ ...item, _id: i })),
@@ -2340,6 +2344,21 @@ function ExamObjSection({ draft, onUpdateDraft, confirmed, onSetConfirmed }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* Homunculus per-visita — esame articolare strutturato */}
+      <div className="rounded-lg border border-gray-200 bg-white px-3 py-3">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+          Homunculus per-visita — esame articolare strutturato
+        </div>
+        <Homunculus
+          mode="66_68"
+          joints={draft.physical_exam_joint_exam || {}}
+          onChange={(next) => {
+            onUpdateDraft({ ...draft, physical_exam_joint_exam: next });
+            if (confirmed) onSetConfirmed(false);
+          }}
+        />
       </div>
 
       {/* Original text */}

@@ -1,4 +1,5 @@
 import { toCanonicalLabKey } from "./labValueExtractor";
+import { parseJointExam } from "./jointExamParser";
 
 export function buildWorkupVisitPayload(extracted, patientId, visitType, selectedExamImaging) {
   const vs              = extracted.visit_sections || {};
@@ -26,6 +27,13 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
   const wantReqTests = Array.isArray(extracted.requested_tests) &&
     extracted.requested_tests.length > 0;
 
+  let jointExam = extracted.physical_exam_joint_exam;
+  if (jointExam === undefined || jointExam === null) {
+    const parsedJoints = parseJointExam(vs.esame_obj || "");
+    jointExam = parsedJoints.found ? parsedJoints.joints : null;
+  }
+  if (jointExam && Object.keys(jointExam).length === 0) jointExam = null;
+
   return {
     patient_id:                    patientId,
     visit_date:                    extracted.visit_date || new Date().toISOString().slice(0, 10),
@@ -33,6 +41,7 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
     rheumatologic_history_summary: vs.raccordo    || null,
     interval_history:              vs.anamnesi    || null,
     physical_exam:                 vs.esame_obj   || null,
+    physical_exam_joint_exam:      jointExam,
     conclusions:                   vs.conclusioni || null,
     referral_note:                 vs.indicazioni || null,
     exit_therapy_text:             vs.terapia_uscita || null,

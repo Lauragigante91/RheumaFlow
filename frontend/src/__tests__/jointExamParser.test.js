@@ -171,3 +171,31 @@ describe("jointExamParser — nessun falso positivo nel corpus", () => {
     expect(fpAll).toEqual([]);
   });
 });
+
+describe("jointExamParser — P2 import homunculus per-visita", () => {
+  test("EO negativo → nessuna articolazione", () => {
+    const r = parseJointExam("Obiettivamente: non dolorabilità né tumefazione articolare periferica.");
+    expect(r.found).toBe(false);
+    expect(r.joints).toEqual({});
+  });
+
+  test("polso dx tumefatto → wrist_r swollen", () => {
+    expect(parseJointExam("Polso dx tumefatto.").joints).toEqual({ wrist_r: "swollen" });
+  });
+
+  test("MCF II-III bilateralmente dolenti → mcp2/mcp3 bilaterali tender", () => {
+    expect(parseJointExam("MCF II-III bilateralmente dolenti.").joints).toEqual({
+      mcp2_r: "tender", mcp2_l: "tender", mcp3_r: "tender", mcp3_l: "tender",
+    });
+  });
+
+  test("ginocchio sn dolente e tumefatto → knee_l both", () => {
+    expect(parseJointExam("Ginocchio sn dolente e tumefatto.").joints).toEqual({ knee_l: "both" });
+  });
+
+  test("non sinoviti → nessuna articolazione", () => {
+    const r = parseJointExam("Non sinoviti, non tumefazioni articolari.");
+    expect(r.found).toBe(false);
+    expect(r.joints).toEqual({});
+  });
+});
