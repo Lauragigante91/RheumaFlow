@@ -250,7 +250,7 @@ export function PrimaVisitaCard({ firstVisit, patient, patientId, onDelete, onIn
 }
 
 // ── Workup / follow-up visit card ─────────────────────────────────────────────
-export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertToSection, insertSections, linkedAssessments }) {
+export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertToSection, insertSections, linkedAssessments, onOpenExams, onOpenClinica }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const record = buildWorkupRecord(visit, patient, linkedAssessments);
@@ -258,6 +258,24 @@ export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertT
 
   const footerActions = (
     <>
+      {onOpenClinica && linkedAssessments?.length > 0 && (
+        <button
+          type="button"
+          onClick={() => { setModalOpen(false); onOpenClinica(); }}
+          className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline px-3 py-1.5"
+        >
+          Clinimetrie →
+        </button>
+      )}
+      {onOpenExams && (
+        <button
+          type="button"
+          onClick={() => { setModalOpen(false); onOpenExams(); }}
+          className="text-[11px] text-teal-600 hover:text-teal-800 hover:underline px-3 py-1.5"
+        >
+          Esami →
+        </button>
+      )}
       {patientId && visit._id && (
         <a
           href={`/pazienti/${patientId}/visita-workup?editVisit=${visit._id}`}

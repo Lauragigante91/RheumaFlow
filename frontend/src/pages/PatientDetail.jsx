@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   patientsApi, assessmentsApi, criteriaApi, therapiesApi, diseaseProfileApi, labExamsApi,
   workupVisitsApi, consultApi, instrumentalExamsApi,
@@ -155,6 +155,19 @@ export default function PatientDetail() {
     setTherapyLauncherAction(initialAction || null);
     setGestioneOpen(true);
   }, []);
+  const navigate = useNavigate();
+  const handlePromoteToWorkup = useCallback(async (date) => {
+    try {
+      const newVisit = await workupVisitsApi.create(id, {
+        visit_date: date,
+        visit_type: "follow_up",
+        status: "draft",
+      });
+      navigate(`/pazienti/${id}/visita-workup?editVisit=${newVisit._id || newVisit.id}`);
+    } catch {
+      toast.error("Impossibile creare la visita strutturata");
+    }
+  }, [id, navigate]);
   const [petvasDialogOpen, setPetvasDialogOpen] = useState(false);
   const [editingPetvas, setEditingPetvas] = useState(null);
   const [petvasInitialTab, setPetvasInitialTab] = useState("score");
@@ -817,6 +830,7 @@ export default function PatientDetail() {
                           }
                           if (item.type === "workup") {
                             const wv = item.data;
+                            const wvDateKey = (wv.visit_date || "").slice(0, 10);
                             return (
                               <WorkupVisitCard
                                 key={wv._id || wv.visit_date}
@@ -827,6 +841,13 @@ export default function PatientDetail() {
                                 onInsertToSection={insertToSection}
                                 insertSections={INSERT_SECTIONS}
                                 linkedAssessments={item.linkedAssessments}
+                                onOpenExams={() => { setExamsInitialTab("lab"); setExamsDialogOpen(true); }}
+                                onOpenClinica={() => setVisitDetailsGroup({
+                                  date: wvDateKey,
+                                  assessments: item.linkedAssessments || [],
+                                  therapies: therapiesActiveOn(wvDateKey),
+                                  exams: examsByDate.get(wvDateKey) || [],
+                                })}
                               />
                             );
                           }
@@ -1426,6 +1447,9 @@ export default function PatientDetail() {
         onClose={() => setVisitDetailsGroup(null)}
         onEdit={(a) => { setVisitDetailsGroup(null); startEdit(a); }}
         onRemove={(aid) => { setVisitDetailsGroup(null); removeAssessment(aid); }}
+        onOpenExams={() => { setVisitDetailsGroup(null); setExamsInitialTab("lab"); setExamsDialogOpen(true); }}
+        onOpenTherapies={() => { setVisitDetailsGroup(null); openTherapyManager(); }}
+        onPromoteToWorkup={handlePromoteToWorkup}
       />
 
       {/* Full history export dialog */}

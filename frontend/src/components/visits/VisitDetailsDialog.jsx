@@ -2,7 +2,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Edit, Trash2, FlaskConical, Pill, Stethoscope, FileText, Printer, Copy } from "lucide-react";
+import { Edit, Trash2, FlaskConical, Pill, Stethoscope, FileText, Printer, Copy, ExternalLink } from "lucide-react";
 import { INDEX_LABELS } from "../../lib/clinimetrics";
 import { categoryColor } from "../../lib/drugs";
 import { toast } from "sonner";
@@ -209,7 +209,7 @@ function AssessmentBlock({ a, onEdit, onRemove }) {
   );
 }
 
-export default function VisitDetailsDialog({ open, group, patient, onClose, onEdit, onRemove }) {
+export default function VisitDetailsDialog({ open, group, patient, onClose, onEdit, onRemove, onOpenExams, onOpenTherapies, onPromoteToWorkup }) {
   if (!group) return null;
 
   const dateLabel = new Date(group.date).toLocaleDateString("it-IT", {
@@ -379,6 +379,15 @@ ${sections.map(s => `<div class="section">
           <section>
             <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-[#0A2540] mb-2 flex items-center gap-2">
               <Pill className="w-4 h-4" /> Terapie attive a questa data ({group.therapies.length})
+              {onOpenTherapies && (
+                <button
+                  type="button"
+                  onClick={onOpenTherapies}
+                  className="ml-auto text-[11px] font-normal normal-case tracking-normal text-teal-600 hover:text-teal-800 hover:underline flex items-center gap-0.5"
+                >
+                  Gestisci <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
             </h3>
             {group.therapies.length === 0 ? (
               <div className="text-sm text-gray-400 italic">Nessuna terapia attiva.</div>
@@ -404,6 +413,15 @@ ${sections.map(s => `<div class="section">
             <section>
               <h3 className="font-heading font-bold text-sm uppercase tracking-[0.15em] text-[#0A2540] mb-2 flex items-center gap-2">
                 <FlaskConical className="w-4 h-4" /> Esami di laboratorio ({group.exams.length})
+                {onOpenExams && (
+                  <button
+                    type="button"
+                    onClick={onOpenExams}
+                    className="ml-auto text-[11px] font-normal normal-case tracking-normal text-teal-600 hover:text-teal-800 hover:underline flex items-center gap-0.5"
+                  >
+                    Modifica <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
               </h3>
               <div className="space-y-2">
                 {group.exams.map((e) => (
@@ -436,6 +454,15 @@ ${sections.map(s => `<div class="section">
             <Button variant="outline" onClick={handleCopy} className="gap-1.5">
               <Copy className="w-4 h-4" /> Copia testo
             </Button>
+            {onPromoteToWorkup && (
+              <Button
+                variant="outline"
+                onClick={() => { onClose(); onPromoteToWorkup(group.date); }}
+                className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"
+              >
+                <ExternalLink className="w-4 h-4" /> Modifica visita completa
+              </Button>
+            )}
           </div>
           <Button variant="outline" onClick={onClose} data-testid="visit-details-close">Chiudi</Button>
         </DialogFooter>
