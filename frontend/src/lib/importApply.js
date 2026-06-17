@@ -36,6 +36,27 @@ function isEmptyVal(v) {
   return v === null || v === undefined || v === "";
 }
 
+function normDrugName(name) {
+  return (name || "").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function buildTherapyStartEvent(t, visitDate, sourceFilename) {
+  const detail = [t.dose, t.route, t.frequency].filter(Boolean).join(" ").trim();
+  return {
+    event_type: "therapy_start",
+    categoria: "terapia",
+    titolo: `Avvio ${t.drug_name}`,
+    date_value: visitDate,
+    date_precision: "exact",
+    drug_name: t.drug_name,
+    drug_canonical: normDrugName(t.drug_name),
+    drug_category: t.category || null,
+    detail: detail || null,
+    source_origin: "generato_da_parser",
+    source_filename: sourceFilename || null,
+  };
+}
+
 export function mergeFreeTextConservative(existingText, incomingText) {
   const signature = (s) => {
     const norm = (s || "")
@@ -98,6 +119,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   }
 
   let importedVisitId = null;
+  const therapyStartEvents = [];
   const wantVisitSections = selected.visit_sections && extracted.visit_sections &&
     Object.values(extracted.visit_sections).some(Boolean);
   const wantExamImaging = selected.exam_imaging && Array.isArray(extracted.exam_imaging) &&
@@ -127,12 +149,16 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
 
   if (selected.therapies && Array.isArray(extracted.therapies)) {
     const today = new Date().toISOString().slice(0, 10);
+    const visitDate = extracted.visit_date || today;
 
     for (const t of extracted.therapies.filter(x => !x._skip)) {
       if (!t.drug_name) continue;
       try {
         await therapiesApi.upsert(buildTherapyUpsertPayload(t, patient.id, importedVisitId));
         updates += 1;
+        if (t.status === "active" && t._action === "new_episode") {
+          therapyStartEvents.push(buildTherapyStartEvent(t, visitDate, sourceFilename));
+        }
       } catch (e) { errors.push(apiErrMsg(e, `Terapia ${t.drug_name}`)); }
     }
 
@@ -278,24 +304,39 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     } catch (e) { errors.push(apiErrMsg(e, "Intolleranze")); }
   }
 
+  const eventsToCreate = [];
+  const raccordoStartDrugs = new Set();
   if (selected.raccordo_events) {
     const confirmed = (extracted.raccordo_events || []).filter(e => !e._skip);
     if (process.env.NODE_ENV !== "production") {
       console.log("[import][save] eventi raccordo da salvare:", confirmed.length);
     }
-    if (confirmed.length > 0) {
-      try {
-        await clinicalEventsApi.batchCreate(patient.id, {
-          patient_id: patient.id,
-          events: confirmed.map(({ _id, _skip, id, _status, _statusReason, ...e }) => ({
-            ...e,
-            source_filename: e.source_filename || sourceFilename || null,
-          })),
-          visit_id: importedVisitId || null,
-        });
-        updates += 1;
-      } catch (e) { errors.push(apiErrMsg(e, "Cronologia raccordo")); }
+    for (const ev of confirmed) {
+      if (ev.event_type === "therapy_start") {
+        const k = normDrugName(ev.drug_canonical || ev.drug_name);
+        if (k) raccordoStartDrugs.add(k);
+      }
     }
+    eventsToCreate.push(
+      ...confirmed.map(({ _id, _skip, id, _status, _statusReason, ...e }) => ({
+        ...e,
+        source_filename: e.source_filename || sourceFilename || null,
+      }))
+    );
+  }
+  for (const ev of therapyStartEvents) {
+    if (raccordoStartDrugs.has(ev.drug_canonical)) continue;
+    eventsToCreate.push(ev);
+  }
+  if (eventsToCreate.length > 0) {
+    try {
+      await clinicalEventsApi.batchCreate(patient.id, {
+        patient_id: patient.id,
+        events: eventsToCreate,
+        visit_id: importedVisitId || null,
+      });
+      updates += 1;
+    } catch (e) { errors.push(apiErrMsg(e, "Cronologia clinica")); }
   }
 
   return { updates, errors };

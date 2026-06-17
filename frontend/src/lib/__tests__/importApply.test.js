@@ -8,6 +8,7 @@ import {
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import { buildTerapiaUscita } from "../terapiaUscita";
 import { parseVisitText } from "../visitTextParser";
+import { reconcileDrafts } from "../visitReconciler";
 import {
   patientsApi,
   assessmentsApi,
@@ -422,6 +423,203 @@ describe("applyOneDraft — lab in conflitto non inviato a upsert", () => {
       "follow_up"
     );
     expect(labExamsApi.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyOneDraft — bridge timeline: avvio terapia genera clinical_event", () => {
+  it("terapia attiva nuova (new_episode) -> crea un evento timeline therapy_start datato alla visita", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          {
+            drug_name: "Adalimumab",
+            category: "biologic",
+            dose: "40 mg",
+            route: "sc",
+            frequency: "ogni 2 settimane",
+            status: "active",
+            _action: "new_episode",
+            _status: "new",
+          },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(therapiesApi.upsert).toHaveBeenCalledTimes(1);
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const payload = clinicalEventsApi.batchCreate.mock.calls[0][1];
+    expect(payload.events).toHaveLength(1);
+    const ev = payload.events[0];
+    expect(ev.event_type).toBe("therapy_start");
+    expect(ev.categoria).toBe("terapia");
+    expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
+    expect(ev.date_value).toBe("2026-05-26");
+    expect(ev.date_precision).toBe("exact");
+    expect(ev.drug_canonical).toBe("adalimumab");
+    expect(ev.detail).toContain("40 mg");
+    expect(ev.source_origin).toBe("generato_da_parser");
+  });
+
+  it("terapia attiva nuova senza visit_date -> usa la data odierna", async () => {
+    const patient = basePatient();
+    const today = new Date().toISOString().slice(0, 10);
+    await applyOneDraft(
+      { therapies: [{ drug_name: "Secukinumab", status: "active", _action: "new_episode" }] },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    const ev = clinicalEventsApi.batchCreate.mock.calls[0][1].events[0];
+    expect(ev.date_value).toBe(today);
+  });
+
+  it("continuità (continued, _skip) NON genera evento timeline", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Metotrexato", status: "active", _action: "continued", _skip: true, _call_upsert: true },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("cambio dose (dose_change) NON genera evento avvio", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Secukinumab", status: "active", _action: "dose_change", dose: "300 mg" },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("esposizione storica (discontinued + new_episode) NON genera evento avvio", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Etanercept", status: "discontinued", _action: "new_episode" },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("solo esami/clinimetrie (nessuna terapia nuova) -> nessun evento timeline", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        assessments: [{ index_type: "DAS28", score: 2.0 }],
+        lab_exams: [{ date: "2026-05-26", _skip: false, results: [{ param_key: "ves", value: "10", unit: "mm/h" }] }],
+        instrumental_findings: [{ examLabel: "RM bacino" }],
+      },
+      patient,
+      { assessments: true, lab_exams: true, instrumental_findings: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("raccordo_events + avvio terapia -> un solo batchCreate con entrambi", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Adalimumab", status: "active", _action: "new_episode", dose: "40 mg", route: "sc", frequency: "ogni 2 settimane" },
+        ],
+        raccordo_events: [
+          { event_type: "disease_onset", date_value: "2025-01-01", titolo: "Esordio artrite" },
+        ],
+      },
+      patient,
+      { therapies: true, raccordo_events: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events).toHaveLength(2);
+    expect(events.some((e) => e.event_type === "disease_onset")).toBe(true);
+    expect(events.some((e) => e.event_type === "therapy_start" && /adalimumab/i.test(e.drug_canonical))).toBe(true);
+  });
+
+  it("dedup: avvio già presente come raccordo therapy_start -> non duplicato", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Adalimumab", status: "active", _action: "new_episode", dose: "40 mg" },
+        ],
+        raccordo_events: [
+          { event_type: "therapy_start", date_value: "2026-01-01", drug_name: "Adalimumab", drug_canonical: "adalimumab" },
+        ],
+      },
+      patient,
+      { therapies: true, raccordo_events: true },
+      "follow_up"
+    );
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    const adaStarts = events.filter(
+      (e) => e.event_type === "therapy_start" && /adalimumab/i.test(e.drug_canonical || e.drug_name || "")
+    );
+    expect(adaStarts).toHaveLength(1);
+  });
+
+  it("E2E sentinella: parser -> reconciler (DB vuoto) -> apply genera ESATTAMENTE un evento Avvio Adalimumab del 26/05/2026", async () => {
+    const referto = [
+      "Visita reumatologica del 26/05/2026",
+      "",
+      "CONCLUSIONI",
+      "Artrite psoriasica in trattamento.",
+      "",
+      "IN TERAPIA:",
+      "- Hyrimoz (Adalimumab Biosimilare) 40 mg 1 fl sc ogni due settimane (fornito PT)",
+    ].join("\n");
+
+    const { extracted } = parseVisitText(referto);
+    const [reconciled] = reconcileDrafts([extracted], {});
+
+    const ada = (reconciled.therapies || []).find((t) => /adalimumab/i.test(t.drug_name || ""));
+    expect(ada).toBeTruthy();
+    expect(ada.status).toBe("active");
+    expect(ada._action).toBe("new_episode");
+
+    const patient = basePatient();
+    await applyOneDraft(reconciled, patient, ALL_SELECTED, "follow_up");
+
+    const upserted = therapiesApi.upsert.mock.calls.map((c) => c[0]);
+    expect(upserted.some((p) => /adalimumab/i.test(p.drug_name) && p.status === "active")).toBe(true);
+
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.event_type).toBe("therapy_start");
+    expect(ev.categoria).toBe("terapia");
+    expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
+    expect(ev.date_value).toBe("2026-05-26");
   });
 });
 
