@@ -128,8 +128,34 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   if (wantVisitSections) {
     try {
       const payload = buildWorkupVisitPayload(extracted, patient.id, visitType, wantExamImaging);
-      const createdVisit = await workupVisitsApi.create(patient.id, payload);
-      importedVisitId = createdVisit?.id || null;
+      const visitDateKey = (extracted.visit_date || "").slice(0, 10);
+      const wantType = visitType || "follow_up";
+      let existing = null;
+      if (visitDateKey) {
+        try {
+          const list = await workupVisitsApi.list(patient.id);
+          existing = (list || []).find(
+            (v) =>
+              (v.visit_date || "").slice(0, 10) === visitDateKey &&
+              (v.visit_type || "follow_up") === wantType
+          ) || null;
+        } catch (_) {}
+      }
+      if (existing) {
+        const targetId = existing.id || existing._id || null;
+        const patch = {};
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v === null || v === undefined || v === "") return;
+          if (isEmptyVal(existing[k])) patch[k] = v;
+        });
+        if (targetId && Object.keys(patch).length > 0) {
+          await workupVisitsApi.patch(targetId, patch);
+        }
+        importedVisitId = targetId;
+      } else {
+        const createdVisit = await workupVisitsApi.create(patient.id, payload);
+        importedVisitId = createdVisit?.id || null;
+      }
       updates += 1;
     } catch (e) { errors.push(apiErrMsg(e, "Sezioni visita")); }
   }

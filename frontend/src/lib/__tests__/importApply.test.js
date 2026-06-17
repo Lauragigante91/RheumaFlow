@@ -29,7 +29,7 @@ jest.mock("../api", () => ({
   therapiesApi:        { upsert: jest.fn() },
   labExamsApi:         { upsert: jest.fn() },
   diseaseProfileApi:   { get: jest.fn(), upsert: jest.fn() },
-  workupVisitsApi:     { create: jest.fn() },
+  workupVisitsApi:     { create: jest.fn(), list: jest.fn(), patch: jest.fn() },
   clinicalEventsApi:   { batchCreate: jest.fn() },
 }));
 
@@ -80,6 +80,8 @@ beforeEach(() => {
   scleroProfileApi.get.mockResolvedValue(null);
   scleroProfileApi.upsert.mockResolvedValue({});
   clinicalEventsApi.batchCreate.mockResolvedValue({});
+  workupVisitsApi.list.mockResolvedValue([]);
+  workupVisitsApi.patch.mockResolvedValue({});
 });
 
 describe("mergeFreeTextConservative", () => {
@@ -1076,5 +1078,70 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
       byDate[c[1].visit_date] = c[1].exit_therapy_text;
     });
     expect(byDate).toEqual(texts);
+  });
+
+  describe("applyOneDraft — una data = una visita (get-or-create)", () => {
+    const visitDate = "2026-06-15";
+    const draftBase = {
+      visit_date: visitDate,
+      visit_type: "follow_up",
+      visit_sections: { anamnesi: "buona risposta al trattamento", esame_obj: "EO stabile" },
+      assessments: [{ _skip: false, index_type: "das28_crp", score: 3.1, date: visitDate }],
+      therapies: [],
+      lab_exams: [],
+    };
+    const selectedBase = { ...ALL_SELECTED, raccordo_events: false };
+
+    it("nessuna visita esistente → create chiamato una volta, assessment linkato alla nuova visita", async () => {
+      workupVisitsApi.list.mockResolvedValue([]);
+
+      await applyOneDraft(draftBase, basePatient(), selectedBase, "follow_up");
+
+      expect(workupVisitsApi.list).toHaveBeenCalledWith("p1");
+      expect(workupVisitsApi.create).toHaveBeenCalledTimes(1);
+      expect(workupVisitsApi.patch).not.toHaveBeenCalled();
+      const assessmentPayload = assessmentsApi.create.mock.calls[0][0];
+      expect(assessmentPayload.visit_id).toBe("wv-1");
+    });
+
+    it("visita esistente stessa data/tipo → PATCH conservativa, nessuna create, assessment linkato alla visita esistente", async () => {
+      const existing = {
+        id: "wv-existing",
+        visit_date: visitDate,
+        visit_type: "follow_up",
+        interval_history: "vecchia anamnesi già presente",
+        conclusions: null,
+      };
+      workupVisitsApi.list.mockResolvedValue([existing]);
+
+      await applyOneDraft(draftBase, basePatient(), selectedBase, "follow_up");
+
+      expect(workupVisitsApi.create).not.toHaveBeenCalled();
+      expect(workupVisitsApi.patch).toHaveBeenCalledWith(
+        "wv-existing",
+        expect.objectContaining({ physical_exam: "EO stabile" })
+      );
+      const assessmentPayload = assessmentsApi.create.mock.calls[0][0];
+      expect(assessmentPayload.visit_id).toBe("wv-existing");
+    });
+
+    it("PATCH non sovrascrive i campi già popolati nella visita esistente", async () => {
+      const existing = {
+        id: "wv-full",
+        visit_date: visitDate,
+        visit_type: "follow_up",
+        patient_id: "p1",
+        interval_history: "anamnesi esistente da preservare",
+        physical_exam: "EO esistente da preservare",
+        conclusions: "conclusioni esistenti da preservare",
+        status: "completed",
+      };
+      workupVisitsApi.list.mockResolvedValue([existing]);
+
+      await applyOneDraft(draftBase, basePatient(), selectedBase, "follow_up");
+
+      expect(workupVisitsApi.create).not.toHaveBeenCalled();
+      expect(workupVisitsApi.patch).not.toHaveBeenCalled();
+    });
   });
 });

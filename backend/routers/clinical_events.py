@@ -70,7 +70,7 @@ async def create_clinical_event(
 ):
     await verify_patient_in_org(patient_id, user["organization_id"])
     ev = ClinicalEvent(
-        **payload.model_dump(),
+        **payload.model_dump(exclude={"patient_id"}),
         patient_id=patient_id,
         organization_id=user["organization_id"],
         created_by=user["id"],

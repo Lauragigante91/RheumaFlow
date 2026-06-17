@@ -73,7 +73,7 @@ import { COMORBIDITY_CATEGORIES } from "../lib/conditions";
 import { INDEX_LABELS, eularResponseDAS28, cdaiResponse } from "../lib/clinimetrics";
 import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
 import { findPresetText } from "../lib/therapyPresets";
-import ImportVisitFromTextModal from "../components/visits/ImportVisitFromTextModal";
+import { groupSidebarVisits } from "../lib/visitGrouping";
 import ImportVisitPdfModal from "../components/visits/ImportVisitPdfModal";
 import ImportMultiPdfModal from "../components/visits/ImportMultiPdfModal";
 import VisitImportButton from "../components/visits/VisitImportButton";
@@ -142,7 +142,6 @@ export default function PatientDetail() {
   const [historyExportOpen, setHistoryExportOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [importTextOpen,       setImportTextOpen]        = useState(false);
-  const [importVisitOpen,      setImportVisitOpen]      = useState(false);
   const [importPdfOpen,        setImportPdfOpen]        = useState(false);
   const [importPdfInitialText, setImportPdfInitialText] = useState("");
   const [importPdfInitialDate, setImportPdfInitialDate] = useState("");
@@ -644,59 +643,10 @@ export default function PatientDetail() {
     return groups;
   }, [filteredAssessments, examsByDate, histSort, therapiesActiveOn]);
 
-  // ── Unified sidebar visit list (all types, sorted chronologically asc) ────
-  const sidebarUnifiedVisits = useMemo(() => {
-    const items = [];
-    const firstVisitDateKey = firstVisit?.referral_date?.slice(0, 10) ?? null;
-
-    // Assessments explicitly linked to a workup visit (by visit_id)
-    const workupLinkedIds = new Set(
-      assessments.filter(a => a.visit_id).map(a => a.id)
-    );
-
-    // Assessments that belong on the prima visita card:
-    // same date as first visit AND not linked to any workup visit
-    const primaVisitaAssessments = firstVisitDateKey
-      ? assessments.filter(a => !a.visit_id && (a.date || "").slice(0, 10) === firstVisitDateKey)
-      : [];
-    const primaVisitaAssessmentIds = new Set(primaVisitaAssessments.map(a => a.id));
-
-    if (firstVisit?.referral_date) {
-      items.push({
-        type: "prima_visita",
-        date: firstVisit.referral_date,
-        data: firstVisit,
-        linkedAssessments: primaVisitaAssessments,
-      });
-    }
-    for (const wv of workupVisits) {
-      // Attach assessments that were explicitly linked to this visit
-      const linkedAssessments = assessments.filter(
-        a => a.visit_id && (a.visit_id === wv.id || a.visit_id === wv._id)
-      );
-      items.push({ type: "workup", date: wv.visit_date || "", data: wv, linkedAssessments });
-    }
-    const m = new Map();
-    for (const a of assessments) {
-      // Skip assessments linked to a specific workup visit
-      if (workupLinkedIds.has(a.id)) continue;
-      // Skip assessments already shown on the prima visita card
-      if (primaVisitaAssessmentIds.has(a.id)) continue;
-      const k = (a.date || "").slice(0, 10);
-      if (!k) continue;
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push(a);
-    }
-    for (const [date, ass] of m.entries()) {
-      items.push({
-        type: "followup",
-        date,
-        data: { date, assessments: ass, therapies: therapiesActiveOn(date), exams: examsByDate.get(date) || [] },
-      });
-    }
-    items.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    return items;
-  }, [firstVisit, workupVisits, assessments, therapiesActiveOn, examsByDate]);
+  const sidebarUnifiedVisits = useMemo(
+    () => groupSidebarVisits({ firstVisit, workupVisits, assessments, therapiesActiveOn, examsByDate }),
+    [firstVisit, workupVisits, assessments, therapiesActiveOn, examsByDate]
+  );
 
   const hasProfiles = (
     isRaDiagnosis(patient) || isSpaDiagnosis(patient) || isSleDiagnosis(patient) ||
@@ -1293,7 +1243,7 @@ export default function PatientDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setHistoryDialogOpen(false); setImportVisitOpen(true); }}
+                onClick={() => { setHistoryDialogOpen(false); setImportPdfInitialText(""); setImportPdfInitialDate(""); setImportTextOpen(true); }}
                 className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 text-[11px] h-7 px-2.5 flex-shrink-0 whitespace-nowrap"
               >
                 <FileText className="w-3 h-3 mr-1" /> Importa da testo
@@ -1668,16 +1618,6 @@ export default function PatientDetail() {
         />
       )}
 
-      {/* Importa da testo (storico/history dialog) */}
-      <ImportVisitFromTextModal
-        open={importVisitOpen}
-        onClose={() => setImportVisitOpen(false)}
-        patientId={id}
-        patient={patient}
-        onSaved={() => { load(); setProfileRefreshKey((k) => k + 1); }}
-        initialText=""
-        initialDate=""
-      />
 
       {/* Importa più PDF — multi-documento, ogni PDF è un blocco separato */}
       <ImportMultiPdfModal
