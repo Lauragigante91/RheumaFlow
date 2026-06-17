@@ -250,7 +250,7 @@ export function PrimaVisitaCard({ firstVisit, patient, patientId, onDelete, onIn
 }
 
 // ── Workup / follow-up visit card ─────────────────────────────────────────────
-export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertToSection, insertSections, linkedAssessments, onOpenExams, onOpenClinica }) {
+export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertToSection, insertSections, linkedAssessments, onOpenExams, onOpenClinica, onRefresh }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const record = buildWorkupRecord(visit, patient, linkedAssessments);
@@ -336,6 +336,9 @@ export function WorkupVisitCard({ visit, patientId, patient, onDelete, onInsertT
           record={record}
           patient={patient}
           extraFooterActions={footerActions}
+          visitId={visit._id || visit.id || null}
+          patientId={patientId || null}
+          onRefresh={onRefresh}
         />
       )}
     </>

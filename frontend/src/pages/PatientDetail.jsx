@@ -848,6 +848,7 @@ export default function PatientDetail() {
                                   therapies: therapiesActiveOn(wvDateKey),
                                   exams: examsByDate.get(wvDateKey) || [],
                                 })}
+                                onRefresh={load}
                               />
                             );
                           }

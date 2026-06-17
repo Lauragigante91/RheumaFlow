@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { X, Printer, Copy, ChevronDown, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { X, Printer, Copy, ChevronDown, ChevronRight, Maximize2, Minimize2, Pencil, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { workupVisitsApi, patientsApi } from "../../lib/api";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -19,21 +20,21 @@ function fmtDateLong(iso) {
 }
 
 const SECTION_DEFS = [
-  { key: "anamnesi_fisiologica",  num: "1",  label: "ANAMNESI FISIOLOGICA",                          titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "anamnesi_familiare",    num: "2",  label: "ANAMNESI FAMILIARE",                             titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "comorbidita",           num: "3",  label: "ANAMNESI PATOLOGICA REMOTA · COMORBIDITÀ",       titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "allergie",              num: "4",  label: "ALLERGIE",                                       titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "terapie_in_corso",      num: "5",  label: "TERAPIE IN CORSO ALLA DATA DELLA VISITA",        titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "terapie_pregresse",     num: "6",  label: "TERAPIE PREGRESSE",                              titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
-  { key: "raccordo",              num: "7",  label: "RACCORDO ANAMNESTICO REUMATOLOGICO",             titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
-  { key: "anamnesi_intervallare", num: "8",  label: "ANAMNESI INTERVALLARE",                         titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
-  { key: "esame_obiettivo",       num: "9",  label: "ESAME OBIETTIVO",                               titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
-  { key: "clinimetria",           num: "10", label: "CLINIMETRIE · SCORE",                           titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
-  { key: "esami",                 num: "11", label: "ESAMI DI LABORATORIO · IMAGING · STRUMENTALI",  titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
-  { key: "conclusioni",           num: "12", label: "CONCLUSIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
-  { key: "terapia_uscita",        num: "13", label: "TERAPIA IN USCITA",                             titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
-  { key: "modifiche_terapeutiche", num: "14", label: "MODIFICHE TERAPEUTICHE",                       titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
-  { key: "indicazioni",           num: "15", label: "INDICAZIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "anamnesi_fisiologica",   num: "1",  label: "ANAMNESI FISIOLOGICA",                         titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "anamnesi_familiare",     num: "2",  label: "ANAMNESI FAMILIARE",                            titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "comorbidita",            num: "3",  label: "ANAMNESI PATOLOGICA REMOTA · COMORBIDITÀ",      titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "allergie",               num: "4",  label: "ALLERGIE",                                      titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "terapie_in_corso",       num: "5",  label: "TERAPIE IN CORSO ALLA DATA DELLA VISITA",       titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "terapie_pregresse",      num: "6",  label: "TERAPIE PREGRESSE",                             titleCls: "text-gray-500",  headerBg: "bg-gray-50",  borderCls: "border-gray-200" },
+  { key: "raccordo",               num: "7",  label: "RACCORDO ANAMNESTICO REUMATOLOGICO",            titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
+  { key: "anamnesi_intervallare",  num: "8",  label: "ANAMNESI INTERVALLARE",                         titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
+  { key: "esame_obiettivo",        num: "9",  label: "ESAME OBIETTIVO",                               titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
+  { key: "clinimetria",            num: "10", label: "CLINIMETRIE · SCORE",                           titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
+  { key: "esami",                  num: "11", label: "ESAMI DI LABORATORIO · IMAGING · STRUMENTALI",  titleCls: "text-amber-700", headerBg: "bg-amber-50", borderCls: "border-amber-200" },
+  { key: "conclusioni",            num: "12", label: "CONCLUSIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "terapia_uscita",         num: "13", label: "TERAPIA IN USCITA",                             titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "modifiche_terapeutiche", num: "14", label: "MODIFICHE TERAPEUTICHE",                        titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
+  { key: "indicazioni",            num: "15", label: "INDICAZIONI",                                   titleCls: "text-blue-700",  headerBg: "bg-blue-50",  borderCls: "border-blue-200" },
 ];
 
 const PRINT_COLORS = {
@@ -42,33 +43,97 @@ const PRINT_COLORS = {
   "text-blue-700":  "#1d4ed8",
 };
 
-function RecordSection({ def, content }) {
+const WORKUP_SAVE_MAP = {
+  raccordo:               "rheumatologic_history_summary",
+  anamnesi_intervallare:  "interval_history",
+  esame_obiettivo:        "physical_exam",
+  esami:                  "labs_imaging",
+  conclusioni:            "conclusions",
+  terapia_uscita:         "exit_therapy_text",
+  modifiche_terapeutiche: "therapy_modification",
+  indicazioni:            "referral_note",
+  comorbidita:            "comorbidities_text",
+};
+
+const PATIENT_SAVE_MAP = {
+  anamnesi_fisiologica: "anamnesi_fisiologica",
+  anamnesi_familiare:   "anamnesi_familiare",
+  allergie:             "allergie_testo",
+  comorbidita:          "comorbidita_apr",
+};
+
+const COLLECTION_KEYS = new Set(["terapie_in_corso", "terapie_pregresse", "clinimetria"]);
+
+function RecordSection({ def, content, onSave }) {
   const hasContent = Boolean(content?.trim());
   const [open, setOpen] = useState(hasContent);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const isEditable = Boolean(onSave);
+
+  const startEdit = () => {
+    setEditValue(content || "");
+    setEditing(true);
+    setOpen(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(editValue.trim());
+      setEditing(false);
+    } catch {
+      toast.error(`Salvataggio "${def.label}" non riuscito`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") cancelEdit();
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSave();
+  };
 
   return (
     <div className={`rounded-lg border overflow-hidden ${def.borderCls}`}>
-      <button
-        type="button"
-        className={`w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors ${
-          open ? def.headerBg : "bg-white"
-        } hover:${def.headerBg}`}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className={`text-[9.5px] font-bold uppercase tracking-[0.14em] flex-1 leading-none ${def.titleCls}`}>
-          {def.num} · {def.label}
-        </span>
-        {!hasContent && (
-          <span className="text-[10px] text-gray-300 italic mr-1 font-normal normal-case tracking-normal">
-            non riportato
+      <div className={`flex items-stretch ${open ? def.headerBg : "bg-white"}`}>
+        <button
+          type="button"
+          className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-left transition-colors hover:${def.headerBg}`}
+          onClick={() => !editing && setOpen((v) => !v)}
+        >
+          <span className={`text-[9.5px] font-bold uppercase tracking-[0.14em] flex-1 leading-none ${def.titleCls}`}>
+            {def.num} · {def.label}
           </span>
+          {!hasContent && !editing && (
+            <span className="text-[10px] text-gray-300 italic mr-1 font-normal normal-case tracking-normal">
+              non riportato
+            </span>
+          )}
+          {!editing && (open
+            ? <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 opacity-60 ${hasContent ? def.titleCls : "text-gray-300"}`} />
+            : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-gray-300" />
+          )}
+        </button>
+        {isEditable && !editing && (
+          <button
+            type="button"
+            onClick={startEdit}
+            title="Modifica sezione"
+            className={`flex-shrink-0 px-3 flex items-center transition-colors text-gray-300 hover:text-gray-600 hover:${def.headerBg}`}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
         )}
-        {open
-          ? <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 opacity-60 ${hasContent ? def.titleCls : "text-gray-300"}`} />
-          : <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-gray-300" />
-        }
-      </button>
-      {open && (
+      </div>
+
+      {open && !editing && (
         <div className={`px-4 py-3 border-t ${def.borderCls}`}>
           {hasContent
             ? <p className="whitespace-pre-wrap text-sm font-serif text-gray-800 leading-relaxed">{content.trim()}</p>
@@ -76,11 +141,47 @@ function RecordSection({ def, content }) {
           }
         </div>
       )}
+
+      {editing && (
+        <div className={`px-4 py-3 border-t ${def.borderCls} space-y-2`}>
+          <textarea
+            className="w-full min-h-[120px] text-sm font-serif text-gray-800 leading-relaxed border border-gray-300 rounded-md px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            placeholder="Inserisci testo..."
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-[#0A2540] hover:bg-[#051626] px-3 py-1.5 rounded-md disabled:opacity-50 transition-colors"
+            >
+              {saving
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <Check className="w-3 h-3" />
+              }
+              Salva
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={saving}
+              className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              Annulla
+            </button>
+            <span className="ml-auto text-[10px] text-gray-300">⌘+Invio per salvare · Esc per annullare</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function VisitFullRecordModal({ onClose, record = {}, patient, extraFooterActions }) {
+export default function VisitFullRecordModal({ onClose, record = {}, patient, extraFooterActions, visitId, patientId, onRefresh }) {
   const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
@@ -88,6 +189,28 @@ export default function VisitFullRecordModal({ onClose, record = {}, patient, ex
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  function getSaver(key) {
+    if (COLLECTION_KEYS.has(key)) return null;
+
+    const wvField = WORKUP_SAVE_MAP[key];
+    if (wvField && visitId) {
+      return async (val) => {
+        await workupVisitsApi.patch(visitId, { [wvField]: val });
+        onRefresh?.();
+      };
+    }
+
+    const patField = PATIENT_SAVE_MAP[key];
+    if (patField && patientId) {
+      return async (val) => {
+        await patientsApi.patch(patientId, { [patField]: val });
+        onRefresh?.();
+      };
+    }
+
+    return null;
+  }
 
   const pLabel    = [patient?.cognome, patient?.nome].filter(Boolean).join(" ") || "Paziente";
   const dateShort = fmtDate(record.date);
@@ -171,6 +294,11 @@ ${sects}
                     {record.visitTypeLabel}
                   </span>
                 )}
+                {visitId && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700 whitespace-nowrap">
+                    modificabile
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-gray-500 mt-1 leading-snug">
                 {dateLong || dateShort}
@@ -202,7 +330,12 @@ ${sects}
           <div className={`flex-1 overflow-y-auto px-6 py-5 ${fullscreen ? "max-h-[calc(100vh-130px)]" : ""}`}>
             <div className="space-y-1.5 max-w-3xl mx-auto">
               {SECTION_DEFS.map((def) => (
-                <RecordSection key={def.key} def={def} content={record[def.key] || null} />
+                <RecordSection
+                  key={def.key}
+                  def={def}
+                  content={record[def.key] || null}
+                  onSave={getSaver(def.key)}
+                />
               ))}
             </div>
           </div>
