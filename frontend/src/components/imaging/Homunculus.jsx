@@ -18,6 +18,9 @@ import React from "react";
  *   mode: "28" | "66_68"
  *   joints: { [key]: "none" | "tender" | "swollen" | "both" }
  *   onChange: (newJointsMap) => void
+ *
+ * La figura è orientata come il paziente di fronte all'osservatore:
+ * lato SX del paziente appare a destra del medico, DX a sinistra.
  */
 
 const COLORS = {
@@ -34,9 +37,8 @@ function nextState(current) {
   return order[(idx + 1) % order.length];
 }
 
-// Coordinates for front-view joints — x, y, r (radius)
-// Total 68 joints: matches TJC68 standard.
-// SJC66 = all except hip_l/hip_r.
+// Coordinate front-view — x, y, r (raggio)
+// Figura specchiata via SVG transform: _l appare a dx del medico, _r a sx.
 const FRONT_JOINTS = {
   // ── TMJ ──────────────────────────────────────────────────────────
   tmj_l: { x: 92, y: 30, r: 3 },
@@ -55,40 +57,40 @@ const FRONT_JOINTS = {
   // ── Wrists ───────────────────────────────────────────────────────
   wrist_l: { x: 50, y: 180, r: 5 },
   wrist_r: { x: 150, y: 180, r: 5 },
-  // ── MCP fingers (left) ───────────────────────────────────────────
-  mcp1_l: { x: 36, y: 205, r: 3 },
-  mcp2_l: { x: 42, y: 210, r: 3 },
-  mcp3_l: { x: 48, y: 213, r: 3 },
-  mcp4_l: { x: 54, y: 213, r: 3 },
-  mcp5_l: { x: 60, y: 210, r: 3 },
+  // ── MCP fingers (left) — ingranditi e distanziati ────────────────
+  mcp1_l: { x: 27, y: 207, r: 4.5 },
+  mcp2_l: { x: 36, y: 212, r: 4.5 },
+  mcp3_l: { x: 44, y: 215, r: 4.5 },
+  mcp4_l: { x: 52, y: 215, r: 4.5 },
+  mcp5_l: { x: 60, y: 212, r: 4.5 },
   // ── MCP fingers (right) ──────────────────────────────────────────
-  mcp1_r: { x: 164, y: 205, r: 3 },
-  mcp2_r: { x: 158, y: 210, r: 3 },
-  mcp3_r: { x: 152, y: 213, r: 3 },
-  mcp4_r: { x: 146, y: 213, r: 3 },
-  mcp5_r: { x: 140, y: 210, r: 3 },
+  mcp1_r: { x: 173, y: 207, r: 4.5 },
+  mcp2_r: { x: 164, y: 212, r: 4.5 },
+  mcp3_r: { x: 156, y: 215, r: 4.5 },
+  mcp4_r: { x: 148, y: 215, r: 4.5 },
+  mcp5_r: { x: 140, y: 212, r: 4.5 },
   // ── PIP fingers (left) ───────────────────────────────────────────
-  pip1_l: { x: 32, y: 218, r: 2.5 },
-  pip2_l: { x: 40, y: 224, r: 2.5 },
-  pip3_l: { x: 47, y: 228, r: 2.5 },
-  pip4_l: { x: 54, y: 228, r: 2.5 },
-  pip5_l: { x: 61, y: 224, r: 2.5 },
+  pip1_l: { x: 23, y: 222, r: 3.5 },
+  pip2_l: { x: 33, y: 228, r: 3.5 },
+  pip3_l: { x: 42, y: 232, r: 3.5 },
+  pip4_l: { x: 51, y: 232, r: 3.5 },
+  pip5_l: { x: 59, y: 228, r: 3.5 },
   // ── PIP fingers (right) ──────────────────────────────────────────
-  pip1_r: { x: 168, y: 218, r: 2.5 },
-  pip2_r: { x: 160, y: 224, r: 2.5 },
-  pip3_r: { x: 153, y: 228, r: 2.5 },
-  pip4_r: { x: 146, y: 228, r: 2.5 },
-  pip5_r: { x: 139, y: 224, r: 2.5 },
+  pip1_r: { x: 177, y: 222, r: 3.5 },
+  pip2_r: { x: 167, y: 228, r: 3.5 },
+  pip3_r: { x: 158, y: 232, r: 3.5 },
+  pip4_r: { x: 149, y: 232, r: 3.5 },
+  pip5_r: { x: 141, y: 228, r: 3.5 },
   // ── DIP fingers (left, digits 2-5) ───────────────────────────────
-  dip2_l: { x: 40, y: 235, r: 2 },
-  dip3_l: { x: 47, y: 240, r: 2 },
-  dip4_l: { x: 54, y: 240, r: 2 },
-  dip5_l: { x: 61, y: 235, r: 2 },
+  dip2_l: { x: 32, y: 240, r: 3 },
+  dip3_l: { x: 41, y: 245, r: 3 },
+  dip4_l: { x: 50, y: 245, r: 3 },
+  dip5_l: { x: 58, y: 240, r: 3 },
   // ── DIP fingers (right, digits 2-5) ──────────────────────────────
-  dip2_r: { x: 160, y: 235, r: 2 },
-  dip3_r: { x: 153, y: 240, r: 2 },
-  dip4_r: { x: 146, y: 240, r: 2 },
-  dip5_r: { x: 139, y: 235, r: 2 },
+  dip2_r: { x: 168, y: 240, r: 3 },
+  dip3_r: { x: 159, y: 245, r: 3 },
+  dip4_r: { x: 150, y: 245, r: 3 },
+  dip5_r: { x: 142, y: 240, r: 3 },
   // ── Hips (tender-only in SJC66; excluded from swollen count) ─────
   hip_l: { x: 88, y: 220, r: 5 },
   hip_r: { x: 112, y: 220, r: 5 },
@@ -98,33 +100,33 @@ const FRONT_JOINTS = {
   // ── Ankles ───────────────────────────────────────────────────────
   ankle_l: { x: 85, y: 380, r: 5 },
   ankle_r: { x: 115, y: 380, r: 5 },
-  // ── Tarsus / Midfoot (1 per foot = 2 total; replaces separate subtalar) ──
+  // ── Tarsus / Midfoot ─────────────────────────────────────────────
   midtarsal_l: { x: 82, y: 393, r: 3 },
   midtarsal_r: { x: 118, y: 393, r: 3 },
-  // ── MTP (left) ───────────────────────────────────────────────────
-  mtp1_l: { x: 74, y: 410, r: 2.5 },
-  mtp2_l: { x: 78, y: 412, r: 2.5 },
-  mtp3_l: { x: 82, y: 413, r: 2.5 },
-  mtp4_l: { x: 86, y: 412, r: 2.5 },
-  mtp5_l: { x: 90, y: 410, r: 2.5 },
+  // ── MTP (left) — ingranditi e distanziati ────────────────────────
+  mtp1_l: { x: 64, y: 410, r: 4 },
+  mtp2_l: { x: 71, y: 413, r: 4 },
+  mtp3_l: { x: 78, y: 415, r: 4 },
+  mtp4_l: { x: 85, y: 413, r: 4 },
+  mtp5_l: { x: 92, y: 410, r: 4 },
   // ── MTP (right) ──────────────────────────────────────────────────
-  mtp1_r: { x: 126, y: 410, r: 2.5 },
-  mtp2_r: { x: 122, y: 412, r: 2.5 },
-  mtp3_r: { x: 118, y: 413, r: 2.5 },
-  mtp4_r: { x: 114, y: 412, r: 2.5 },
-  mtp5_r: { x: 110, y: 410, r: 2.5 },
+  mtp1_r: { x: 136, y: 410, r: 4 },
+  mtp2_r: { x: 129, y: 413, r: 4 },
+  mtp3_r: { x: 122, y: 415, r: 4 },
+  mtp4_r: { x: 115, y: 413, r: 4 },
+  mtp5_r: { x: 108, y: 410, r: 4 },
   // ── Toe PIP (left, digits 1-5) ───────────────────────────────────
-  toe_pip1_l: { x: 74, y: 421, r: 2 },
-  toe_pip2_l: { x: 78, y: 423, r: 2 },
-  toe_pip3_l: { x: 82, y: 425, r: 2 },
-  toe_pip4_l: { x: 86, y: 423, r: 2 },
-  toe_pip5_l: { x: 90, y: 421, r: 2 },
+  toe_pip1_l: { x: 62, y: 424, r: 3.5 },
+  toe_pip2_l: { x: 70, y: 428, r: 3.5 },
+  toe_pip3_l: { x: 78, y: 431, r: 3.5 },
+  toe_pip4_l: { x: 85, y: 428, r: 3.5 },
+  toe_pip5_l: { x: 92, y: 425, r: 3.5 },
   // ── Toe PIP (right, digits 1-5) ──────────────────────────────────
-  toe_pip1_r: { x: 126, y: 421, r: 2 },
-  toe_pip2_r: { x: 122, y: 423, r: 2 },
-  toe_pip3_r: { x: 118, y: 425, r: 2 },
-  toe_pip4_r: { x: 114, y: 423, r: 2 },
-  toe_pip5_r: { x: 110, y: 421, r: 2 },
+  toe_pip1_r: { x: 138, y: 424, r: 3.5 },
+  toe_pip2_r: { x: 130, y: 428, r: 3.5 },
+  toe_pip3_r: { x: 122, y: 431, r: 3.5 },
+  toe_pip4_r: { x: 115, y: 428, r: 3.5 },
+  toe_pip5_r: { x: 108, y: 425, r: 3.5 },
 };
 
 const DAS28_KEYS = [
@@ -183,64 +185,67 @@ export default function Homunculus({ mode = "28", joints = {}, onChange, readOnl
         xmlns="http://www.w3.org/2000/svg"
         data-testid="homunculus-svg"
       >
-        {/* Body silhouette */}
-        <g fill="#F9FAFB" stroke="#9CA3AF" strokeWidth="1.2">
-          {/* Head */}
-          <circle cx="100" cy="30" r="18" />
-          {/* Neck */}
-          <rect x="93" y="47" width="14" height="12" />
-          {/* Torso */}
-          <path d="M 72 60 Q 65 70 68 100 L 70 160 Q 70 200 75 220 L 125 220 Q 130 200 130 160 L 132 100 Q 135 70 128 60 Z" />
-          {/* Left arm */}
-          <path d="M 72 65 Q 55 100 50 150 Q 45 180 48 200 L 58 200 Q 62 180 65 150 Q 72 100 78 75 Z" />
-          {/* Right arm */}
-          <path d="M 128 65 Q 145 100 150 150 Q 155 180 152 200 L 142 200 Q 138 180 135 150 Q 128 100 122 75 Z" />
-          {/* Left hand */}
-          <ellipse cx="48" cy="220" rx="14" ry="22" />
-          {/* Right hand */}
-          <ellipse cx="152" cy="220" rx="14" ry="22" />
-          {/* Left leg */}
-          <path d="M 75 222 Q 70 280 78 340 Q 80 380 82 415 L 96 415 Q 97 380 97 340 Q 97 280 95 222 Z" />
-          {/* Right leg */}
-          <path d="M 125 222 Q 130 280 122 340 Q 120 380 118 415 L 104 415 Q 103 380 103 340 Q 103 280 105 222 Z" />
-          {/* Feet — extended to cover toe PIP joints */}
-          <ellipse cx="82" cy="424" rx="13" ry="9" />
-          <ellipse cx="118" cy="424" rx="13" ry="9" />
-        </g>
+        <g transform="scale(-1,1) translate(-200,0)">
+          {/* Sagoma corpo */}
+          <g fill="#F9FAFB" stroke="#9CA3AF" strokeWidth="1.2">
+            {/* Testa */}
+            <circle cx="100" cy="30" r="18" />
+            {/* Collo */}
+            <rect x="93" y="47" width="14" height="12" />
+            {/* Torace */}
+            <path d="M 72 60 Q 65 70 68 100 L 70 160 Q 70 200 75 220 L 125 220 Q 130 200 130 160 L 132 100 Q 135 70 128 60 Z" />
+            {/* Braccio sinistro */}
+            <path d="M 72 65 Q 55 100 50 150 Q 45 180 48 200 L 58 200 Q 62 180 65 150 Q 72 100 78 75 Z" />
+            {/* Braccio destro */}
+            <path d="M 128 65 Q 145 100 150 150 Q 155 180 152 200 L 142 200 Q 138 180 135 150 Q 128 100 122 75 Z" />
+            {/* Mano sinistra — ingrandita */}
+            <ellipse cx="43" cy="222" rx="19" ry="26" />
+            {/* Mano destra — ingrandita */}
+            <ellipse cx="157" cy="222" rx="19" ry="26" />
+            {/* Gamba sinistra */}
+            <path d="M 75 222 Q 70 280 78 340 Q 80 380 82 415 L 96 415 Q 97 380 97 340 Q 97 280 95 222 Z" />
+            {/* Gamba destra */}
+            <path d="M 125 222 Q 130 280 122 340 Q 120 380 118 415 L 104 415 Q 103 380 103 340 Q 103 280 105 222 Z" />
+            {/* Piede sinistro — ingrandito */}
+            <ellipse cx="78" cy="427" rx="18" ry="13" />
+            {/* Piede destro — ingrandito */}
+            <ellipse cx="122" cy="427" rx="18" ry="13" />
+          </g>
 
-        {/* Joints */}
-        {keys.map((key) => {
-          const j = FRONT_JOINTS[key];
-          if (!j) return null;
-          const state = joints[key] || "none";
-          const fill = COLORS[state];
-          return (
-            <g key={key} className="joint-clickable">
-              <title>{JOINT_LABELS_IT[key] || key}</title>
-              <circle
-                cx={j.x}
-                cy={j.y}
-                r={j.r + 2}
-                fill="transparent"
-                onClick={() => handleClick(key)}
-                data-testid={`joint-${key}`}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              <circle
-                cx={j.x}
-                cy={j.y}
-                r={j.r}
-                fill={fill}
-                stroke={COLORS.stroke}
-                strokeWidth="0.8"
-                pointerEvents="none"
-              />
-            </g>
-          );
-        })}
+          {/* Articolazioni */}
+          {keys.map((key) => {
+            const j = FRONT_JOINTS[key];
+            if (!j) return null;
+            const state = joints[key] || "none";
+            const fill = COLORS[state];
+            return (
+              <g key={key} className="joint-clickable">
+                <title>{JOINT_LABELS_IT[key] || key}</title>
+                <circle
+                  cx={j.x}
+                  cy={j.y}
+                  r={j.r + 2.5}
+                  fill="transparent"
+                  onClick={() => handleClick(key)}
+                  data-testid={`joint-${key}`}
+                  style={{ cursor: readOnly ? "default" : "pointer" }}
+                />
+                <circle
+                  cx={j.x}
+                  cy={j.y}
+                  r={j.r}
+                  fill={fill}
+                  stroke={COLORS.stroke}
+                  strokeWidth="0.8"
+                  pointerEvents="none"
+                />
+              </g>
+            );
+          })}
+        </g>
       </svg>
 
-      {/* Legend */}
+      {/* Legenda */}
       <div className="flex flex-wrap gap-3 text-xs justify-center">
         <LegendDot color={COLORS.none} label="Nessuno" />
         <LegendDot color={COLORS.tender} label="Dolente" />
@@ -279,7 +284,6 @@ export function getTenderKeys(joints) {
 export function getSwollenKeys(joints) {
   return Object.entries(joints || {}).filter(([_, v]) => v === "swollen" || v === "both").map(([k]) => k);
 }
-// Count tender/swollen restricted to a subset of joint keys (for DAS28 extraction from 66/68 state)
 export function countTenderIn(joints, allowedKeys) {
   const set = new Set(allowedKeys);
   return Object.entries(joints || {}).filter(([k, v]) => set.has(k) && (v === "tender" || v === "both")).length;

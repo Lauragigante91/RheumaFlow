@@ -688,11 +688,11 @@ export default function TodayVisitSection({
       // ── Pre-flight validation (must run BEFORE creating workup_visit) ─────────
       if (workflow.key === "ra") {
         if (!raHasScores) {
-          toast.error("Inserisci almeno TJC e SJC per visualizzare i punteggi AR");
+          toast.error("Usa il Form unificato AR per inserire la conta articolare e calcolare i punteggi");
           setSaving(false); return;
         }
         if (das28crp == null && das28esr == null && cdai == null && sdai == null) {
-          toast.error("Dati incompleti — aggiungi PtGA e almeno PCR, VES o PhGA per calcolare un punteggio");
+          toast.error("Dati incompleti — completa VES, PCR o PhGA nel Form unificato AR per calcolare uno score");
           setSaving(false); return;
         }
       } else if (workflow.key === "spa") {
@@ -1083,49 +1083,21 @@ export default function TodayVisitSection({
             reportChecked={reportSections.has("clinimetria")}
             onToggleReport={toggleReportSection}
           >
-            {/* RA: DAS28 / CDAI / SDAI */}
+            {/* RA: accesso al Form unificato */}
             {workflow.clinimetryType === "ra_das28" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-gray-400">
-                    DAS28 (4v) / CDAI / SDAI — calcolo in tempo reale.
-                    TJC/SJC sincronizzati dall'Esame Obiettivo.
-                  </p>
-                  {onOpenJointCount && (
-                    <Button type="button" variant="default" size="sm"
-                      onClick={onOpenJointCount}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
-                      data-testid="open-ra-form-btn"
-                    >
-                      <Crosshair className="w-3.5 h-3.5 mr-1.5" /> Form unificato AR
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <FieldInput label="TJC"  sub="0–28"     val={tjc} set={setTjc} max={28}  testid="today-tjc" />
-                  <FieldInput label="SJC"  sub="0–28"     val={sjc} set={setSjc} max={28}  testid="today-sjc" />
-                  <FieldInput label="PtGA" sub="0–100 mm" val={gh}  set={setGh}  max={100} testid="today-gh" />
-                  <FieldInput label="PhGA" sub="0–10 cm"  step="0.1" val={ega} set={setEga} max={10} testid="today-ega" />
-                  <FieldInput label="PCR"
-                    sub={latestLabs.pcr ? `ultimo: ${latestLabs.pcr.value} ${latestLabs.pcr.unit}` : "mg/L"}
-                    val={pcr} set={setPcr} step="0.1"
-                    hint={latestLabs.pcr ? () => setPcr(String(latestLabs.pcr.value)) : null}
-                    testid="today-pcr" />
-                  <FieldInput label="VES"
-                    sub={latestLabs.ves ? `ultimo: ${latestLabs.ves.value} mm/h` : "mm/h"}
-                    val={ves} set={setVes}
-                    hint={latestLabs.ves ? () => setVes(String(latestLabs.ves.value)) : null}
-                    testid="today-ves" />
-                </div>
-                {raHasScores && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="today-scores">
-                    <ScoreCard label="DAS28-PCR" value={das28crp} interp={interpretDAS28(das28crp)} missingFields={das28crpMissing} />
-                    <ScoreCard label="DAS28-VES" value={das28esr} interp={interpretDAS28(das28esr)} missingFields={das28esrMissing} />
-                    <ScoreCard label="CDAI"      value={cdai}     interp={interpretCDAI(cdai)}      missingFields={cdaiMissing} />
-                    <ScoreCard label="SDAI"      value={sdai}     interp={interpretSDAI(sdai)}      missingFields={sdaiMissing} />
-                  </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-gray-400">
+                  Inserisci TJC28/SJC28, VES/PCR e calcola DAS28/CDAI/SDAI tramite il Form unificato.
+                </p>
+                {onOpenJointCount && (
+                  <Button type="button" variant="default" size="sm"
+                    onClick={onOpenJointCount}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                    data-testid="open-ra-form-btn"
+                  >
+                    <Crosshair className="w-3.5 h-3.5 mr-1.5" /> Form unificato AR
+                  </Button>
                 )}
-                <ClinimetryNote text="Inserimento rapido. PtGA = Patient Global Assessment (0–100 mm), PhGA = Physician Global Assessment (0–10 cm). Per valutazione completa con Homunculus usa 'Form unificato AR'." />
               </div>
             )}
 

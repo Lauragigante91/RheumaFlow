@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Slider } from "../ui/slider";
+import { Button } from "../ui/button";
 
-/** VAS/NRS slider 0-10 with companion numeric input. Shared by composite forms. */
 export function VasSlider({ label, value, onChange, hint, testid }) {
   const v = Number(value) || 0;
   return (
@@ -28,11 +28,13 @@ export function VasSlider({ label, value, onChange, hint, testid }) {
 
 /**
  * Read-only tile showing a computed clinimetric score + its interpretation.
- * If `missingFields` is a non-empty array, shows a grey "Dati incompleti" state
- * instead of the score, to prevent misinterpretation of partial data.
+ * Se `missingFields` è un array non vuoto, la tile non viene mostrata (hideIfIncomplete=true)
+ * oppure mostra uno stato grigio "Dati incompleti" (default).
  */
-export function ResultTile({ title, score, interp, subtitle, testid, missingFields }) {
+export function ResultTile({ title, score, interp, subtitle, testid, missingFields, hideIfIncomplete }) {
   const incomplete = Array.isArray(missingFields) && missingFields.length > 0;
+
+  if (incomplete && hideIfIncomplete) return null;
 
   if (incomplete) {
     return (
@@ -63,6 +65,115 @@ export function ResultTile({ title, score, interp, subtitle, testid, missingFiel
         {subtitle && <span className="text-[10px] text-gray-500">{subtitle}</span>}
       </div>
       {interp && <div className="text-xs font-medium mt-0.5 text-gray-700">{interp}</div>}
+    </div>
+  );
+}
+
+/**
+ * Pulsante per leggere un QR code con la fotocamera del dispositivo.
+ * Usa BarcodeDetector API (Chromium) con fallback a input manuale.
+ * Formato QR supportato: numero puro (es. "45") oppure JSON {"pga":45} o {"vas":45} o {"value":45}.
+ * Chiama onValue(number) con il valore letto (0–100).
+ */
+export function QrScanButton({ onValue, fieldLabel }) {
+  const fileRef = useRef(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualVal, setManualVal] = useState("");
+  const [error, setError] = useState("");
+
+  const parseQrRaw = (raw) => {
+    const trimmed = raw.trim();
+    try {
+      const obj = JSON.parse(trimmed);
+      const candidate = obj.pga ?? obj.vas ?? obj.vasP ?? obj.value ?? null;
+      if (candidate !== null) return Number(candidate);
+    } catch {
+      const n = parseFloat(trimmed);
+      if (!isNaN(n)) return n;
+    }
+    return null;
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    if (typeof BarcodeDetector === "undefined") {
+      setManualOpen(true);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    try {
+      const bd = new BarcodeDetector({ formats: ["qr_code"] });
+      const bitmap = await createImageBitmap(file);
+      const results = await bd.detect(bitmap);
+      if (results.length === 0) {
+        setError("Nessun QR rilevato. Riprova o inserisci manualmente.");
+        setManualOpen(true);
+      } else {
+        const val = parseQrRaw(results[0].rawValue);
+        if (val === null) {
+          setError("Formato QR non riconosciuto.");
+          setManualOpen(true);
+        } else {
+          onValue(Math.min(100, Math.max(0, val)));
+        }
+      }
+    } catch {
+      setError("Lettura QR non riuscita.");
+      setManualOpen(true);
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const confirmManual = () => {
+    const n = parseFloat(manualVal);
+    if (isNaN(n)) return;
+    onValue(Math.min(100, Math.max(0, n)));
+    setManualOpen(false);
+    setManualVal("");
+    setError("");
+  };
+
+  return (
+    <div className="inline-flex flex-col items-end gap-1">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFile}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 px-2 text-[10px] border-gray-300 text-gray-600 hover:bg-gray-50 flex-shrink-0"
+        onClick={() => { setError(""); fileRef.current?.click(); }}
+        title={`Precompila ${fieldLabel || "valore"} da QR code`}
+      >
+        QR
+      </Button>
+      {manualOpen && (
+        <div className="flex items-center gap-1.5 mt-1">
+          {error && <span className="text-[10px] text-red-500">{error}</span>}
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step="1"
+            className="w-20 h-7 text-xs"
+            placeholder="0–100"
+            value={manualVal}
+            onChange={(e) => setManualVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") confirmManual(); if (e.key === "Escape") { setManualOpen(false); setError(""); } }}
+            autoFocus
+          />
+          <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={confirmManual}>OK</Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-xs" onClick={() => { setManualOpen(false); setError(""); }}>✕</Button>
+        </div>
+      )}
     </div>
   );
 }

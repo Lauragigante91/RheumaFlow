@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { Save, Zap, Copy } from "lucide-react";
 import { Checkbox } from "../ui/checkbox";
 import EnthesisBodyChart from "../imaging/EnthesisBodyChart";
-import { VasSlider, ResultTile } from "./CompositeFormParts";
+import { VasSlider, ResultTile, QrScanButton } from "./CompositeFormParts";
 import { applyPrevToRa, applyPrevToSpa, applyPrevToPsa } from "../../lib/compositeReusePrev";
 
 /**
@@ -81,23 +81,25 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===== Auto-importa VES/PCR dagli esami strutturati della stessa visita =====
+  const loadLabsFromDB = useCallback(async () => {
+    if (!patient?.id) return;
+    try {
+      const all = await labExamsApi.listByPatient(patient.id);
+      if (!Array.isArray(all) || all.length === 0) return;
+      const sorted = [...all].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      const withPcr = sorted.find((e) => e.values?.pcr?.value != null);
+      const withVes = sorted.find((e) => e.values?.ves?.value != null);
+      if (withPcr) setCrp(String(withPcr.values.pcr.value));
+      if (withVes) setEsr(String(withVes.values.ves.value));
+    } catch {
+      // silenzioso — i campi rimangono vuoti
+    }
+  }, [patient?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!open || !patient?.id) return;
     if (mode !== "ra" && mode !== "psa" && mode !== "spa") return;
-    const loadLabs = async () => {
-      try {
-        const all = await labExamsApi.listByPatient(patient.id);
-        if (!Array.isArray(all) || all.length === 0) return;
-        const sorted = [...all].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-        const withPcr = sorted.find((e) => e.values?.pcr?.value != null);
-        const withVes = sorted.find((e) => e.values?.ves?.value != null);
-        if (withPcr) setCrp(String(withPcr.values.pcr.value));
-        if (withVes) setEsr(String(withVes.values.ves.value));
-      } catch {
-        // silenzioso — i campi rimangono vuoti
-      }
-    };
-    loadLabs();
+    loadLabsFromDB();
   }, [open, patient?.id, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===== Carica ultima visita composita (quando il dialog si apre) =====
@@ -385,12 +387,10 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                     <span>↩</span> Sincronizzato dall'Esame obiettivo
                   </div>
                 )}
-                <Homunculus mode="66_68" joints={joints} onChange={setJoints} title="Conta articolare (TJC/SJC)" />
+                <Homunculus mode="28" joints={joints} onChange={setJoints} title="Conta articolare DAS28 — TJC28 / SJC28" />
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">TJC28 (calcolo)</div><div className="font-mono font-bold text-[#0A2540]" data-testid="ra-tjc28">{tjc28}</div></div>
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">SJC28 (calcolo)</div><div className="font-mono font-bold text-[#FF3333]" data-testid="ra-sjc28">{sjc28}</div></div>
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">TJC totale</div><div className="font-mono font-bold">{tjcAll}</div></div>
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">SJC totale</div><div className="font-mono font-bold">{sjcAll}</div></div>
+                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">TJC28</div><div className="font-mono font-bold text-[#0A2540]" data-testid="ra-tjc28">{tjc28}</div></div>
+                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">SJC28</div><div className="font-mono font-bold text-[#FF3333]" data-testid="ra-sjc28">{sjc28}</div></div>
                 </div>
               </div>
               <div className="space-y-4">
@@ -400,20 +400,38 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                     <Input type="number" value={esr} onChange={(e) => setEsr(e.target.value)} placeholder="es. 28" data-testid="ra-esr" />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">PCR (mg/L)</Label>
-                    <Input type="number" step="0.1" value={crp} onChange={(e) => setCrp(e.target.value)} placeholder="es. 12.5" data-testid="ra-crp" />
+                    <Label className="text-xs text-gray-600">PCR (mg/dL)</Label>
+                    <Input type="number" step="0.1" value={crp} onChange={(e) => setCrp(e.target.value)} placeholder="es. 1.2" data-testid="ra-crp" />
                   </div>
                 </div>
-                <VasSlider label="PtGA — Patient Global Assessment (0-10)" value={pga} onChange={setPga} hint="Attività di malattia percepita dal paziente · 0 = nessuna · 10 = massima" testid="ra-pga" />
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="sm"
+                    className="text-[10px] h-6 px-2 border-gray-300 text-gray-500 hover:bg-gray-50"
+                    onClick={loadLabsFromDB}
+                  >
+                    Ricarica dai lab
+                  </Button>
+                </div>
+                <div className="space-y-1" data-testid="ra-pga">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm font-medium leading-snug flex-1">PtGA — Patient Global Assessment (0-10)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <QrScanButton onValue={(v) => setPga(v > 10 ? Math.min(10, v / 10) : v)} fieldLabel="PtGA" />
+                      <Input type="number" min={0} max={10} step="0.1" className="w-20 text-sm h-8" value={pga ?? ""} onChange={(e) => setPga(e.target.value)} />
+                    </div>
+                  </div>
+                  <Slider min={0} max={10} step={0.1} value={[Number(pga) || 0]} onValueChange={([val]) => setPga(val)} />
+                  <p className="text-[10px] text-gray-500 leading-tight">Attività di malattia percepita dal paziente · 0 = nessuna · 10 = massima · Scansiona QR per precompilare (scala 0–100 mm VAS o 0–10)</p>
+                </div>
                 <VasSlider label="PhGA — Physician Global Assessment (0-10)" value={ega} onChange={setEga} hint="Attività di malattia valutata dal medico · 0 = nessuna · 10 = massima" testid="ra-ega" />
 
                 <Card className="p-3 bg-gray-50/60">
                   <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2">Risultati in tempo reale</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ResultTile title="DAS28-VES" score={raResults.das28_esr.score} interp={raResults.das28_esr.interp(raResults.das28_esr.score)} missingFields={raResults.das28_esr.missing} testid="ra-result-das28-esr" />
-                    <ResultTile title="DAS28-PCR" score={raResults.das28_crp.score} interp={raResults.das28_crp.interp(raResults.das28_crp.score)} missingFields={raResults.das28_crp.missing} testid="ra-result-das28-crp" />
-                    <ResultTile title="CDAI" score={raResults.cdai.score} interp={raResults.cdai.interp(raResults.cdai.score)} missingFields={raResults.cdai.missing} testid="ra-result-cdai" />
-                    <ResultTile title="SDAI" score={raResults.sdai.score} interp={raResults.sdai.interp(raResults.sdai.score)} missingFields={raResults.sdai.missing} testid="ra-result-sdai" />
+                    <ResultTile hideIfIncomplete title="DAS28-VES" score={raResults.das28_esr.score} interp={raResults.das28_esr.interp(raResults.das28_esr.score)} missingFields={raResults.das28_esr.missing} testid="ra-result-das28-esr" />
+                    <ResultTile hideIfIncomplete title="DAS28-PCR" score={raResults.das28_crp.score} interp={raResults.das28_crp.interp(raResults.das28_crp.score)} missingFields={raResults.das28_crp.missing} testid="ra-result-das28-crp" />
+                    <ResultTile hideIfIncomplete title="CDAI" score={raResults.cdai.score} interp={raResults.cdai.interp(raResults.cdai.score)} missingFields={raResults.cdai.missing} testid="ra-result-cdai" />
+                    <ResultTile hideIfIncomplete title="SDAI" score={raResults.sdai.score} interp={raResults.sdai.interp(raResults.sdai.score)} missingFields={raResults.sdai.missing} testid="ra-result-sdai" />
                   </div>
                 </Card>
               </div>
