@@ -1132,7 +1132,7 @@ function parseAbStatus(raw) {
 
 const AUTOAB_QUAL = [
   { key: "fr",              label: "Fattore Reumatoide (FR)",    aliases: ["\\bFR\\b", "fattore\\s+reumatoide"] },
-  { key: "acpa_anti_ccp",   label: "Anti-CCP (ACPA)",            aliases: ["\\bACPA\\b", "anti.?CCP\\b", "anticorpi\\s+anti.?CCP"] },
+  { key: "acpa_anti_ccp",   label: "Anti-CCP (ACPA)",            aliases: ["\\bACPA\\b", "anti.?CCP\\b", "anticorpi\\s+anti.?CCP", "anti.?citrullina(?:\\s+IgG)?"] },
   { key: "anti_dsdna",      label: "Anti-dsDNA",                  aliases: ["(?:anti.?)?ds.?DNA\\b", "anti.?dsDNA\\b", "DNA\\s+nativ[oi]", "DNA\\s+ds"] },
   { key: "anti_sm",         label: "Anti-Sm",                     aliases: ["(?:anti.?)?\\bSm\\b(?!\\s*RNP)"] },
   { key: "anti_rnp",        label: "Anti-RNP/U1RNP",              aliases: ["(?:anti.?)?(?:U1.?)?RNP\\b", "anti.?RNP/Sm\\b", "anti.?Sm/RNP\\b"] },
@@ -1164,7 +1164,7 @@ const AUTOAB_QUAL = [
 
 const AUTOAB_NUMERIC = [
   { key: "fr",            label: "Fattore Reumatoide (FR)", aliases: ["\\bFR\\b", "fattore\\s+reumatoide"],                unit: "UI/mL",  refHigh: 14  },
-  { key: "acpa_anti_ccp", label: "Anti-CCP (ACPA)",        aliases: ["\\bACPA\\b", "anti.?CCP\\b"],                       unit: "U/mL",   refHigh: 17  },
+  { key: "acpa_anti_ccp", label: "Anti-CCP (ACPA)",        aliases: ["\\bACPA\\b", "anti.?CCP\\b", "anti.?citrullina(?:\\s+IgG)?"], unit: "U/mL", refHigh: 17  },
   { key: "anti_dsdna",    label: "Anti-dsDNA",              aliases: ["(?:anti.?)?ds.?DNA\\b", "anti.?dsDNA\\b"],          unit: "UI/mL",  refHigh: 100 },
   { key: "anca_pr3",      label: "ANCA / Anti-PR3",         aliases: ["c.?ANCA\\b", "anti.?PR.?3\\b"],                    unit: "UI/mL",  refHigh: 7   },
   { key: "anca_mpo",      label: "ANCA / Anti-MPO",         aliases: ["p.?ANCA\\b", "anti.?MPO\\b"],                      unit: "UI/mL",  refHigh: 7   },
@@ -1208,18 +1208,44 @@ function extractAutoantibodies(text) {
     }
   }
 
-  // ── 2. ANA titer/pattern: "ANA 1:160 nucleolare" ─────────────────────────
+  // ── 2. ANA titer/pattern ──────────────────────────────────────────────────
+  function parseAnaTiter(rawTiter) {
+    const hasLT = rawTiter.startsWith("<");
+    const titer  = rawTiter.replace(/^</, "").trim();
+    const [, denom] = titer.split(":").map(Number);
+    if (isNaN(denom)) return null;
+    if (hasLT)       return { qualitative: rawTiter, status: "negative" };
+    if (denom >= 160) return { qualitative: titer,    status: "positive" };
+    if (denom === 80) return { qualitative: titer,    status: "borderline" };
+    return             { qualitative: titer,    status: "positive" };
+  }
+
   if (!seen.has("ana_titolo")) {
-    const anaRe = /\bANA\b\s*(?:titolo\s*)?[=:]?\s*(\d+:\d+)(?:\s+([a-zA-Z]\w*))?/gi;
+    // Case A: "ANA 1:160 nucleolare" or "ANA titolo <1:80" — same line
+    const anaRe = /\bANA\b\s*(?:titolo\s*)?[=:]?\s*(<?\d+:\d+)(?:\s+([a-zA-Z]\w*))?/gi;
     const m = anaRe.exec(text);
     if (m) {
-      const titolo  = m[1].trim();
+      const parsed  = parseAnaTiter(m[1].trim());
       const pattern = (m[2] || "").trim();
-      seen.add("ana_titolo");
-      results.push(makeAbResult("ana_titolo",  "ANA - Titolo",   titolo,  "positive", null, "1:n", m[0].trim()));
-      if (pattern && !seen.has("ana_pattern")) {
-        seen.add("ana_pattern");
-        results.push(makeAbResult("ana_pattern", "ANA - Pattern", pattern, "positive", null, "", pattern));
+      if (parsed) {
+        seen.add("ana_titolo");
+        results.push(makeAbResult("ana_titolo", "ANA - Titolo", parsed.qualitative, parsed.status, null, "1:n", m[0].trim()));
+        if (pattern && !seen.has("ana_pattern")) {
+          seen.add("ana_pattern");
+          results.push(makeAbResult("ana_pattern", "ANA - Pattern", pattern, parsed.status, null, "", pattern));
+        }
+      }
+    }
+  }
+  if (!seen.has("ana_titolo")) {
+    // Case B: AUSL Bologna multiline — "Anticorpi anti Nucleo (ANA) - Reflex\nTitolo <1:80"
+    const anaMultiRe = /\bANA\b[^\n]*\n[^\n]*?titolo[^\n]*?(<?\d+:\d+)/gi;
+    const m = anaMultiRe.exec(text);
+    if (m) {
+      const parsed = parseAnaTiter(m[1].trim());
+      if (parsed) {
+        seen.add("ana_titolo");
+        results.push(makeAbResult("ana_titolo", "ANA - Titolo", parsed.qualitative, parsed.status, null, "1:n", m[1].trim()));
       }
     }
   }
@@ -1307,7 +1333,7 @@ function extractAutoantibodies(text) {
   // ── 5. Numeric autoantibodies with optional * ─────────────────────────────
   for (const p of AUTOAB_NUMERIC) {
     if (seen.has(p.key)) continue;
-    const re = new RegExp(`(?:${p.aliases.join("|")})[:\\s=]*([\\d]+(?:[.,][\\d]+)?)\\s*(\\*)?`, "gi");
+    const re = new RegExp(`(?:${p.aliases.join("|")})[:\\s=]*[<>]?\\s*([\\d]+(?:[.,][\\d]+)?)\\s*(\\*)?`, "gi");
     let m;
     while ((m = re.exec(text)) !== null) {
       if (seen.has(p.key)) continue;
