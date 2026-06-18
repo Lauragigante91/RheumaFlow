@@ -57,40 +57,40 @@ const FRONT_JOINTS = {
   // ── Wrists ───────────────────────────────────────────────────────
   wrist_l: { x: 50, y: 180, r: 5 },
   wrist_r: { x: 150, y: 180, r: 5 },
-  // ── MCP fingers (left) — ingranditi e distanziati ────────────────
-  mcp1_l: { x: 27, y: 207, r: 4.5 },
-  mcp2_l: { x: 36, y: 212, r: 4.5 },
-  mcp3_l: { x: 44, y: 215, r: 4.5 },
-  mcp4_l: { x: 52, y: 215, r: 4.5 },
-  mcp5_l: { x: 60, y: 212, r: 4.5 },
+  // ── MCP fingers (left) — significativamente ingranditi e distanziati ─
+  mcp1_l: { x: 16, y: 202, r: 6.5 },
+  mcp2_l: { x: 28, y: 208, r: 6.5 },
+  mcp3_l: { x: 40, y: 211, r: 6.5 },
+  mcp4_l: { x: 51, y: 211, r: 6.5 },
+  mcp5_l: { x: 62, y: 207, r: 6.5 },
   // ── MCP fingers (right) ──────────────────────────────────────────
-  mcp1_r: { x: 173, y: 207, r: 4.5 },
-  mcp2_r: { x: 164, y: 212, r: 4.5 },
-  mcp3_r: { x: 156, y: 215, r: 4.5 },
-  mcp4_r: { x: 148, y: 215, r: 4.5 },
-  mcp5_r: { x: 140, y: 212, r: 4.5 },
+  mcp1_r: { x: 184, y: 202, r: 6.5 },
+  mcp2_r: { x: 172, y: 208, r: 6.5 },
+  mcp3_r: { x: 160, y: 211, r: 6.5 },
+  mcp4_r: { x: 149, y: 211, r: 6.5 },
+  mcp5_r: { x: 138, y: 207, r: 6.5 },
   // ── PIP fingers (left) ───────────────────────────────────────────
-  pip1_l: { x: 23, y: 222, r: 3.5 },
-  pip2_l: { x: 33, y: 228, r: 3.5 },
-  pip3_l: { x: 42, y: 232, r: 3.5 },
-  pip4_l: { x: 51, y: 232, r: 3.5 },
-  pip5_l: { x: 59, y: 228, r: 3.5 },
+  pip1_l: { x: 11, y: 220, r: 5.5 },
+  pip2_l: { x: 25, y: 228, r: 5.5 },
+  pip3_l: { x: 38, y: 233, r: 5.5 },
+  pip4_l: { x: 50, y: 233, r: 5.5 },
+  pip5_l: { x: 61, y: 228, r: 5.5 },
   // ── PIP fingers (right) ──────────────────────────────────────────
-  pip1_r: { x: 177, y: 222, r: 3.5 },
-  pip2_r: { x: 167, y: 228, r: 3.5 },
-  pip3_r: { x: 158, y: 232, r: 3.5 },
-  pip4_r: { x: 149, y: 232, r: 3.5 },
-  pip5_r: { x: 141, y: 228, r: 3.5 },
+  pip1_r: { x: 189, y: 220, r: 5.5 },
+  pip2_r: { x: 175, y: 228, r: 5.5 },
+  pip3_r: { x: 162, y: 233, r: 5.5 },
+  pip4_r: { x: 150, y: 233, r: 5.5 },
+  pip5_r: { x: 139, y: 228, r: 5.5 },
   // ── DIP fingers (left, digits 2-5) ───────────────────────────────
-  dip2_l: { x: 32, y: 240, r: 3 },
-  dip3_l: { x: 41, y: 245, r: 3 },
-  dip4_l: { x: 50, y: 245, r: 3 },
-  dip5_l: { x: 58, y: 240, r: 3 },
+  dip2_l: { x: 23, y: 242, r: 4.5 },
+  dip3_l: { x: 36, y: 248, r: 4.5 },
+  dip4_l: { x: 49, y: 248, r: 4.5 },
+  dip5_l: { x: 60, y: 242, r: 4.5 },
   // ── DIP fingers (right, digits 2-5) ──────────────────────────────
-  dip2_r: { x: 168, y: 240, r: 3 },
-  dip3_r: { x: 159, y: 245, r: 3 },
-  dip4_r: { x: 150, y: 245, r: 3 },
-  dip5_r: { x: 142, y: 240, r: 3 },
+  dip2_r: { x: 177, y: 242, r: 4.5 },
+  dip3_r: { x: 164, y: 248, r: 4.5 },
+  dip4_r: { x: 151, y: 248, r: 4.5 },
+  dip5_r: { x: 140, y: 242, r: 4.5 },
   // ── Hips (tender-only in SJC66; excluded from swollen count) ─────
   hip_l: { x: 88, y: 220, r: 5 },
   hip_r: { x: 112, y: 220, r: 5 },
@@ -103,30 +103,30 @@ const FRONT_JOINTS = {
   // ── Tarsus / Midfoot ─────────────────────────────────────────────
   midtarsal_l: { x: 82, y: 393, r: 3 },
   midtarsal_r: { x: 118, y: 393, r: 3 },
-  // ── MTP (left) — ingranditi e distanziati ────────────────────────
-  mtp1_l: { x: 64, y: 410, r: 4 },
-  mtp2_l: { x: 71, y: 413, r: 4 },
-  mtp3_l: { x: 78, y: 415, r: 4 },
-  mtp4_l: { x: 85, y: 413, r: 4 },
-  mtp5_l: { x: 92, y: 410, r: 4 },
+  // ── MTP (left) — significativamente ingranditi e distanziati ─────
+  mtp1_l: { x: 54, y: 412, r: 6 },
+  mtp2_l: { x: 65, y: 415, r: 6 },
+  mtp3_l: { x: 76, y: 417, r: 6 },
+  mtp4_l: { x: 87, y: 415, r: 6 },
+  mtp5_l: { x: 97, y: 412, r: 6 },
   // ── MTP (right) ──────────────────────────────────────────────────
-  mtp1_r: { x: 136, y: 410, r: 4 },
-  mtp2_r: { x: 129, y: 413, r: 4 },
-  mtp3_r: { x: 122, y: 415, r: 4 },
-  mtp4_r: { x: 115, y: 413, r: 4 },
-  mtp5_r: { x: 108, y: 410, r: 4 },
+  mtp1_r: { x: 146, y: 412, r: 6 },
+  mtp2_r: { x: 135, y: 415, r: 6 },
+  mtp3_r: { x: 124, y: 417, r: 6 },
+  mtp4_r: { x: 113, y: 415, r: 6 },
+  mtp5_r: { x: 103, y: 412, r: 6 },
   // ── Toe PIP (left, digits 1-5) ───────────────────────────────────
-  toe_pip1_l: { x: 62, y: 424, r: 3.5 },
-  toe_pip2_l: { x: 70, y: 428, r: 3.5 },
-  toe_pip3_l: { x: 78, y: 431, r: 3.5 },
-  toe_pip4_l: { x: 85, y: 428, r: 3.5 },
-  toe_pip5_l: { x: 92, y: 425, r: 3.5 },
+  toe_pip1_l: { x: 52, y: 428, r: 5.5 },
+  toe_pip2_l: { x: 63, y: 432, r: 5.5 },
+  toe_pip3_l: { x: 74, y: 435, r: 5.5 },
+  toe_pip4_l: { x: 85, y: 432, r: 5.5 },
+  toe_pip5_l: { x: 95, y: 428, r: 5.5 },
   // ── Toe PIP (right, digits 1-5) ──────────────────────────────────
-  toe_pip1_r: { x: 138, y: 424, r: 3.5 },
-  toe_pip2_r: { x: 130, y: 428, r: 3.5 },
-  toe_pip3_r: { x: 122, y: 431, r: 3.5 },
-  toe_pip4_r: { x: 115, y: 428, r: 3.5 },
-  toe_pip5_r: { x: 108, y: 425, r: 3.5 },
+  toe_pip1_r: { x: 148, y: 428, r: 5.5 },
+  toe_pip2_r: { x: 137, y: 432, r: 5.5 },
+  toe_pip3_r: { x: 126, y: 435, r: 5.5 },
+  toe_pip4_r: { x: 115, y: 432, r: 5.5 },
+  toe_pip5_r: { x: 105, y: 428, r: 5.5 },
 };
 
 const DAS28_KEYS = [
@@ -199,17 +199,17 @@ export default function Homunculus({ mode = "28", joints = {}, onChange, readOnl
             {/* Braccio destro */}
             <path d="M 128 65 Q 145 100 150 150 Q 155 180 152 200 L 142 200 Q 138 180 135 150 Q 128 100 122 75 Z" />
             {/* Mano sinistra — ingrandita */}
-            <ellipse cx="43" cy="222" rx="19" ry="26" />
+            <ellipse cx="38" cy="224" rx="30" ry="30" />
             {/* Mano destra — ingrandita */}
-            <ellipse cx="157" cy="222" rx="19" ry="26" />
+            <ellipse cx="162" cy="224" rx="30" ry="30" />
             {/* Gamba sinistra */}
             <path d="M 75 222 Q 70 280 78 340 Q 80 380 82 415 L 96 415 Q 97 380 97 340 Q 97 280 95 222 Z" />
             {/* Gamba destra */}
             <path d="M 125 222 Q 130 280 122 340 Q 120 380 118 415 L 104 415 Q 103 380 103 340 Q 103 280 105 222 Z" />
             {/* Piede sinistro — ingrandito */}
-            <ellipse cx="78" cy="427" rx="18" ry="13" />
+            <ellipse cx="75" cy="427" rx="27" ry="17" />
             {/* Piede destro — ingrandito */}
-            <ellipse cx="122" cy="427" rx="18" ry="13" />
+            <ellipse cx="125" cy="427" rx="27" ry="17" />
           </g>
 
           {/* Articolazioni */}

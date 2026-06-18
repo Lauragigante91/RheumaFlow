@@ -45,8 +45,8 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   const [joints, setJoints] = useState({});
   const [esr, setEsr] = useState("");
   const [crp, setCrp] = useState("");
-  const [pga, setPga] = useState(0);
-  const [ega, setEga] = useState(0);
+  const [pga, setPga] = useState(null);
+  const [ega, setEga] = useState(null);
 
   // SpA shared state (BASDAI q1-q6, ASDAS extra pga, BASFI q1-q10)
   const [bas, setBas] = useState({}); // q1..q6 BASDAI
@@ -61,7 +61,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   const reset = () => {
     setDate(visitDate || new Date().toISOString().slice(0, 10));
     setNotes("");
-    setJoints({}); setEsr(""); setCrp(""); setPga(0); setEga(0);
+    setJoints({}); setEsr(""); setCrp(""); setPga(null); setEga(null);
     setBas({}); setAsdasPga(0); setBasfiVals({});
     setPatientPain(0); setLeiSites({}); setPasiData({ head: {}, upper: {}, trunk: {}, lower: {} });
     setCopied(false); setFromExamObj(false);
@@ -87,9 +87,9 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
       const all = await labExamsApi.listByPatient(patient.id);
       if (!Array.isArray(all) || all.length === 0) return;
       const sorted = [...all].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-      const withPcr = sorted.find((e) => e.values?.pcr?.value != null);
+      const withPcr = sorted.find((e) => e.values?.crp?.value != null);
       const withVes = sorted.find((e) => e.values?.ves?.value != null);
-      if (withPcr) setCrp(String(withPcr.values.pcr.value));
+      if (withPcr) setCrp(String(withPcr.values.crp.value));
       if (withVes) setEsr(String(withVes.values.ves.value));
     } catch {
       // silenzioso — i campi rimangono vuoti
@@ -146,19 +146,21 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   };
 
   // ===== RA computations =====
-  const tjc28 = countTenderIn(joints, JOINTS_DAS28);
-  const sjc28 = countSwollenIn(joints, JOINTS_DAS28);
+  const jointsTouched = Object.keys(joints).length > 0;
+  const tjc28 = jointsTouched ? countTenderIn(joints, JOINTS_DAS28) : null;
+  const sjc28 = jointsTouched ? countSwollenIn(joints, JOINTS_DAS28) : null;
   const tjcAll = countTender(joints);
   const sjcAll = countSwollen(joints);
 
   const raResults = useMemo(() => {
     if (mode !== "ra") return null;
-    const validation = validateRAScores({ esr, crp });
+    const validation = validateRAScores({ esr, crp, pga, ega, tjc28, sjc28 });
+    const gh = pga !== null ? (Number(pga) || 0) * 10 : 0;
     return {
-      das28_esr: { score: calcDAS28_ESR({ tjc: tjc28, sjc: sjc28, esr, gh: pga * 10 }), interp: interpretDAS28, missing: validation.das28_esr.missing },
-      das28_crp: { score: calcDAS28_CRP({ tjc: tjc28, sjc: sjc28, crp, gh: pga * 10 }), interp: interpretDAS28, missing: validation.das28_crp.missing },
-      cdai:      { score: calcCDAI({ tjc28, sjc28, pga, ega }),                          interp: interpretCDAI,  missing: validation.cdai.missing },
-      sdai:      { score: calcSDAI({ tjc28, sjc28, pga, ega, crp }),                     interp: interpretSDAI,  missing: validation.sdai.missing },
+      das28_esr: { score: calcDAS28_ESR({ tjc: tjc28 ?? 0, sjc: sjc28 ?? 0, esr, gh }), interp: interpretDAS28, missing: validation.das28_esr.missing },
+      das28_crp: { score: calcDAS28_CRP({ tjc: tjc28 ?? 0, sjc: sjc28 ?? 0, crp, gh }), interp: interpretDAS28, missing: validation.das28_crp.missing },
+      cdai:      { score: calcCDAI({ tjc28: tjc28 ?? 0, sjc28: sjc28 ?? 0, pga: pga ?? 0, ega: ega ?? 0 }), interp: interpretCDAI, missing: validation.cdai.missing },
+      sdai:      { score: calcSDAI({ tjc28: tjc28 ?? 0, sjc28: sjc28 ?? 0, pga: pga ?? 0, ega: ega ?? 0, crp }), interp: interpretSDAI, missing: validation.sdai.missing },
     };
   }, [mode, tjc28, sjc28, esr, crp, pga, ega]);
 
@@ -387,10 +389,10 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                     <span>↩</span> Sincronizzato dall'Esame obiettivo
                   </div>
                 )}
-                <Homunculus mode="28" joints={joints} onChange={setJoints} title="Conta articolare DAS28 — TJC28 / SJC28" />
+                <Homunculus mode="66_68" joints={joints} onChange={setJoints} title="Conta articolare 66/68 · TJC28 e SJC28 calcolati automaticamente" />
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">TJC28</div><div className="font-mono font-bold text-[#0A2540]" data-testid="ra-tjc28">{tjc28}</div></div>
-                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">SJC28</div><div className="font-mono font-bold text-[#FF3333]" data-testid="ra-sjc28">{sjc28}</div></div>
+                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">TJC28</div><div className="font-mono font-bold text-[#0A2540]" data-testid="ra-tjc28">{tjc28 ?? "—"}</div></div>
+                  <div className="border rounded-md p-2"><div className="text-gray-500 text-[10px]">SJC28</div><div className="font-mono font-bold text-[#FF3333]" data-testid="ra-sjc28">{sjc28 ?? "—"}</div></div>
                 </div>
               </div>
               <div className="space-y-4">

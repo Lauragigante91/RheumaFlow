@@ -11,17 +11,24 @@ function isProvided(v) {
  * Valida i campi obbligatori per ogni score RA.
  * Restituisce { das28_esr, das28_crp, cdai, sdai } ciascuno con { valid, missing[] }
  * - esr / crp: campi numerici liberi (testo) → obbligatori se vuoti
- * - pga / ega: slider sempre presenti (0 è valore clinico valido)
- * - tjc28 / sjc28: conteggio dall'omuncolo — 0 è valido (nessuna articolazione)
+ * - pga / ega: null = non ancora inserito; 0 è valore clinico valido
+ * - tjc28 / sjc28: null = omuncolo non ancora utilizzato; 0 è valido (nessuna articolazione)
  */
-export function validateRAScores({ esr, crp }) {
-  const esrOk = isProvided(esr);
-  const crpOk = isProvided(crp);
+export function validateRAScores({ esr, crp, pga, ega, tjc28, sjc28 }) {
+  const esrOk   = isProvided(esr);
+  const crpOk   = isProvided(crp);
+  const pgaOk   = pga  !== null && pga  !== undefined;
+  const egaOk   = ega  !== null && ega  !== undefined;
+  const tjcOk   = tjc28 !== null && tjc28 !== undefined;
+  const sjcOk   = sjc28 !== null && sjc28 !== undefined;
+  const jMiss   = (!tjcOk || !sjcOk) ? ["conta articolare"] : [];
+  const pgaMiss = pgaOk ? [] : ["PtGA"];
+  const egaMiss = egaOk ? [] : ["PhGA"];
   return {
-    das28_esr: { valid: esrOk,         missing: esrOk ? []       : ["VES"] },
-    das28_crp: { valid: crpOk,         missing: crpOk ? []       : ["PCR"] },
-    cdai:      { valid: true,           missing: [] },
-    sdai:      { valid: crpOk,         missing: crpOk ? []       : ["PCR"] },
+    das28_esr: { valid: esrOk && tjcOk && sjcOk && pgaOk,          missing: [...(esrOk ? [] : ["VES"]), ...jMiss, ...pgaMiss] },
+    das28_crp: { valid: crpOk && tjcOk && sjcOk && pgaOk,          missing: [...(crpOk ? [] : ["PCR"]), ...jMiss, ...pgaMiss] },
+    cdai:      { valid: tjcOk && sjcOk && pgaOk && egaOk,          missing: [...jMiss, ...pgaMiss, ...egaMiss] },
+    sdai:      { valid: crpOk && tjcOk && sjcOk && pgaOk && egaOk, missing: [...(crpOk ? [] : ["PCR"]), ...jMiss, ...pgaMiss, ...egaMiss] },
   };
 }
 
