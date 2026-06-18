@@ -182,7 +182,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
       try {
         await therapiesApi.upsert(buildTherapyUpsertPayload(t, patient.id, importedVisitId));
         updates += 1;
-        if (t.status === "active" && t._action === "new_episode") {
+        if (t.status === "active" && (t._action === "new_episode" || !t._action)) {
           therapyStartEvents.push(buildTherapyStartEvent(t, visitDate, sourceFilename));
         }
       } catch (e) { errors.push(apiErrMsg(e, `Terapia ${t.drug_name}`)); }

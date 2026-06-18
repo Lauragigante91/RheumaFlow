@@ -589,6 +589,67 @@ describe("applyOneDraft — bridge timeline: avvio terapia genera clinical_event
     expect(adaStarts).toHaveLength(1);
   });
 
+  it("T001 — import singolo (no reconciler, _action assente): active -> genera evento therapy_start", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          {
+            drug_name: "Adalimumab",
+            category: "biologic",
+            dose: "40 mg",
+            route: "sc",
+            frequency: "ogni 2 settimane",
+            status: "active",
+          },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const ev = clinicalEventsApi.batchCreate.mock.calls[0][1].events[0];
+    expect(ev.event_type).toBe("therapy_start");
+    expect(ev.categoria).toBe("terapia");
+    expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
+    expect(ev.date_value).toBe("2026-05-26");
+    expect(ev.drug_canonical).toBe("adalimumab");
+  });
+
+  it("T001 — guardia: _action:'dose_change' NON genera evento anche senza _skip esplicito", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Secukinumab", status: "active", _action: "dose_change", dose: "300 mg" },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("T001 — guardia: _action:'regimen_change' NON genera evento", async () => {
+    const patient = basePatient();
+    await applyOneDraft(
+      {
+        visit_date: "2026-05-26",
+        therapies: [
+          { drug_name: "Metotrexato", status: "active", _action: "regimen_change", frequency: "settimanale" },
+        ],
+      },
+      patient,
+      { therapies: true },
+      "follow_up"
+    );
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
   it("E2E sentinella: parser -> reconciler (DB vuoto) -> apply genera ESATTAMENTE un evento Avvio Adalimumab del 26/05/2026", async () => {
     const referto = [
       "Visita reumatologica del 26/05/2026",
@@ -622,6 +683,51 @@ describe("applyOneDraft — bridge timeline: avvio terapia genera clinical_event
     expect(ev.categoria).toBe("terapia");
     expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
     expect(ev.date_value).toBe("2026-05-26");
+  });
+
+  it("T003 — E2E singolo senza reconciler: parser -> applyOneDraft genera evento therapy_start Adalimumab 26/05/2026", async () => {
+    const referto = [
+      "Visita reumatologica del 26/05/2026",
+      "",
+      "IN TERAPIA:",
+      "- Hyrimoz (Adalimumab Biosimilare) 40 mg 1 fl sc ogni due settimane (fornito PT)",
+    ].join("\n");
+
+    const { extracted } = parseVisitText(referto);
+
+    const ada = (extracted.therapies || []).find((t) => /adalimumab/i.test(t.drug_name || ""));
+    expect(ada).toBeTruthy();
+    expect(ada.status).toBe("active");
+    expect(ada._action).toBeFalsy();
+
+    await applyOneDraft(extracted, basePatient(), { therapies: true }, "follow_up");
+
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.event_type).toBe("therapy_start");
+    expect(ev.categoria).toBe("terapia");
+    expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
+    expect(ev.date_value).toBe("2026-05-26");
+    expect(ev.drug_canonical).toBe("adalimumab");
+  });
+
+  it("T003 — guardia FP=0: import singolo con sola RM/lab/follow-up (nessuna terapia) -> 0 eventi", async () => {
+    const referto = [
+      "Visita reumatologica del 26/05/2026",
+      "",
+      "ANAMNESI INTERVALLARE",
+      "Stabile. RM sacroiliache invariate.",
+      "",
+      "ESAMI:",
+      "VES 12 mm/h, PCR 0.3 mg/dL",
+    ].join("\n");
+
+    const { extracted } = parseVisitText(referto);
+    await applyOneDraft(extracted, basePatient(), { therapies: true, assessments: true, lab_exams: true }, "follow_up");
+
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
   });
 });
 
