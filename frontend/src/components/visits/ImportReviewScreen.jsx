@@ -120,7 +120,8 @@ export default function ImportReviewScreen({
 
   const allConfirmed = visitResults.every((_, i) => confirmed[i]);
   const confirmedCount = Object.values(confirmed).filter(Boolean).length;
-  const warnFreeCount = visitResults.filter((v, i) => !confirmed[i] && !hasWarning(v)).length;
+  const pendingCount   = visitResults.length - confirmedCount;
+  const warnFreeCount  = visitResults.filter((v, i) => !confirmed[i] && !hasWarning(v)).length;
 
   const handleConfirmOne = async (idx) => {
     setConfirmingIdx(idx);
