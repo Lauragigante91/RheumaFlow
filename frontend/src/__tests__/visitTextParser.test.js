@@ -24,8 +24,10 @@ function findTherapy(extracted, drugName) {
     (t) => t.drug_name.toLowerCase() === drugName.toLowerCase()
   ) || null;
 }
-function findLabExam(extracted, category) {
-  return (extracted.lab_exams || []).find((e) => e.category === category) || null;
+function findLabExam(extracted, panelKey) {
+  return (extracted.lab_exams || []).find((e) =>
+    (e.results || []).some((r) => r.panel === panelKey)
+  ) || null;
 }
 
 // ─── Assessments ─────────────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
     const { extracted } = parseVisitText("Terapia: Methotrexate 15 mg/sett s.c.");
     const t = findTherapy(extracted, "Methotrexate");
     expect(t).not.toBeNull();
-    expect(t?.category).toBe("dmard_conventional");
+    expect(t?.category).toBe("csDMARD");
     expect(t?.route).toBe("s.c.");
   });
 
@@ -108,7 +110,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
   test("Idrossiclorochina csDMARD", () => {
     const { extracted } = parseVisitText("Idrossiclorochina 200 mg/die os.");
     const t = findTherapy(extracted, "Idrossiclorochina");
-    expect(t?.category).toBe("dmard_conventional");
+    expect(t?.category).toBe("csDMARD");
   });
 
   test("HCQ abbreviazione", () => {
@@ -119,7 +121,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
   test("Adalimumab bDMARD", () => {
     const { extracted } = parseVisitText("Adalimumab 40 mg s.c. ogni 2 settimane.");
     const t = findTherapy(extracted, "Adalimumab");
-    expect(t?.category).toBe("dmard_biologic");
+    expect(t?.category).toBe("bDMARD");
   });
 
   test("Humira nome commerciale → Adalimumab", () => {
@@ -130,7 +132,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
   test("Baricitinib JAK inibitore", () => {
     const { extracted } = parseVisitText("Baricitinib 4 mg/die os.");
     const t = findTherapy(extracted, "Baricitinib");
-    expect(t?.category).toBe("dmard_targeted");
+    expect(t?.category).toBe("tsDMARD");
   });
 
   test("Upadacitinib alias Rinvoq", () => {
@@ -141,7 +143,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
   test("Prednisone corticosteroide", () => {
     const { extracted } = parseVisitText("Prednisone 5 mg/die os.");
     const t = findTherapy(extracted, "Prednisone");
-    expect(t?.category).toBe("corticosteroid");
+    expect(t?.category).toBe("glucocorticoid");
   });
 
   test("Deltacortene alias Prednisone", () => {
@@ -151,7 +153,7 @@ describe("Therapies — farmaci con categoria e dose", () => {
 
   test("Ibuprofene FANS", () => {
     const { extracted } = parseVisitText("Ibuprofene 600 mg al bisogno.");
-    expect(findTherapy(extracted, "Ibuprofene")?.category).toBe("nsaid");
+    expect(findTherapy(extracted, "Ibuprofene")?.category).toBe("NSAID");
   });
 
   test("Etoricoxib alias Arcoxia", () => {
@@ -159,20 +161,19 @@ describe("Therapies — farmaci con categoria e dose", () => {
     expect(findTherapy(extracted, "Etoricoxib")).not.toBeNull();
   });
 
-  test("Acido folico integratore", () => {
+  test("Acido folico non in therapies strutturate (supportive filtrato)", () => {
     const { extracted } = parseVisitText("Acido folico 5 mg/sett.");
-    const t = findTherapy(extracted, "Acido folico");
-    expect(t?.category).toBe("supplement");
+    expect(findTherapy(extracted, "Acido folico")).toBeNull();
   });
 
-  test("Vitamina D integratore", () => {
+  test("Vitamina D non in therapies strutturate (supportive filtrato)", () => {
     const { extracted } = parseVisitText("Vitamina D 25000 UI/mese.");
-    expect(findTherapy(extracted, "Vitamina D")?.category).toBe("supplement");
+    expect(findTherapy(extracted, "Vitamina D3")).toBeNull();
   });
 
-  test("Omeprazolo IPP", () => {
+  test("Omeprazolo non in therapies strutturate (ppi filtrato)", () => {
     const { extracted } = parseVisitText("Omeprazolo 20 mg/die.");
-    expect(findTherapy(extracted, "Omeprazolo")?.category).toBe("other");
+    expect(findTherapy(extracted, "Omeprazolo")).toBeNull();
   });
 
   test("Farmaco non nel dizionario non rilevato", () => {
@@ -185,8 +186,8 @@ describe("Therapies — farmaci con categoria e dose", () => {
       "Terapia: Methotrexate 15 mg/sett s.c., Acido folico 5 mg, Prednisone 5 mg/die.";
     const { extracted } = parseVisitText(text);
     expect(findTherapy(extracted, "Methotrexate")).not.toBeNull();
-    expect(findTherapy(extracted, "Acido folico")).not.toBeNull();
     expect(findTherapy(extracted, "Prednisone")).not.toBeNull();
+    expect(findTherapy(extracted, "Acido folico")).toBeNull();
   });
 
   test("Farmaco duplicato conta una sola volta", () => {
@@ -202,9 +203,9 @@ describe("Therapies — farmaci con categoria e dose", () => {
 
 // ─── Lab exams ────────────────────────────────────────────────────────────────
 describe("Lab exams — raggruppati per pannello", () => {
-  test("VES e PCR vanno in fase_acuta → ematochimici", () => {
+  test("VES e PCR vanno nel pannello fase_acuta", () => {
     const { extracted } = parseVisitText("VES 32 mm/h, PCR 18 mg/L.");
-    const e = findLabExam(extracted, "ematochimici");
+    const e = findLabExam(extracted, "fase_acuta");
     expect(e).not.toBeNull();
     const names = (e?.results || []).map((r) => r.name);
     expect(names).toContain("VES / ESR");
@@ -220,15 +221,15 @@ describe("Lab exams — raggruppati per pannello", () => {
     expect(names).toContain("PLT / Piastrine");
   });
 
-  test("ALT va in funzione_organi", () => {
+  test("ALT va nel pannello funzione", () => {
     const { extracted } = parseVisitText("ALT 35 U/L.");
-    const e = findLabExam(extracted, "funzione_organi");
+    const e = findLabExam(extracted, "funzione");
     expect(e).not.toBeNull();
   });
 
   test("Risultato qualitativo nn incluso", () => {
     const { extracted } = parseVisitText("PCR nn, VES nella norma.");
-    const e = findLabExam(extracted, "ematochimici");
+    const e = findLabExam(extracted, "fase_acuta");
     expect(e).not.toBeNull();
   });
 });
@@ -270,24 +271,24 @@ describe("Sclero profile — solo se SSc keyword presente", () => {
       "Sclerosi sistemica. Anti-Scl-70 positivo. LSSc. Fenomeno di Raynaud presente."
     );
     expect(extracted.sclero_profile).not.toBeNull();
-    expect(extracted.sclero_profile?.antibody?.scl70).toBe(true);
-    expect(extracted.sclero_profile?.vascular?.raynaud).toBe(true);
-    expect(extracted.sclero_profile?.cutaneous?.subtype).toBe("LSSc");
+    expect(extracted.sclero_profile?.antibody?.scl70).toBe("pos");
+    expect(extracted.sclero_profile?.vascular?.raynaud).toBe("secondary");
+    expect(extracted.sclero_profile?.cutaneous?.subset).toBe("limited");
   });
 
   test("Anti-centromero / ACA", () => {
     const { extracted } = parseVisitText(
       "SSc. Anti-centromero (ACA) positivo."
     );
-    expect(extracted.sclero_profile?.antibody?.centromere).toBe(true);
+    expect(extracted.sclero_profile?.antibody?.aca).toBe("pos");
   });
 
   test("ILD / NSIP rilevato", () => {
     const { extracted } = parseVisitText(
-      "Sclerosi sistemica diffusa. ILD pattern NSIP alla HRCT."
+      "Sclerosi sistemica diffusa. NSIP alla HRCT."
     );
-    expect(extracted.sclero_profile?.ild?.present).toBe(true);
-    expect(extracted.sclero_profile?.ild?.pattern).toBe("NSIP");
+    expect(extracted.sclero_profile?.ild?.present).toBe("yes_stable");
+    expect(extracted.sclero_profile?.ild?.hrct_pattern).toBe("nsip");
   });
 });
 
@@ -338,12 +339,12 @@ describe("Integrazione — testo visita AR completo", () => {
 
   test("Terapie complete", () => {
     expect(findTherapy(extracted, "Methotrexate")?.route).toBe("s.c.");
-    expect(findTherapy(extracted, "Acido folico")).not.toBeNull();
-    expect(findTherapy(extracted, "Prednisone")?.category).toBe("corticosteroid");
+    expect(findTherapy(extracted, "Acido folico")).toBeNull();
+    expect(findTherapy(extracted, "Prednisone")?.category).toBe("glucocorticoid");
   });
 
   test("Lab esami infiammazione", () => {
-    const e = findLabExam(extracted, "ematochimici");
+    const e = findLabExam(extracted, "fase_acuta");
     const names = (e?.results || []).map((r) => r.name);
     expect(names).toContain("VES / ESR");
     expect(names).toContain("PCR / CRP");
