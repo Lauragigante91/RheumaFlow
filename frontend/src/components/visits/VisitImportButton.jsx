@@ -293,18 +293,31 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     }
   };
 
+  function hasWarning(item) {
+    if ((item.stats?.conflicts || 0) > 0) return true;
+    if ((item.draft?.lab_review_items?.length || 0) > 0) return true;
+    if ((item.draft?._parse_review?.unresolved?.length || 0) > 0) return true;
+    return false;
+  }
+
   const applyMulti = async () => {
     if (!patient) return;
-    const toApply = multiExtracted
-      .filter(v => v.included !== false)
+    const candidates = multiExtracted.filter(v => v.included !== false);
+    const toApply = candidates
+      .filter(v => !hasWarning(v))
       .slice()
       .sort((a, b) => {
         const da = a.date || a.draft?.visit_date || "";
         const db = b.date || b.draft?.visit_date || "";
         return da.localeCompare(db);
       });
+    const skipped = candidates.length - toApply.length;
     if (toApply.length === 0) {
-      toast.warning("Nessuna visita selezionata per l'importazione.");
+      toast.warning(
+        skipped > 0
+          ? `Tutte le visite hanno warning da verificare. Revisionale singolarmente prima di confermare.`
+          : "Nessuna visita selezionata per l'importazione."
+      );
       return;
     }
     setApplying(true);
@@ -316,8 +329,12 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     setApplying(false);
     setMultiApplyProgress(null);
     if (allErrors.length === 0) {
-      toast.success(`${toApply.length} visite importate (${totalUpdates} sezioni aggiornate)`);
-      close();
+      if (skipped > 0) {
+        toast.success(`${toApply.length} visit${toApply.length > 1 ? "e" : "a"} importat${toApply.length > 1 ? "e" : "a"} (${totalUpdates} sezioni aggiornate) — ${skipped} con warning rimandate`);
+      } else {
+        toast.success(`${toApply.length} visite importate (${totalUpdates} sezioni aggiornate)`);
+        close();
+      }
       onImported?.();
     } else if (totalUpdates > 0) {
       toast.warning(`${totalUpdates} sezioni importate, ${allErrors.length} errori — vedi console`);

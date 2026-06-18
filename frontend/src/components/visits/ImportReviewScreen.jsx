@@ -85,6 +85,13 @@ function ItemStatusLegend({ visitResults }) {
   );
 }
 
+function hasWarning(item) {
+  if ((item.stats?.conflicts || 0) > 0) return true;
+  if ((item.draft?.lab_review_items?.length || 0) > 0) return true;
+  if ((item.draft?._parse_review?.unresolved?.length || 0) > 0) return true;
+  return false;
+}
+
 export default function ImportReviewScreen({
   visitResults,
   onUpdate,
@@ -99,12 +106,21 @@ export default function ImportReviewScreen({
   const [confirmed, setConfirmed] = useState({});
   const [confirmingIdx, setConfirmingIdx] = useState(null);
 
+  const sortedOrder = [...visitResults]
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => {
+      const da = a.v.date || a.v.draft?.visit_date || "";
+      const db = b.v.date || b.v.draft?.visit_date || "";
+      return da.localeCompare(db);
+    })
+    .map(({ i }) => i);
+
   const current = visitResults[currentIdx];
   if (!current) return null;
 
   const allConfirmed = visitResults.every((_, i) => confirmed[i]);
   const confirmedCount = Object.values(confirmed).filter(Boolean).length;
-  const pendingCount   = visitResults.length - confirmedCount;
+  const warnFreeCount = visitResults.filter((v, i) => !confirmed[i] && !hasWarning(v)).length;
 
   const handleConfirmOne = async (idx) => {
     setConfirmingIdx(idx);
@@ -170,14 +186,14 @@ export default function ImportReviewScreen({
               <Button
                 size="sm"
                 onClick={handleConfirmAll}
-                disabled={applying || allConfirmed}
+                disabled={applying || allConfirmed || warnFreeCount === 0}
                 className="bg-[#0A2540] hover:bg-[#051626] text-white text-xs"
               >
                 {applying
                   ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                     {applyProgress ? `${applyProgress.current}/${applyProgress.total}` : "Importazione..."}
                     </>
-                  : <><Check className="w-3.5 h-3.5 mr-1.5" /> Conferma tutte ({pendingCount})</>}
+                  : <><Check className="w-3.5 h-3.5 mr-1.5" /> Conferma tutte senza warning ({warnFreeCount})</>}
               </Button>
             </>
           ) : (
@@ -229,14 +245,20 @@ export default function ImportReviewScreen({
             </div>
             <div className="px-2 py-2 border-t border-gray-200 flex gap-1">
               <button type="button"
-                onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
-                disabled={currentIdx === 0}
+                onClick={() => {
+                  const pos = sortedOrder.indexOf(currentIdx);
+                  if (pos > 0) setCurrentIdx(sortedOrder[pos - 1]);
+                }}
+                disabled={sortedOrder.indexOf(currentIdx) === 0}
                 className="flex-1 flex items-center justify-center py-1 rounded border border-gray-200 bg-white text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors">
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button type="button"
-                onClick={() => setCurrentIdx(i => Math.min(visitResults.length - 1, i + 1))}
-                disabled={currentIdx === visitResults.length - 1}
+                onClick={() => {
+                  const pos = sortedOrder.indexOf(currentIdx);
+                  if (pos < sortedOrder.length - 1) setCurrentIdx(sortedOrder[pos + 1]);
+                }}
+                disabled={sortedOrder.indexOf(currentIdx) === sortedOrder.length - 1}
                 className="flex-1 flex items-center justify-center py-1 rounded border border-gray-200 bg-white text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors">
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
