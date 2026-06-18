@@ -103,7 +103,6 @@ export default function ImportReviewScreen({
 }) {
   const isMulti = visitResults.length > 1;
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [confirmed, setConfirmed] = useState({});
   const [confirmingIdx, setConfirmingIdx] = useState(null);
 
   const sortedOrder = [...visitResults]
@@ -118,20 +117,19 @@ export default function ImportReviewScreen({
   const current = visitResults[currentIdx];
   if (!current) return null;
 
-  const allConfirmed = visitResults.every((_, i) => confirmed[i]);
-  const confirmedCount = Object.values(confirmed).filter(Boolean).length;
+  const allConfirmed = visitResults.every(v => !!v._confirmed);
+  const confirmedCount = visitResults.filter(v => !!v._confirmed).length;
   const pendingCount   = visitResults.length - confirmedCount;
-  const warnFreeCount  = visitResults.filter((v, i) => !confirmed[i] && !hasWarning(v)).length;
+  const warnFreeCount  = visitResults.filter(v => !v._confirmed && !hasWarning(v)).length;
 
   const handleConfirmOne = async (idx) => {
     setConfirmingIdx(idx);
     try {
       await onConfirmOne(idx);
-      setConfirmed(prev => ({ ...prev, [idx]: true }));
-      const nextPending = visitResults.findIndex((_, i) => i !== idx && !confirmed[i] && i > idx);
+      const nextPending = visitResults.findIndex((v, i) => i !== idx && !v._confirmed && i > idx);
       if (nextPending !== -1) setCurrentIdx(nextPending);
       else {
-        const anyPending = visitResults.findIndex((_, i) => !confirmed[i] && i !== idx);
+        const anyPending = visitResults.findIndex((v, i) => !v._confirmed && i !== idx);
         if (anyPending !== -1) setCurrentIdx(anyPending);
       }
     } finally {
@@ -142,13 +140,6 @@ export default function ImportReviewScreen({
   const handleConfirmAll = async () => {
     try {
       await onConfirmAll();
-      setConfirmed(prev => {
-        const next = { ...prev };
-        visitResults.forEach((v, i) => {
-          if (!prev[i] && !hasWarning(v)) next[i] = true;
-        });
-        return next;
-      });
     } catch (_) {}
   };
 
@@ -187,12 +178,12 @@ export default function ImportReviewScreen({
                 variant="outline"
                 size="sm"
                 onClick={() => handleConfirmOne(currentIdx)}
-                disabled={applying || isConfirmingCurrent || confirmed[currentIdx]}
+                disabled={applying || isConfirmingCurrent || !!current._confirmed}
                 className="text-xs"
               >
                 {isConfirmingCurrent
                   ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Importazione...</>
-                  : confirmed[currentIdx]
+                  : current._confirmed
                   ? <><Check className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Importata</>
                   : <><Check className="w-3.5 h-3.5 mr-1.5" /> Conferma visita</>}
               </Button>
@@ -213,12 +204,12 @@ export default function ImportReviewScreen({
             <Button
               size="sm"
               onClick={() => handleConfirmOne(0)}
-              disabled={applying || isConfirmingCurrent || confirmed[0]}
+              disabled={applying || isConfirmingCurrent || !!visitResults[0]?._confirmed}
               className="bg-[#0A2540] hover:bg-[#051626] text-white text-xs"
             >
               {isConfirmingCurrent
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Salvataggio...</>
-                : confirmed[0]
+                : visitResults[0]?._confirmed
                 ? <><Check className="w-3.5 h-3.5 mr-1.5 text-emerald-400" /> Importata</>
                 : <><Check className="w-3.5 h-3.5 mr-1.5" /> Conferma importazione</>}
             </Button>
@@ -251,7 +242,7 @@ export default function ImportReviewScreen({
                     key={v.id ?? i}
                     item={v}
                     active={i === currentIdx}
-                    confirmed={!!confirmed[i]}
+                    confirmed={!!v._confirmed}
                     onClick={() => setCurrentIdx(i)}
                   />
                 ))}

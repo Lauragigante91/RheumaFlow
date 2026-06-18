@@ -282,6 +282,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       item.draft, patient, item.selected, vType, item.draft?.source_filename || null
     );
     if (errors.length === 0) {
+      setMultiExtracted(prev => prev.map((v, i) => i === idx ? { ...v, _confirmed: true } : v));
       toast.success(`Importazione completata (${updates} sezioni aggiornate)`);
       onImported?.();
     } else if (updates > 0) {
@@ -302,7 +303,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
 
   const applyMulti = async () => {
     if (!patient) return;
-    const candidates = multiExtracted.filter(v => v.included !== false);
+    const candidates = multiExtracted.filter(v => v.included !== false && !v._confirmed);
     const toApply = candidates
       .filter(v => !hasWarning(v))
       .slice()
@@ -321,6 +322,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       return;
     }
     setApplying(true);
+    const appliedSet = new Set(toApply);
     const { updates: totalUpdates, errors: allErrors } = await applyDraftBatch(
       toApply,
       patient,
@@ -329,6 +331,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     setApplying(false);
     setMultiApplyProgress(null);
     if (allErrors.length === 0) {
+      setMultiExtracted(prev => prev.map(v => appliedSet.has(v) ? { ...v, _confirmed: true } : v));
       if (skipped > 0) {
         toast.success(`${toApply.length} visit${toApply.length > 1 ? "e" : "a"} importat${toApply.length > 1 ? "e" : "a"} (${totalUpdates} sezioni aggiornate) — ${skipped} con warning rimandate`);
       } else {
