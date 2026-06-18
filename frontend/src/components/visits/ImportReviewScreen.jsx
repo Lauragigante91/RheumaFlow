@@ -125,19 +125,31 @@ export default function ImportReviewScreen({
 
   const handleConfirmOne = async (idx) => {
     setConfirmingIdx(idx);
-    await onConfirmOne(idx);
-    setConfirmingIdx(null);
-    setConfirmed(prev => ({ ...prev, [idx]: true }));
-    const nextPending = visitResults.findIndex((_, i) => i !== idx && !confirmed[i] && i > idx);
-    if (nextPending !== -1) setCurrentIdx(nextPending);
-    else {
-      const anyPending = visitResults.findIndex((_, i) => !confirmed[i] && i !== idx);
-      if (anyPending !== -1) setCurrentIdx(anyPending);
+    try {
+      await onConfirmOne(idx);
+      setConfirmed(prev => ({ ...prev, [idx]: true }));
+      const nextPending = visitResults.findIndex((_, i) => i !== idx && !confirmed[i] && i > idx);
+      if (nextPending !== -1) setCurrentIdx(nextPending);
+      else {
+        const anyPending = visitResults.findIndex((_, i) => !confirmed[i] && i !== idx);
+        if (anyPending !== -1) setCurrentIdx(anyPending);
+      }
+    } finally {
+      setConfirmingIdx(null);
     }
   };
 
   const handleConfirmAll = async () => {
-    await onConfirmAll();
+    try {
+      await onConfirmAll();
+      setConfirmed(prev => {
+        const next = { ...prev };
+        visitResults.forEach((v, i) => {
+          if (!prev[i] && !hasWarning(v)) next[i] = true;
+        });
+        return next;
+      });
+    } catch (_) {}
   };
 
   const updateCurrentDraft = (draft) => {
