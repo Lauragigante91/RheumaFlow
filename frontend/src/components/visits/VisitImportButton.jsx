@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent } from "../ui/dialog";
@@ -55,8 +55,29 @@ export default function VisitImportButton({ patient, onImported, open: externalO
   ]);
   const [multiExtracted, setMultiExtracted] = useState([]);
   const [multiApplyProgress, setMultiApplyProgress] = useState(null);
-  const [batchFieldConflicts, setBatchFieldConflicts] = useState([]);
   const [fieldOverrides, setFieldOverrides] = useState({});
+
+  const batchFieldConflicts = useMemo(() => {
+    if (multiExtracted.length <= 1) return [];
+    const activeDrafts = multiExtracted
+      .filter(v => v.included !== false)
+      .map(v => ({ draft: v.draft, selected: v.selected || DEFAULT_SELECTED }));
+    const longiState = computeLongitudinalState(activeDrafts);
+    return Object.entries(longiState)
+      .filter(([, res]) => res.warn)
+      .map(([field, res]) => ({ field, selected: res.selected, conflicts: res.conflicts }));
+  }, [multiExtracted]);
+
+  useEffect(() => {
+    const conflictFields = new Set(batchFieldConflicts.map(c => c.field));
+    setFieldOverrides(prev => {
+      const stale = Object.keys(prev).filter(k => !conflictFields.has(k));
+      if (stale.length === 0) return prev;
+      const next = { ...prev };
+      stale.forEach(k => delete next[k]);
+      return next;
+    });
+  }, [batchFieldConflicts]);
 
   useEffect(() => {
     if (open && initialText) {
@@ -88,7 +109,6 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     setMultiBlocks([{ id: 1, date: "", text: "", visitType: "follow_up" }, { id: 2, date: "", text: "", visitType: "follow_up" }]);
     setMultiExtracted([]);
     setMultiApplyProgress(null);
-    setBatchFieldConflicts([]);
     setFieldOverrides({});
   };
 
@@ -235,13 +255,6 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       const rawDrafts        = rawResults.map(r => r.draft);
       const reconciledDrafts = reconcileDrafts(rawDrafts, existingData);
 
-      const longiState = computeLongitudinalState(
-        reconciledDrafts.map((d) => ({ draft: d, selected: DEFAULT_SELECTED }))
-      );
-      const newConflicts = Object.entries(longiState)
-        .filter(([, res]) => res.warn)
-        .map(([field, res]) => ({ field, selected: res.selected, conflicts: res.conflicts }));
-      setBatchFieldConflicts(newConflicts);
       setFieldOverrides({});
 
       if (process.env.NODE_ENV !== "production") {
