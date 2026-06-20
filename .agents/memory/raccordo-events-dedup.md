@@ -45,6 +45,16 @@ disease; the exact wording is OCR-unstable and clinically irrelevant for identit
 `disease_onset` is intentionally kept text-sensitive because "artrite alle mani"
 and "artrite ai piedi" are genuinely different events in the same year.
 
+**Known tradeoff / future work:** collapsing on (event_type, year) also collapses
+two *different* diagnoses in the same year (e.g. AR + PsA, both diagnosed in 2000).
+This is acceptable in the short term because co-incident diagnoses in the same year
+are rare and the alternative (text-based dedup) produces far more OCR duplicates.
+Future fix: introduce `diagnosis_canonical` (normalised ICD or free-text
+canonicalized disease name) as a third key component, making the sig
+(event_type, year, diagnosis_canonical). Do not add this until the canonical
+field is reliably parsed and stored — adding an un-populated field only shifts
+the problem.
+
 **Where:** `EVENT_TYPES_NO_TEXT_SIG` Set in visitReconciler.js; `_NO_TEXT_SIG_TYPES`
 set in backend/routers/clinical_events.py.
 
