@@ -504,6 +504,7 @@ export function extractDraftState(draft, selected = {}) {
     if (pg.anamnesi_fisiologica) out.anamnesi_fisiologica = pg.anamnesi_fisiologica;
     if (pg.anamnesi_familiare)   out.anamnesi_familiare   = pg.anamnesi_familiare;
     if (pg.terapia_domiciliare)  out.terapia_domiciliare  = pg.terapia_domiciliare;
+    if (pg.diagnosi)             out.diagnosi             = pg.diagnosi;
   }
   const comorb = draftComorbidita(draft, selected);
   if (comorb) out.comorbidita_apr = comorb;
@@ -557,11 +558,20 @@ export async function applyLongitudinalState(draftsAsc, patient, overrides = {})
       if (_shouldWrite(patient[k], incoming)) updatePatch[k] = incoming;
     }
   });
+  const RECENCY_FIELDS = new Set(["terapia_domiciliare"]);
   STATE_PROFILE.forEach((k) => {
     if (overrides[k] !== undefined) {
       if (overrides[k] && overrides[k] !== (patient[k] || "")) patchPatch[k] = overrides[k];
     } else {
-      const incoming = state[k]?.selected?.value;
+      let incoming;
+      if (RECENCY_FIELDS.has(k)) {
+        for (let i = draftsAsc.length - 1; i >= 0; i--) {
+          const s = extractDraftState(draftsAsc[i].draft, draftsAsc[i].selected || {});
+          if (s[k]) { incoming = s[k]; break; }
+        }
+      } else {
+        incoming = state[k]?.selected?.value;
+      }
       if (_shouldWrite(patient[k], incoming)) patchPatch[k] = incoming;
     }
   });

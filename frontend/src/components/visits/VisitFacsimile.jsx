@@ -648,7 +648,7 @@ function EsameObiettivoEditor({ text, jointMap, onTextChange, onJointChange }) {
         {hasJointData ? (
           <div className="flex justify-center overflow-auto max-h-72">
             <Homunculus
-              mode="28"
+              mode="66_68"
               joints={displayJoints}
               onChange={newJoints => onJointChange(newJoints)}
             />
@@ -818,6 +818,12 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </SectionBlock>
 
       <SectionBlock title="7) Raccordo anamnestico reumatologico">
+        {vs.raccordo && (
+          <div className="mb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Testo originale</div>
+            <TextSection value={vs.raccordo} onChange={v => updVS({ raccordo: v })} minH="min-h-[72px]" />
+          </div>
+        )}
         <RaccordoEventsEditor
           events={draft.raccordo_events || []}
           onChange={evs => upd({ raccordo_events: evs })}
@@ -897,23 +903,50 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </SectionBlock>
 
       <SectionBlock
-        title="13) Terapia (indicazioni in uscita)"
+        title="13) Terapia reumatologica (avvii, modifiche, sospensioni)"
         badge={conflicts.length > 0 && (
           <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
             <AlertTriangle className="w-3 h-3" /> {conflicts.length} conflitto{conflicts.length > 1 ? "i" : ""}
           </span>
         )}
       >
-        {(draft.therapies || []).length > 0 ? (
-          <TherapyEditor
-            therapies={draft.therapies}
-            conflicts={conflicts}
-            onChange={t => upd({ therapies: t })}
-          />
-        ) : (
-          <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
-        )}
+        {(() => {
+          const exitTherapies = (draft.therapies || []).filter(
+            t => !(t.status === "discontinued" && t._action === "new_episode")
+          );
+          return exitTherapies.length > 0 ? (
+            <TherapyEditor
+              therapies={exitTherapies}
+              conflicts={conflicts}
+              onChange={updated => {
+                const historical = (draft.therapies || []).filter(
+                  t => t.status === "discontinued" && t._action === "new_episode"
+                );
+                upd({ therapies: [...updated, ...historical] });
+              }}
+            />
+          ) : (
+            <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
+          );
+        })()}
       </SectionBlock>
+
+      {(draft.therapies || []).some(t => t.status === "discontinued" && t._action === "new_episode") && (
+        <SectionBlock title="Terapia pregressa / esposizioni storiche (raccordo)" defaultOpen={false}>
+          <TherapyEditor
+            therapies={(draft.therapies || []).filter(
+              t => t.status === "discontinued" && t._action === "new_episode"
+            )}
+            conflicts={[]}
+            onChange={updated => {
+              const exit = (draft.therapies || []).filter(
+                t => !(t.status === "discontinued" && t._action === "new_episode")
+              );
+              upd({ therapies: [...exit, ...updated] });
+            }}
+          />
+        </SectionBlock>
+      )}
 
       <SectionBlock title="14) Indicazioni ulteriori">
         <TextSection value={vs.indicazioni} onChange={v => updVS({ indicazioni: v })} minH="min-h-[64px]" />

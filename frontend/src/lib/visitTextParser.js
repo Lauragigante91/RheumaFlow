@@ -1853,8 +1853,8 @@ export function parseVisitText(text) {
           .trim() || null
       : null,
     allergie:             _allergieSanitized,
+    diagnosi:             null,
   };
-  const hasProfiloGenerale = Object.values(profilo_generale).some(Boolean);
 
   // ── Raccordo ─────────────────────────────────────────────────────────────
   // Only use the explicit RACCORDO section — never fall back to the preamble,
@@ -1892,6 +1892,15 @@ export function parseVisitText(text) {
 
   const diagScope = join("MOTIVO_VISITA", "CONCLUSIONI", "RACCORDO", "ANAMNESI_INTERVALLARE", "VISITA_ODIERNA", "PREAMBLE") || text;
   const patient = extractPatientInfo(text, diagScope);
+
+  const _diagSectionRe = /^DIAGNOSI(?:\s+(?:PRINCIPALE|REUMATOLOGICA|DI\s+INVIO|IN\s+INGRESSO|DEFINITIVA|DI\s+RIFERIMENTO))?\s*[:\-]?\s*([^\n]+)/im;
+  const _diagSectionM = text.match(_diagSectionRe);
+  profilo_generale.diagnosi = (_diagSectionM
+    ? _diagSectionM[1].trim().replace(/\s+/g, " ").slice(0, 300)
+    : null
+  ) || patient?.diagnosi || null;
+  const hasProfiloGenerale = Object.values(profilo_generale).some(Boolean);
+
   const summary = buildSummary({ clinItems, labItems, therapies, comorbidita, intolleranze });
 
   const _parse_review = computeParseReview(S, raccordoText, visit_sections, _therapyConflicts);

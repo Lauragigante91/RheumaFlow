@@ -55,3 +55,37 @@ describe("buildWorkupVisitPayload — physical_exam_joint_exam (P2)", () => {
     expect(p1.physical_exam_joint_exam).not.toEqual(p2.physical_exam_joint_exam);
   });
 });
+
+import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
+
+describe("buildTherapyUpsertPayload — raw_string (TASK P0)", () => {
+  test("include raw_string quando presente nella terapia estratta", () => {
+    const t = {
+      drug_name: "Methotrexate",
+      category: "csDMARD",
+      status: "active",
+      raw_string: "MTX 15mg 1v/settimana",
+    };
+    const p = buildTherapyUpsertPayload(t, "pid", null);
+    expect(p.raw_string).toBe("MTX 15mg 1v/settimana");
+  });
+
+  test("raw_string null quando assente nel draft terapia", () => {
+    const t = { drug_name: "Prednisone", category: "glucocorticoid", status: "active" };
+    const p = buildTherapyUpsertPayload(t, "pid", null);
+    expect(p.raw_string).toBeNull();
+  });
+
+  test("esposizione storica (discontinued + new_episode) ha raw_string preservato", () => {
+    const t = {
+      drug_name: "Ciclofosfamide",
+      category: "csDMARD",
+      status: "discontinued",
+      _action: "new_episode",
+      raw_string: "CYC ev 750mg mensile (sospeso 2019)",
+    };
+    const p = buildTherapyUpsertPayload(t, "pid", null);
+    expect(p.raw_string).toBe("CYC ev 750mg mensile (sospeso 2019)");
+    expect(p.event_type_override).toBe("historical_exposure");
+  });
+});

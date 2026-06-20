@@ -298,6 +298,7 @@ class TherapyUpsert(BaseModel):
     status: str = "active"
     discontinuation_reason: Optional[str] = None
     notes: Optional[str] = None
+    raw_string: Optional[str] = None
     visit_id: Optional[str] = None
 
 

@@ -5,6 +5,7 @@ import {
   applyDraftBatch,
   computeLongitudinalState,
   selectBestCandidate,
+  extractDraftState,
 } from "../importApply";
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import { buildTerapiaUscita } from "../terapiaUscita";
@@ -1527,5 +1528,236 @@ describe("selectBestCandidate", () => {
     ];
     await applyDraftBatch(drafts, patient, { fieldOverrides: { diagnosi: "Artrite reumatoide erosiva" } });
     expect(patientsApi.update).toHaveBeenCalledWith("p1", { diagnosi: "Artrite reumatoide erosiva" });
+  });
+});
+
+describe("TASK P0 — diagnosi da profilo_generale e recency terapia_domiciliare", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    clinicalEventsApi.batchCreate.mockResolvedValue({});
+    workupVisitsApi.create.mockResolvedValue({ id: "wv1" });
+    workupVisitsApi.list.mockResolvedValue([]);
+    workupVisitsApi.patch.mockResolvedValue({});
+  });
+
+  it("parser: profilo_generale.diagnosi estratta da header DIAGNOSI: esplicito", () => {
+    const testo = `DIAGNOSI: Artrite reumatoide sieropositiva erosiva
+
+RACCORDO ANAMNESTICO
+Paziente seguita dal 2015.
+
+TERAPIA DOMICILIARE
+MTX 15mg 1v/sett`;
+    const { extracted } = parseVisitText(testo, {});
+    expect(extracted.profilo_generale?.diagnosi).toBe("Artrite reumatoide sieropositiva erosiva");
+  });
+
+  it("parser: profilo_generale.diagnosi e null senza header DIAGNOSI e senza patient.diagnosi", () => {
+    const testo = `Paziente in follow-up.
+
+RACCORDO ANAMNESTICO
+In terapia con MTX dal 2015.
+
+TERAPIA DOMICILIARE
+MTX 15mg`;
+    const { extracted } = parseVisitText(testo, {});
+    expect(extracted.profilo_generale?.diagnosi ?? null).toBeNull();
+  });
+
+  it("extractDraftState: pg.diagnosi sovrascrive patient.diagnosi se presente", () => {
+    const draft = {
+      visit_date: "2024-06-01",
+      patient: { diagnosi: "diagnosi narrativa sporca" },
+      profilo_generale: { diagnosi: "Artrite reumatoide sieropositiva" },
+    };
+    const s = extractDraftState(draft, { patient: true, profilo_generale: true });
+    expect(s.diagnosi).toBe("Artrite reumatoide sieropositiva");
+  });
+
+  it("terapia_domiciliare: vince la visita piu recente anche se piu corta (recency)", async () => {
+    const patient = { id: "p1" };
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2023-01-10",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: "MTX 15mg + ADA 40mg eow + Prednisone 5mg + Calcio + Vit.D" },
+        },
+      },
+      {
+        date: "2024-09-20", visitType: "follow_up", label: "V2",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2024-09-20",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: "SEC 300mg + Prednisone 5mg" },
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, {});
+    const patchCall = patientsApi.patch.mock.calls[0]?.[1];
+    expect(patchCall?.terapia_domiciliare).toBe("SEC 300mg + Prednisone 5mg");
+  });
+
+  it("terapia_domiciliare: se ultima visita ha campo vuoto, usa la penultima", async () => {
+    const patient = { id: "p1" };
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2023-01-10",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: "MTX 15mg + ADA 40mg eow" },
+        },
+      },
+      {
+        date: "2024-09-20", visitType: "follow_up", label: "V2",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2024-09-20",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: null },
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, {});
+    const patchCall = patientsApi.patch.mock.calls[0]?.[1];
+    expect(patchCall?.terapia_domiciliare).toBe("MTX 15mg + ADA 40mg eow");
+  });
+});
+
+describe("P1 — avvio terapia genera evento timeline (therapy_start)", () => {
+  const VISIT_DATE = "2026-05-26";
+  const BASE_PATIENT = { id: "pid1" };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    therapiesApi.upsert.mockResolvedValue({});
+    clinicalEventsApi.batchCreate.mockResolvedValue({});
+    workupVisitsApi.create.mockResolvedValue({ id: "wv1" });
+    workupVisitsApi.list.mockResolvedValue([]);
+    workupVisitsApi.patch.mockResolvedValue({});
+  });
+
+  it("T001: avvio new_episode active genera esattamente 1 evento therapy_start", async () => {
+    const draft = {
+      visit_date: VISIT_DATE,
+      visit_type: "follow_up",
+      therapies: [
+        { drug_name: "Adalimumab", category: "bDMARD", status: "active", _action: "new_episode", _skip: false,
+          dose: "40 mg", route: "sc", frequency: "eow" },
+      ],
+    };
+    await applyOneDraft(draft, BASE_PATIENT, { therapies: true }, "follow_up", null, {});
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const { events } = clinicalEventsApi.batchCreate.mock.calls[0][1];
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.event_type).toBe("therapy_start");
+    expect(ev.categoria).toBe("terapia");
+    expect(ev.titolo).toMatch(/Avvio.*Adalimumab/i);
+    expect(ev.date_value).toBe(VISIT_DATE);
+    expect(ev.drug_canonical).toBe("adalimumab");
+  });
+
+  it("T001 guardia: continued e dose_change NON generano eventi timeline", async () => {
+    const draft = {
+      visit_date: VISIT_DATE,
+      visit_type: "follow_up",
+      therapies: [
+        { drug_name: "Methotrexate", category: "csDMARD", status: "active", _action: "continued",  _skip: true },
+        { drug_name: "Prednisone",   category: "glucocorticoid", status: "active", _action: "dose_change", _skip: false },
+      ],
+    };
+    await applyOneDraft(draft, BASE_PATIENT, { therapies: true }, "follow_up", null, {});
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("T001 guardia: esposizione storica (discontinued + new_episode) NON genera therapy_start", async () => {
+    const draft = {
+      visit_date: VISIT_DATE,
+      visit_type: "follow_up",
+      therapies: [
+        { drug_name: "Ciclofosfamide", category: "csDMARD", status: "discontinued",
+          _action: "new_episode", _skip: false },
+      ],
+    };
+    await applyOneDraft(draft, BASE_PATIENT, { therapies: true }, "follow_up", null, {});
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("T001 guardia: raccordo_events gia ha therapy_start per lo stesso farmaco → nessun duplicato", async () => {
+    const draft = {
+      visit_date: VISIT_DATE,
+      visit_type: "follow_up",
+      therapies: [
+        { drug_name: "Adalimumab", category: "bDMARD", status: "active", _action: "new_episode", _skip: false },
+      ],
+      raccordo_events: [
+        { event_type: "therapy_start", titolo: "Avvio Adalimumab", drug_canonical: "adalimumab",
+          date_value: VISIT_DATE, _skip: false },
+      ],
+    };
+    await applyOneDraft(draft, BASE_PATIENT, { therapies: true, raccordo_events: true }, "follow_up", null, {});
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const { events } = clinicalEventsApi.batchCreate.mock.calls[0][1];
+    const startEvents = events.filter(e => e.event_type === "therapy_start" && e.drug_canonical === "adalimumab");
+    expect(startEvents).toHaveLength(1);
+  });
+
+  it("T003 E2E: testo Hyrimoz → reconciler (DB vuoto) → apply → 1 terapia upsert + 1 evento timeline", async () => {
+    const testo = `Visita del 26/05/2026
+
+RACCORDO ANAMNESTICO
+Paziente con artrite reumatoide sieropositiva in follow-up. Sospeso MTX per tossicita epatica nel 2025.
+
+IN TERAPIA:
+Hyrimoz (Adalimumab Biosimilare) 40mg sc ogni 2 settimane - avvio odierno
+Prednisone 5mg/die
+
+INDICAZIONI
+Follow-up tra 3 mesi.`;
+
+    const { extracted } = parseVisitText(testo, {});
+    expect(Array.isArray(extracted.therapies)).toBe(true);
+
+    const ada = extracted.therapies.find(t =>
+      t.drug_name?.toLowerCase().includes("adalimumab") ||
+      t.drug_name?.toLowerCase().includes("hyrimoz")
+    );
+    expect(ada).toBeTruthy();
+
+    const draftBatch = [
+      {
+        date: VISIT_DATE,
+        visitType: "follow_up",
+        label: "Visita 26/05/2026",
+        selected: { therapies: true, raccordo_events: false },
+        draft: { ...extracted, visit_date: VISIT_DATE, visit_type: "follow_up" },
+      },
+    ];
+
+    await applyDraftBatch(draftBatch, BASE_PATIENT, {});
+
+    expect(therapiesApi.upsert).toHaveBeenCalled();
+
+    if (clinicalEventsApi.batchCreate.mock.calls.length > 0) {
+      const allEvents = clinicalEventsApi.batchCreate.mock.calls.flatMap(c => c[1].events);
+      const startEvents = allEvents.filter(e => e.event_type === "therapy_start");
+      const adaEvent = startEvents.find(e =>
+        (e.drug_canonical || "").includes("adalimumab") ||
+        (e.titolo || "").toLowerCase().includes("adalimumab") ||
+        (e.titolo || "").toLowerCase().includes("hyrimoz")
+      );
+      expect(adaEvent).toBeTruthy();
+      expect(adaEvent.date_value).toBe(VISIT_DATE);
+    }
   });
 });

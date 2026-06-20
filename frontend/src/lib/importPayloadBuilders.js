@@ -66,6 +66,7 @@ export function buildTherapyUpsertPayload(t, patientId, importedVisitId) {
     status:                 t.status || "active",
     discontinuation_reason: t.discontinuation_reason || null,
     notes:                  t.notes || null,
+    raw_string:             t.raw_string || null,
     visit_id:               importedVisitId || null,
     ...(isHistorical ? { event_type_override: "historical_exposure" } : {}),
   };
