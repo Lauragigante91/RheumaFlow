@@ -354,18 +354,28 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     if (raccordoStartDrugs.has(ev.drug_canonical)) continue;
     eventsToCreate.push(ev);
   }
-  if (eventsToCreate.length > 0) {
+
+  const stampedEvents = eventsToCreate.map(ev => ({
+    ...ev,
+    visit_id: ev.visit_id !== undefined ? ev.visit_id : (importedVisitId || null),
+  }));
+
+  if (options.skipEventBatch) {
+    return { updates, errors, pendingEvents: stampedEvents };
+  }
+
+  if (stampedEvents.length > 0) {
     try {
       await clinicalEventsApi.batchCreate(patient.id, {
         patient_id: patient.id,
-        events: eventsToCreate,
-        visit_id: importedVisitId || null,
+        events: stampedEvents,
+        visit_id: null,
       });
       updates += 1;
     } catch (e) { errors.push(apiErrMsg(e, "Cronologia clinica")); }
   }
 
-  return { updates, errors };
+  return { updates, errors, pendingEvents: [] };
 }
 
 const STATE_ANAGRAFICA = ["nome", "cognome", "data_nascita", "sesso", "codice_fiscale", "diagnosi"];
@@ -453,16 +463,28 @@ export async function applyLongitudinalState(draftsAsc, patient) {
 export async function applyDraftBatch(toApply, patient, opts = {}) {
   const errors = [];
   let updates = 0;
+  const allPendingEvents = [];
   for (let i = 0; i < toApply.length; i++) {
     const v = toApply[i];
     opts.onProgress?.({ current: i + 1, total: toApply.length, label: v.label });
     const vType = v.draft?.visit_type || v.visitType || opts.defaultVisitType || "follow_up";
     const res = await applyOneDraft(
       v.draft, patient, v.selected, vType, v.draft?.source_filename || null,
-      { skipPatientState: true }
+      { skipPatientState: true, skipEventBatch: true }
     );
     updates += res.updates;
     errors.push(...res.errors);
+    allPendingEvents.push(...(res.pendingEvents || []));
+  }
+  if (allPendingEvents.length > 0) {
+    try {
+      await clinicalEventsApi.batchCreate(patient.id, {
+        patient_id: patient.id,
+        events: allPendingEvents,
+        visit_id: null,
+      });
+      updates += 1;
+    } catch (e) { errors.push(apiErrMsg(e, "Cronologia clinica")); }
   }
   const longitudinal = await applyLongitudinalState(
     toApply.map((v) => ({ draft: v.draft, selected: v.selected })),

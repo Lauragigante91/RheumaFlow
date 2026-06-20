@@ -30,9 +30,15 @@ def _event_date_key(e: dict) -> str:
     return raw[:10]
 
 
+_NO_TEXT_SIG_TYPES = {"diagnosis", "disease_status"}
+
+
 def _clinical_event_sig(e: dict) -> str:
     drug = e.get("drug_canonical") or e.get("to_drug") or e.get("from_drug") or ""
-    text = _norm_event_text(e.get("manifestation") or e.get("detail"))
+    if e.get("event_type") in _NO_TEXT_SIG_TYPES:
+        text = ""
+    else:
+        text = _norm_event_text(e.get("manifestation") or e.get("detail"))
     return f"{e.get('event_type') or ''}::{_event_date_key(e)}::{_norm_event_text(drug)}::{text}"
 
 

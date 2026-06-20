@@ -169,9 +169,13 @@ function eventDateKey(e) {
   return normDate(raw);
 }
 
+const EVENT_TYPES_NO_TEXT_SIG = new Set(["diagnosis", "disease_status"]);
+
 function eventKey(e) {
   const drug = e.drug_canonical || e.to_drug || e.from_drug || "";
-  const text = normTextSig(e.manifestation || e.detail);
+  const text = EVENT_TYPES_NO_TEXT_SIG.has(e.event_type)
+    ? ""
+    : normTextSig(e.manifestation || e.detail);
   return `${e.event_type || ""}::${eventDateKey(e)}::${normTextSig(drug)}::${text}`;
 }
 

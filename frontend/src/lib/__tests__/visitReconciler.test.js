@@ -540,6 +540,55 @@ describe("reconcileDrafts — terapie pregresse cross-batch (bug multi-import)",
   });
 });
 
+describe("reconcileDrafts — dedup OCR-insensibile per diagnosis/disease_status (Fix 1)", () => {
+  it("due diagnosis stesso anno, OCR diverso (2 vs ¿): il secondo è DUPLICATE", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite sieronegativa2 posta nel 2000" }],
+      [{ event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite sieronegativa\u00bf posta nel 2000" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[1].raccordo_events[0]._skip).toBe(true);
+  });
+
+  it("disease_status stesso anno, testo OCR diverso: il secondo è DUPLICATE", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "disease_status", date_value: "2022-06-15", detail: "buon controllo\u00bf di malattia" }],
+      [{ event_type: "disease_status", date_value: "2022-06-15", detail: "buon controllo2 di malattia" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._skip).toBe(true);
+  });
+
+  it("due diagnosis anni diversi: entrambi NEW (non collassati)", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite reumatoide 2000" }],
+      [{ event_type: "diagnosis", date_value: "2005-01-01", date_precision: "year", detail: "artrite reumatoide 2005" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._skip).toBeFalsy();
+  });
+
+  it("diagnosis già in DB stesso anno con testo OCR diverso: classificato DUPLICATE", () => {
+    const existing = [{ event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite reumatoide" }];
+    const drafts = reconcileEventsMultiDraft({ clinical_events: existing }, [
+      [{ event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite reumatoide2 variante" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.DUPLICATE);
+    expect(drafts[0].raccordo_events[0]._skip).toBe(true);
+  });
+
+  it("disease_onset usa ancora il testo nel sig: varianti testo stesso anno NON collassano", () => {
+    const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [
+      [{ event_type: "disease_onset", date_value: "2010-01-01", detail: "artrite alle mani" }],
+      [{ event_type: "disease_onset", date_value: "2010-01-01", detail: "artrite ai piedi" }],
+    ]);
+    expect(drafts[0].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+    expect(drafts[1].raccordo_events[0]._status).toBe(ITEM_STATUS.NEW);
+  });
+});
+
 describe("reconcileDrafts — eventKey normalizzazione e anno", () => {
   it("varianti di accenti/maiuscole/ordine nel testo evento -> deduplicate", () => {
     const drafts = reconcileEventsMultiDraft({ clinical_events: [] }, [

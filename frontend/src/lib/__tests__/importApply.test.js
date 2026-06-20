@@ -731,6 +731,124 @@ describe("applyOneDraft — bridge timeline: avvio terapia genera clinical_event
   });
 });
 
+describe("applyDraftBatch — Fix 2: unico batchCreate finale per tutti i draft", () => {
+  it("due draft con raccordo_events distinti: UN solo batchCreate con entrambi gli eventi", async () => {
+    const drafts = [
+      {
+        label: "V1", visitType: "follow_up",
+        selected: { raccordo_events: true },
+        draft: {
+          visit_date: "2023-01-10",
+          raccordo_events: [{ event_type: "disease_onset", date_value: "2020-01-01", titolo: "Esordio AR" }],
+        },
+      },
+      {
+        label: "V2", visitType: "follow_up",
+        selected: { raccordo_events: true },
+        draft: {
+          visit_date: "2024-06-15",
+          raccordo_events: [{ event_type: "therapy_start", date_value: "2024-06-15", drug_canonical: "adalimumab", titolo: "Avvio ADA" }],
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, basePatient());
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events).toHaveLength(2);
+    expect(events.some(e => e.event_type === "disease_onset")).toBe(true);
+    expect(events.some(e => e.event_type === "therapy_start")).toBe(true);
+  });
+
+  it("due diagnosis stesso anno in draft diversi: solo il primo NEW arriva al batchCreate", async () => {
+    const drafts = [
+      {
+        label: "V1", visitType: "follow_up",
+        selected: { raccordo_events: true },
+        draft: {
+          visit_date: "2023-01-10",
+          raccordo_events: [
+            { event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite sieronegativa2 posta nel 2000" },
+          ],
+        },
+      },
+      {
+        label: "V2", visitType: "follow_up",
+        selected: { raccordo_events: true },
+        draft: {
+          visit_date: "2024-06-15",
+          raccordo_events: [
+            { event_type: "diagnosis", date_value: "2000-01-01", date_precision: "year", detail: "artrite sieronegativa\u00bf posta nel 2000", _skip: true },
+          ],
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, basePatient());
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    const diagEvents = events.filter(e => e.event_type === "diagnosis");
+    expect(diagEvents).toHaveLength(1);
+  });
+
+  it("nessun raccordo_events in nessun draft: batchCreate non chiamato", async () => {
+    const drafts = [
+      {
+        label: "V1", visitType: "follow_up",
+        selected: { assessments: true },
+        draft: { visit_date: "2023-01-10", assessments: [{ index_type: "DAS28", score: 2.5 }] },
+      },
+    ];
+    await applyDraftBatch(drafts, basePatient());
+    expect(clinicalEventsApi.batchCreate).not.toHaveBeenCalled();
+  });
+
+  it("terapie nuove + raccordo_events: un solo batchCreate con therapy_start + raccordo insieme", async () => {
+    const drafts = [
+      {
+        label: "V1", visitType: "follow_up",
+        selected: { therapies: true, raccordo_events: true },
+        draft: {
+          visit_date: "2026-05-26",
+          therapies: [{ drug_name: "Adalimumab", status: "active", _action: "new_episode", dose: "40 mg", route: "sc", frequency: "ogni 2 settimane" }],
+          raccordo_events: [{ event_type: "disease_onset", date_value: "2015-01-01", titolo: "Esordio AR" }],
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, basePatient());
+    expect(therapiesApi.upsert).toHaveBeenCalledTimes(1);
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events.some(e => e.event_type === "therapy_start" && /adalimumab/i.test(e.drug_canonical || ""))).toBe(true);
+    expect(events.some(e => e.event_type === "disease_onset")).toBe(true);
+  });
+
+  it("raccordo_events deselezionato in un draft: gli eventi di quel draft non entrano nel batch", async () => {
+    const drafts = [
+      {
+        label: "V1", visitType: "follow_up",
+        selected: { raccordo_events: true },
+        draft: {
+          visit_date: "2023-01-10",
+          raccordo_events: [{ event_type: "disease_onset", date_value: "2020-01-01", titolo: "Esordio AR" }],
+        },
+      },
+      {
+        label: "V2", visitType: "follow_up",
+        selected: { raccordo_events: false },
+        draft: {
+          visit_date: "2024-06-15",
+          raccordo_events: [{ event_type: "therapy_start", date_value: "2024-06-15", drug_canonical: "secukinumab" }],
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, basePatient());
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    expect(events).toHaveLength(1);
+    expect(events[0].event_type).toBe("disease_onset");
+    expect(events.some(e => e.event_type === "therapy_start")).toBe(false);
+  });
+});
+
 describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudinale una volta", () => {
   const mkDraft = (date, { diagnosi = "", anamnesi = "", terapia = "" }) => ({
     visit_date: date,
