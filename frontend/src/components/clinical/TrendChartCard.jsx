@@ -152,6 +152,17 @@ const INDEX_LINE_STYLE = [
   { color: "#6366F1", dash: "4 4" },
 ];
 
+export function getTherapiesActiveOn(therapies, isoDate) {
+  if (!isoDate || !therapies || therapies.length === 0) return [];
+  return therapies.filter((t) => {
+    const start = t.start_date || t.first_seen_date || null;
+    const end = t.end_date || null;
+    if (start && isoDate < start) return false;
+    if (end && isoDate > end) return false;
+    return true;
+  });
+}
+
 export function buildDrugColorMap(chartData) {
   const map = {};
   let idx = 0;
@@ -256,23 +267,25 @@ function TrendTooltip({ active, payload, showTherapies, drugColorMap }) {
 function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMargin }) {
   const [hover, setHover] = useState(null);
 
+  const tStart = (t) => t.start_date || t.first_seen_date;
+
   // Group therapy segments by drug_name so each drug occupies one continuous row.
   // Within a group, segments are sorted by start_date ascending.
   const drugRows = useMemo(() => {
-    const valid = (therapies || []).filter((t) => t.drug_name && t.start_date);
+    const valid = (therapies || []).filter((t) => t.drug_name && (t.start_date || t.first_seen_date));
     const map = {};
     valid.forEach((t) => {
       if (!map[t.drug_name]) map[t.drug_name] = [];
       map[t.drug_name].push(t);
     });
-    // Sort each group by start_date; sort groups by their earliest start_date
+    // Sort each group by start; sort groups by their earliest start
     return Object.entries(map)
       .map(([name, segs]) => ({
         name,
-        segs: [...segs].sort((a, b) => Date.parse(a.start_date) - Date.parse(b.start_date)),
+        segs: [...segs].sort((a, b) => Date.parse(tStart(a)) - Date.parse(tStart(b))),
       }))
-      .sort((a, b) => Date.parse(a.segs[0].start_date) - Date.parse(b.segs[0].start_date));
-  }, [therapies]);
+      .sort((a, b) => Date.parse(tStart(a.segs[0])) - Date.parse(tStart(b.segs[0])));
+  }, [therapies]); // eslint-disable-line
 
   if (drugRows.length === 0) {
     return (
@@ -335,7 +348,7 @@ function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMar
 
               {/* Connector line spanning from first start to last end — gives the "continuous" feel */}
               {segs.length > 1 && (() => {
-                const firstTs = Date.parse(segs[0].start_date);
+                const firstTs = Date.parse(tStart(segs[0]));
                 const lastTs  = lastSeg.end_date ? Date.parse(lastSeg.end_date) : today;
                 const lineLeft  = pct(firstTs);
                 const lineWidth = Math.max(0.4, pct(lastTs) - lineLeft);
@@ -356,7 +369,7 @@ function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMar
 
               {/* One bar per segment */}
               {segs.map((t, segIdx) => {
-                const startTs = Date.parse(t.start_date);
+                const startTs = Date.parse(tStart(t));
                 const endTs   = t.end_date ? Date.parse(t.end_date) : today;
                 const left    = pct(startTs);
                 const width   = Math.max(0.4, pct(endTs) - left);
@@ -364,7 +377,7 @@ function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMar
                 const segLabel = `${t.drug_name}${t.dose ? ` ${t.dose}` : ""}`;
                 return (
                   <div
-                    key={t.id || `${t.drug_name}-${t.start_date}-${segIdx}`}
+                    key={t.id || `${t.drug_name}-${tStart(t)}-${segIdx}`}
                     className="absolute rounded-sm border cursor-pointer"
                     style={{
                       left: `calc(${leftAxisWidth}px + (100% - ${leftAxisWidth + rightMargin}px) * ${left / 100})`,
@@ -405,7 +418,7 @@ function TherapyGantt({ therapies, domain, drugColorMap, leftAxisWidth, rightMar
             {hover.t.category}{hover.t.frequency ? ` · ${hover.t.frequency}` : ""}
           </div>
           <div className="mt-1 text-gray-700">
-            {fmtFullDate(Date.parse(hover.t.start_date))} → {hover.t.end_date ? fmtFullDate(Date.parse(hover.t.end_date)) : "in corso"}
+            {fmtFullDate(Date.parse(tStart(hover.t)))} → {hover.t.end_date ? fmtFullDate(Date.parse(hover.t.end_date)) : "in corso"}
           </div>
           {hover.t.status !== "active" && hover.t.end_date && (
             <div className="text-[10px] text-amber-700 italic mt-0.5">

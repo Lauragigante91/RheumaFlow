@@ -42,7 +42,7 @@ import RpcProfileSection from "../components/profiles/RpcProfileSection";
 import SjogrenProfileSection from "../components/profiles/SjogrenProfileSection";
 import MyositisProfileSection from "../components/profiles/MyositisProfileSection";
 import PatientHeader from "../components/layout/PatientHeader";
-import TrendChartCard, { buildDrugColorMap } from "../components/clinical/TrendChartCard";
+import TrendChartCard, { buildDrugColorMap, getTherapiesActiveOn } from "../components/clinical/TrendChartCard";
 import VisitDetailsDialog from "../components/visits/VisitDetailsDialog";
 import ClinicalAlerts from "../components/patient/ClinicalAlerts";
 import StickyPatientHeader from "../components/layout/StickyPatientHeader";
@@ -475,16 +475,10 @@ export default function PatientDetail() {
     return "";
   };
 
-  const therapiesActiveOn = useCallback((isoDate) => {
-    if (!isoDate || !therapies || therapies.length === 0) return [];
-    return therapies.filter((t) => {
-      const start = t.start_date || null;
-      const end = t.end_date || null;
-      if (start && isoDate < start) return false;
-      if (end && isoDate > end) return false;
-      return true;
-    });
-  }, [therapies]);
+  const therapiesActiveOn = useCallback(
+    (isoDate) => getTherapiesActiveOn(therapies, isoDate),
+    [therapies]
+  );
 
   const chartData = useMemo(() => {
     const filtered = selectedIndex === "all"
