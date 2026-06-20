@@ -381,6 +381,88 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
 const STATE_ANAGRAFICA = ["nome", "cognome", "data_nascita", "sesso", "codice_fiscale", "diagnosi"];
 const STATE_PROFILE = ["anamnesi_fisiologica", "anamnesi_familiare", "terapia_domiciliare", "comorbidita_apr", "allergie_testo"];
 
+const _OCR_HARD_RE = /[\uFFFD\u00BF\uFFFE\uFFFF]/g;
+const _OCR_SOFT_RE = /[a-zA-Z\u00C0-\u024F]\d|\d[a-zA-Z\u00C0-\u024F]/g;
+const _CONFLICT_PENALTY_DELTA = 0.05;
+const _CONFLICT_LEN_MIN_RATIO = 0.8;
+const _CONFLICT_OVERLAP_THRESHOLD = 0.6;
+
+function _ocrPenalty(text) {
+  if (!text || !text.length) return 1;
+  const hard = (text.match(_OCR_HARD_RE) || []).length;
+  const soft = (text.match(_OCR_SOFT_RE) || []).length;
+  return (hard * 3 + soft) / text.length;
+}
+
+function _normWords(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function _wordOverlap(a, b) {
+  const wa = new Set(_normWords(a));
+  const wb = new Set(_normWords(b));
+  if (!wa.size && !wb.size) return 1;
+  if (!wa.size || !wb.size) return 0;
+  let common = 0;
+  for (const w of wa) { if (wb.has(w)) common++; }
+  return common / Math.max(wa.size, wb.size);
+}
+
+export function selectBestCandidate(candidates) {
+  const valid = (candidates || []).filter(c => c && c.value && c.value.trim());
+  if (!valid.length) return null;
+  if (valid.length === 1) {
+    return {
+      selected: {
+        value: valid[0].value,
+        source_visit_date: valid[0].source_visit_date || null,
+        source_file: valid[0].source_file || null,
+        reason_selected: "solo_candidato",
+      },
+      conflicts: [],
+      warn: false,
+    };
+  }
+  const scored = valid.map(c => ({ ...c, _penalty: _ocrPenalty(c.value) }));
+  scored.sort((a, b) => {
+    const dp = a._penalty - b._penalty;
+    if (Math.abs(dp) > _CONFLICT_PENALTY_DELTA) return dp;
+    return b.value.length - a.value.length;
+  });
+  const winner = scored[0];
+  const runners = scored.slice(1);
+  const conflicts = runners.filter(r => {
+    const penaltyClose = Math.abs(r._penalty - winner._penalty) <= _CONFLICT_PENALTY_DELTA;
+    const lenMin = Math.min(winner.value.length, r.value.length);
+    const lenMax = Math.max(winner.value.length, r.value.length);
+    const lenSimilar = lenMax > 0 && (lenMin / lenMax) >= _CONFLICT_LEN_MIN_RATIO;
+    const contentDiverges = _wordOverlap(winner.value, r.value) < _CONFLICT_OVERLAP_THRESHOLD;
+    return penaltyClose && lenSimilar && contentDiverges;
+  });
+  const penaltyGap = runners.length > 0 ? (runners[0]._penalty - winner._penalty) : 1;
+  let reason_selected;
+  if (penaltyGap > _CONFLICT_PENALTY_DELTA) {
+    reason_selected = "ocr_migliore";
+  } else if (conflicts.length > 0) {
+    reason_selected = "conflitto";
+  } else {
+    reason_selected = "piu_completo";
+  }
+  const { _penalty: _wp, ...winnerRest } = winner;
+  return {
+    selected: { ...winnerRest, reason_selected },
+    conflicts: conflicts.map(({ _penalty: _, ...r }) => r),
+    warn: conflicts.length > 0,
+  };
+}
+
 function draftComorbidita(draft, selected) {
   if (selected.comorbidita) {
     const items = (draft.comorbidita || [])
@@ -429,25 +511,49 @@ export function extractDraftState(draft, selected = {}) {
 }
 
 export function computeLongitudinalState(draftsAsc = []) {
-  const result = {};
+  const perField = {};
   for (const { draft, selected } of draftsAsc) {
     const s = extractDraftState(draft, selected || {});
-    Object.entries(s).forEach(([k, v]) => { if (v) result[k] = v; });
+    const date = draft.visit_date || null;
+    const file = draft.source_filename || null;
+    Object.entries(s).forEach(([k, v]) => {
+      if (!v) return;
+      if (!perField[k]) perField[k] = [];
+      perField[k].push({ value: v, source_visit_date: date, source_file: file });
+    });
+  }
+  const result = {};
+  for (const [k, candidates] of Object.entries(perField)) {
+    const resolved = selectBestCandidate(candidates);
+    if (resolved) result[k] = resolved;
   }
   return result;
 }
 
-export async function applyLongitudinalState(draftsAsc, patient) {
+export async function applyLongitudinalState(draftsAsc, patient, overrides = {}) {
   const errors = [];
   let updates = 0;
   const state = computeLongitudinalState(draftsAsc);
   const updatePatch = {};
   const patchPatch = {};
+  const _shouldWrite = (existingVal, incoming) => {
+    if (!incoming) return false;
+    if (incoming === (existingVal || "")) return false;
+    if (existingVal) {
+      const ep = _ocrPenalty(existingVal);
+      const ip = _ocrPenalty(incoming);
+      if (ip > ep + _CONFLICT_PENALTY_DELTA) return false;
+      if (ep <= _CONFLICT_PENALTY_DELTA && incoming.length < existingVal.length * 0.8) return false;
+    }
+    return true;
+  };
   STATE_ANAGRAFICA.forEach((k) => {
-    if (state[k] && state[k] !== (patient[k] || "")) updatePatch[k] = state[k];
+    const incoming = overrides[k] !== undefined ? overrides[k] : state[k]?.selected?.value;
+    if (_shouldWrite(patient[k], incoming)) updatePatch[k] = incoming;
   });
   STATE_PROFILE.forEach((k) => {
-    if (state[k] && state[k] !== (patient[k] || "")) patchPatch[k] = state[k];
+    const incoming = overrides[k] !== undefined ? overrides[k] : state[k]?.selected?.value;
+    if (_shouldWrite(patient[k], incoming)) patchPatch[k] = incoming;
   });
   if (Object.keys(updatePatch).length > 0) {
     try { await patientsApi.update(patient.id, updatePatch); updates += 1; }
@@ -457,7 +563,10 @@ export async function applyLongitudinalState(draftsAsc, patient) {
     try { await patientsApi.patch(patient.id, patchPatch); updates += 1; }
     catch (e) { errors.push(apiErrMsg(e, "Profilo generale")); }
   }
-  return { updates, errors };
+  const fieldConflicts = Object.entries(state)
+    .filter(([, res]) => res.warn)
+    .map(([field, res]) => ({ field, selected: res.selected, conflicts: res.conflicts }));
+  return { updates, errors, fieldConflicts };
 }
 
 export async function applyDraftBatch(toApply, patient, opts = {}) {
@@ -488,9 +597,10 @@ export async function applyDraftBatch(toApply, patient, opts = {}) {
   }
   const longitudinal = await applyLongitudinalState(
     toApply.map((v) => ({ draft: v.draft, selected: v.selected })),
-    patient
+    patient,
+    opts.fieldOverrides || {}
   );
   updates += longitudinal.updates;
   errors.push(...longitudinal.errors);
-  return { updates, errors };
+  return { updates, errors, fieldConflicts: longitudinal.fieldConflicts || [] };
 }

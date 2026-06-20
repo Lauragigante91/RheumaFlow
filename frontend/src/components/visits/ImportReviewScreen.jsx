@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Loader2, X, AlertTriangle, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, Loader2, X, AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "../ui/button";
 import VisitFacsimile from "./VisitFacsimile";
 import { STATUS_META } from "../../lib/visitReconciler";
@@ -92,6 +92,78 @@ function hasWarning(item) {
   return false;
 }
 
+const FIELD_LABEL_IT = {
+  diagnosi:            "Diagnosi",
+  anamnesi_fisiologica:"Anamnesi fisiologica",
+  anamnesi_familiare:  "Anamnesi familiare",
+  comorbidita_apr:     "Comorbidità",
+  allergie_testo:      "Allergie / Intolleranze",
+  terapia_domiciliare: "Terapia domiciliare",
+};
+
+function BatchFieldConflictsPanel({ conflicts, overrides, onFieldOverride }) {
+  const [open, setOpen] = useState(true);
+  if (!conflicts || conflicts.length === 0) return null;
+  return (
+    <div className="px-4 py-2 border-b border-amber-200 bg-amber-50 flex-shrink-0">
+      <button
+        type="button"
+        className="flex items-center gap-2 w-full text-left"
+        onClick={() => setOpen(v => !v)}
+      >
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+        <span className="text-xs font-semibold text-amber-800">
+          {conflicts.length} campo{conflicts.length !== 1 ? " in conflitto" : " in conflitto"} tra le visite — scegli quale valore salvare
+        </span>
+        {open
+          ? <ChevronUp className="w-3.5 h-3.5 text-amber-500 ml-auto" />
+          : <ChevronDown className="w-3.5 h-3.5 text-amber-500 ml-auto" />}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3">
+          {conflicts.map((c) => {
+            const activeVal = overrides?.[c.field] !== undefined ? overrides[c.field] : c.selected.value;
+            const allOptions = [c.selected, ...c.conflicts];
+            return (
+              <div key={c.field} className="rounded-lg border border-amber-200 bg-white p-2.5 space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  {FIELD_LABEL_IT[c.field] || c.field}
+                </span>
+                <div className={`grid gap-2 ${allOptions.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                  {allOptions.map((opt, oi) => {
+                    const isActive = activeVal === opt.value;
+                    return (
+                      <div
+                        key={oi}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onFieldOverride(c.field, opt.value)}
+                        onKeyDown={(e) => e.key === "Enter" && onFieldOverride(c.field, opt.value)}
+                        className={`rounded p-2 text-xs cursor-pointer border transition-all ${
+                          isActive
+                            ? "border-teal-400 bg-teal-50 ring-1 ring-teal-400"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="text-[9px] font-semibold text-gray-400 mb-1 flex items-center gap-1">
+                          {oi === 0 ? "Proposta dal sistema" : "Alternativa"}
+                          {opt.source_visit_date && <span className="text-gray-300">· {opt.source_visit_date}</span>}
+                          {isActive && <span className="text-teal-600 ml-1">selezionata</span>}
+                        </div>
+                        <pre className="whitespace-pre-wrap font-sans text-gray-700 text-[11px] leading-relaxed">{opt.value}</pre>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ImportReviewScreen({
   visitResults,
   onUpdate,
@@ -100,6 +172,9 @@ export default function ImportReviewScreen({
   onCancel,
   applying,
   applyProgress,
+  batchFieldConflicts,
+  fieldOverrides,
+  onFieldOverride,
 }) {
   const isMulti = visitResults.length > 1;
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -221,6 +296,14 @@ export default function ImportReviewScreen({
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
           <ItemStatusLegend visitResults={visitResults} />
         </div>
+      )}
+
+      {isMulti && (
+        <BatchFieldConflictsPanel
+          conflicts={batchFieldConflicts}
+          overrides={fieldOverrides}
+          onFieldOverride={onFieldOverride}
+        />
       )}
 
       <div className="flex flex-1 min-h-0">

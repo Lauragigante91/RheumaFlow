@@ -6,7 +6,7 @@ import { Loader2, FileText, ScanSearch, Layers, X, Calendar, Plus } from "lucide
 import { toast } from "sonner";
 import { assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi } from "../../lib/api";
 import { parseVisitText } from "../../lib/visitTextParser";
-import { applyOneDraft, applyDraftBatch } from "../../lib/importApply";
+import { applyOneDraft, applyDraftBatch, computeLongitudinalState } from "../../lib/importApply";
 import { reconcileDrafts, draftSummaryStats } from "../../lib/visitReconciler";
 import { parseJointExam } from "../../lib/jointExamParser";
 import ImportReviewScreen from "./ImportReviewScreen";
@@ -55,6 +55,8 @@ export default function VisitImportButton({ patient, onImported, open: externalO
   ]);
   const [multiExtracted, setMultiExtracted] = useState([]);
   const [multiApplyProgress, setMultiApplyProgress] = useState(null);
+  const [batchFieldConflicts, setBatchFieldConflicts] = useState([]);
+  const [fieldOverrides, setFieldOverrides] = useState({});
 
   useEffect(() => {
     if (open && initialText) {
@@ -86,6 +88,8 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     setMultiBlocks([{ id: 1, date: "", text: "", visitType: "follow_up" }, { id: 2, date: "", text: "", visitType: "follow_up" }]);
     setMultiExtracted([]);
     setMultiApplyProgress(null);
+    setBatchFieldConflicts([]);
+    setFieldOverrides({});
   };
 
   const close = () => {
@@ -231,6 +235,15 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       const rawDrafts        = rawResults.map(r => r.draft);
       const reconciledDrafts = reconcileDrafts(rawDrafts, existingData);
 
+      const longiState = computeLongitudinalState(
+        reconciledDrafts.map((d) => ({ draft: d, selected: DEFAULT_SELECTED }))
+      );
+      const newConflicts = Object.entries(longiState)
+        .filter(([, res]) => res.warn)
+        .map(([field, res]) => ({ field, selected: res.selected, conflicts: res.conflicts }));
+      setBatchFieldConflicts(newConflicts);
+      setFieldOverrides({});
+
       if (process.env.NODE_ENV !== "production") {
         const evNew  = reconciledDrafts.reduce((s, d) => s + (d.raccordo_events || []).filter(e => e.event_type && !e._skip).length, 0);
         const evSkip = reconciledDrafts.reduce((s, d) => s + (d.raccordo_events || []).filter(e => e._skip).length, 0);
@@ -326,7 +339,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     const { updates: totalUpdates, errors: allErrors } = await applyDraftBatch(
       toApply,
       patient,
-      { defaultVisitType: visitType, onProgress: (p) => setMultiApplyProgress(p) }
+      { defaultVisitType: visitType, onProgress: (p) => setMultiApplyProgress(p), fieldOverrides }
     );
     setApplying(false);
     setMultiApplyProgress(null);
@@ -387,6 +400,9 @@ export default function VisitImportButton({ patient, onImported, open: externalO
               onCancel={() => { setMultiExtracted([]); setStep("input"); }}
               applying={applying}
               applyProgress={multiApplyProgress}
+              batchFieldConflicts={batchFieldConflicts}
+              fieldOverrides={fieldOverrides}
+              onFieldOverride={(field, value) => setFieldOverrides(prev => ({ ...prev, [field]: value }))}
             />
           ) : (
             <>

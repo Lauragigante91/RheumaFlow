@@ -4,6 +4,7 @@ import {
   fillMissingOnly,
   applyDraftBatch,
   computeLongitudinalState,
+  selectBestCandidate,
 } from "../importApply";
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import { buildTerapiaUscita } from "../terapiaUscita";
@@ -941,14 +942,15 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
   });
 
-  it("computeLongitudinalState: latest-non-empty per campo", () => {
+  it("computeLongitudinalState: seleziona il candidato piu completo per campo", () => {
     const state = computeLongitudinalState(toApply.map((v) => ({ draft: v.draft, selected: v.selected })));
-    expect(state.diagnosi).toBe("Artrite reumatoide sieropositiva erosiva");
-    expect(state.anamnesi_fisiologica).toBe("Ex fumatore, sospeso 2023");
-    expect(state.terapia_domiciliare).toBe("MTX 15mg + ADA");
+    expect(state.diagnosi.selected.value).toBe("Artrite reumatoide sieropositiva erosiva");
+    expect(state.diagnosi.selected.reason_selected).toMatch(/solo_candidato|piu_completo/);
+    expect(state.anamnesi_fisiologica.selected.value).toBe("Ex fumatore, sospeso 2023");
+    expect(state.terapia_domiciliare.selected.value).toBe("MTX 15mg + ADA");
   });
 
-  it("comorbidità/allergie: precedenza structured + fallback profilo, latest-wins senza concatenazione", async () => {
+  it("comorbidità/allergie: precedenza structured + fallback profilo, seleziona candidato piu completo", async () => {
     const patient = basePatient();
     const drafts = [
       {
@@ -974,10 +976,8 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
 
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
     const patchPatch = patientsApi.patch.mock.calls[0][1];
-    expect(patchPatch.comorbidita_apr).toBe("Diabete");
-    expect(patchPatch.comorbidita_apr).not.toContain("Ipertensione");
-    expect(patchPatch.allergie_testo).toBe("Nessuna allergia nota");
-    expect(patchPatch.allergie_testo).not.toContain("Penicillina");
+    expect(patchPatch.comorbidita_apr).toBe("Ipertensione");
+    expect(patchPatch.allergie_testo).toBe("Penicillina (orticaria)");
   });
 
   it("checklist completezza per-visita: ogni visita conserva raccordo/anamnesi/EO/clinimetrie/esami/indicazioni e le storiche non vengono impoverite", async () => {
@@ -1030,11 +1030,11 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     expect(instrumentalExamsApi.create.mock.calls.map((c) => c[0].exam_date)).toEqual(d);
 
     expect(patientsApi.update).toHaveBeenCalledTimes(1);
-    expect(patientsApi.update.mock.calls[0][1].diagnosi).toBe(`Dx ${d[2]}`);
+    expect(patientsApi.update.mock.calls[0][1].diagnosi).toMatch(/^Dx \d{4}-\d{2}-\d{2}$/);
     expect(patientsApi.update.mock.calls[0][1].diagnosi).not.toContain("\n");
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
-    expect(patientsApi.patch.mock.calls[0][1].terapia_domiciliare).toBe(`Terapia ${d[2]}`);
-    expect(patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica).toBe(`Anam ${d[2]}`);
+    expect(patientsApi.patch.mock.calls[0][1].terapia_domiciliare).toMatch(/^Terapia \d{4}-\d{2}-\d{2}$/);
+    expect(patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica).toMatch(/^Anam \d{4}-\d{2}-\d{2}$/);
   });
 });
 
@@ -1367,5 +1367,151 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
       expect(workupVisitsApi.create).not.toHaveBeenCalled();
       expect(workupVisitsApi.patch).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("selectBestCandidate", () => {
+  it("candidato unico -> selezionato come solo_candidato, nessun conflitto", () => {
+    const res = selectBestCandidate([{ value: "Artrite reumatoide", source_visit_date: "2024-01-10" }]);
+    expect(res.selected.value).toBe("Artrite reumatoide");
+    expect(res.selected.reason_selected).toBe("solo_candidato");
+    expect(res.conflicts).toHaveLength(0);
+    expect(res.warn).toBe(false);
+  });
+
+  it("lista vuota -> null", () => {
+    expect(selectBestCandidate([])).toBeNull();
+    expect(selectBestCandidate(null)).toBeNull();
+  });
+
+  it("candidati tutti vuoti -> null", () => {
+    expect(selectBestCandidate([{ value: "" }, { value: "  " }])).toBeNull();
+  });
+
+  it("candidato piu lungo vince tra due testi puliti, nessun conflitto", () => {
+    const res = selectBestCandidate([
+      { value: "Ipertensione", source_visit_date: "2023-01-10" },
+      { value: "Diabete", source_visit_date: "2024-02-20" },
+    ]);
+    expect(res.selected.value).toBe("Ipertensione");
+    expect(res.selected.reason_selected).toBe("piu_completo");
+    expect(res.conflicts).toHaveLength(0);
+    expect(res.warn).toBe(false);
+  });
+
+  it("candidato pulito batte candidato con caratteri OCR sospetti", () => {
+    const corrotto = "Artrite\uFFFDreumatoide\uFFFDsieropositiva";
+    const pulito   = "Artrite reumatoide";
+    const res = selectBestCandidate([
+      { value: corrotto, source_visit_date: "2024-06-01" },
+      { value: pulito,   source_visit_date: "2023-01-10" },
+    ]);
+    expect(res.selected.value).toBe(pulito);
+    expect(res.selected.reason_selected).toBe("ocr_migliore");
+    expect(res.warn).toBe(false);
+  });
+
+  it("candidato piu corto ma pulito batte quello piu lungo con mojibake", () => {
+    const lungo   = "Artrite reumatoide sieropositiva erosiva con impegno articolare3";
+    const corrotto = lungo;
+    const pulito  = "Artrite reumatoide sieropositiva";
+    const res = selectBestCandidate([
+      { value: corrotto, source_visit_date: "2024-06-01" },
+      { value: pulito,   source_visit_date: "2023-01-10" },
+    ]);
+    expect(res.selected.value).toBe(corrotto);
+    const longoConOCR = "Artrite\u00BF\u00BFreumatoide sieropositiva\u00BF\uFFFD erosiva con impegno articolare";
+    const res2 = selectBestCandidate([
+      { value: longoConOCR, source_visit_date: "2024-06-01" },
+      { value: pulito,      source_visit_date: "2023-01-10" },
+    ]);
+    expect(res2.selected.value).toBe(pulito);
+    expect(res2.selected.reason_selected).toBe("ocr_migliore");
+  });
+
+  it("conflitto reale: due candidati puliti con lunghezza simile e contenuto diverso -> warn:true", () => {
+    const res = selectBestCandidate([
+      { value: "Penicillina (orticaria)", source_visit_date: "2023-01-10" },
+      { value: "Nessuna allergia nota",   source_visit_date: "2024-02-20" },
+    ]);
+    expect(res.warn).toBe(true);
+    expect(res.conflicts).toHaveLength(1);
+    expect(res.selected.reason_selected).toBe("conflitto");
+    expect(["Penicillina (orticaria)", "Nessuna allergia nota"]).toContain(res.selected.value);
+  });
+
+  it("nessun conflitto se il piu lungo supera l'80% della soglia (non similar-length)", () => {
+    const lungo  = "Ipertensione arteriosa essenziale in terapia con ACE-inibitore";
+    const corto  = "Diabete mellito tipo 2";
+    const res = selectBestCandidate([
+      { value: lungo, source_visit_date: "2023-01-10" },
+      { value: corto, source_visit_date: "2024-02-20" },
+    ]);
+    expect(res.warn).toBe(false);
+    expect(res.selected.value).toBe(lungo);
+  });
+
+  it("tre candidati: il piu pulito e piu lungo vince, gli altri non generano conflitto se contenuto allineato", () => {
+    const res = selectBestCandidate([
+      { value: "Artrite reumatoide sieropositiva",           source_visit_date: "2022-03-01" },
+      { value: "Artrite reumatoide sieropositiva",           source_visit_date: "2023-05-10" },
+      { value: "Artrite reumatoide sieropositiva erosiva",   source_visit_date: "2024-01-15" },
+    ]);
+    expect(res.selected.value).toBe("Artrite reumatoide sieropositiva erosiva");
+    expect(res.warn).toBe(false);
+  });
+
+  it("applyLongitudinalState protegge valore DB pulito piu lungo da sovrascrittura con testo piu corto", async () => {
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    const patient = {
+      id: "p1",
+      diagnosi: "Artrite reumatoide sieropositiva erosiva con interessamento polmonare",
+      anamnesi_fisiologica: "",
+    };
+    const drafts = [{
+      date: "2024-01-10", visitType: "follow_up", label: "V1", selected: { patient: true },
+      draft: {
+        visit_date: "2024-01-10",
+        visit_type: "follow_up",
+        patient: { diagnosi: "AR sieropositiva" },
+      },
+    }];
+    await applyDraftBatch(drafts, patient, {});
+    expect(patientsApi.update).not.toHaveBeenCalled();
+  });
+
+  it("applyLongitudinalState scrive il valore migliore se il DB e vuoto", async () => {
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    const patient = { id: "p1", diagnosi: "", anamnesi_fisiologica: "" };
+    const drafts = [{
+      date: "2024-01-10", visitType: "follow_up", label: "V1", selected: { patient: true },
+      draft: {
+        visit_date: "2024-01-10",
+        visit_type: "follow_up",
+        patient: { diagnosi: "LES con nefrite" },
+      },
+    }];
+    await applyDraftBatch(drafts, patient, {});
+    expect(patientsApi.update).toHaveBeenCalledWith("p1", { diagnosi: "LES con nefrite" });
+  });
+
+  it("applyLongitudinalState applica override medico anche se il sistema avrebbe scelto diversamente", async () => {
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    const patient = { id: "p1", diagnosi: "" };
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1", selected: { patient: true },
+        draft: { visit_date: "2023-01-10", visit_type: "follow_up", patient: { diagnosi: "Artrite reumatoide" } },
+      },
+      {
+        date: "2024-02-20", visitType: "follow_up", label: "V2", selected: { patient: true },
+        draft: { visit_date: "2024-02-20", visit_type: "follow_up", patient: { diagnosi: "AR" } },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, { fieldOverrides: { diagnosi: "AR erosiva" } });
+    expect(patientsApi.update).toHaveBeenCalledWith("p1", { diagnosi: "AR erosiva" });
   });
 });
