@@ -426,6 +426,7 @@ export function selectBestCandidate(candidates) {
         source_file: valid[0].source_file || null,
         reason_selected: "solo_candidato",
       },
+      reason: "solo_candidato",
       conflicts: [],
       warn: false,
     };
@@ -458,6 +459,7 @@ export function selectBestCandidate(candidates) {
   const { _penalty: _wp, ...winnerRest } = winner;
   return {
     selected: { ...winnerRest, reason_selected },
+    reason: reason_selected,
     conflicts: conflicts.map(({ _penalty: _, ...r }) => r),
     warn: conflicts.length > 0,
   };
@@ -548,12 +550,20 @@ export async function applyLongitudinalState(draftsAsc, patient, overrides = {})
     return true;
   };
   STATE_ANAGRAFICA.forEach((k) => {
-    const incoming = overrides[k] !== undefined ? overrides[k] : state[k]?.selected?.value;
-    if (_shouldWrite(patient[k], incoming)) updatePatch[k] = incoming;
+    if (overrides[k] !== undefined) {
+      if (overrides[k] && overrides[k] !== (patient[k] || "")) updatePatch[k] = overrides[k];
+    } else {
+      const incoming = state[k]?.selected?.value;
+      if (_shouldWrite(patient[k], incoming)) updatePatch[k] = incoming;
+    }
   });
   STATE_PROFILE.forEach((k) => {
-    const incoming = overrides[k] !== undefined ? overrides[k] : state[k]?.selected?.value;
-    if (_shouldWrite(patient[k], incoming)) patchPatch[k] = incoming;
+    if (overrides[k] !== undefined) {
+      if (overrides[k] && overrides[k] !== (patient[k] || "")) patchPatch[k] = overrides[k];
+    } else {
+      const incoming = state[k]?.selected?.value;
+      if (_shouldWrite(patient[k], incoming)) patchPatch[k] = incoming;
+    }
   });
   if (Object.keys(updatePatch).length > 0) {
     try { await patientsApi.update(patient.id, updatePatch); updates += 1; }

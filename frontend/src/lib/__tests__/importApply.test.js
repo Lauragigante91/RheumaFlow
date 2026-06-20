@@ -1514,4 +1514,18 @@ describe("selectBestCandidate", () => {
     await applyDraftBatch(drafts, patient, { fieldOverrides: { diagnosi: "AR erosiva" } });
     expect(patientsApi.update).toHaveBeenCalledWith("p1", { diagnosi: "AR erosiva" });
   });
+
+  it("override medico con DB gia lungo e pulito -> override vince sempre sulla guardia conservativa", async () => {
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    const patient = { id: "p1", diagnosi: "Artrite reumatoide sieropositiva con impegno poliarticolare" };
+    const drafts = [
+      {
+        date: "2026-01-15", visitType: "follow_up", label: "V1", selected: { patient: true },
+        draft: { visit_date: "2026-01-15", visit_type: "follow_up", patient: { diagnosi: "AR" } },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, { fieldOverrides: { diagnosi: "Artrite reumatoide erosiva" } });
+    expect(patientsApi.update).toHaveBeenCalledWith("p1", { diagnosi: "Artrite reumatoide erosiva" });
+  });
 });
