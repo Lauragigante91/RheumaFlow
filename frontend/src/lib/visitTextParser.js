@@ -384,7 +384,7 @@ const PAST_BEFORE_RE = /\bin\s+passato\b|\bpregressa\b|\bha\s+effettuato\b|\bha\
 // NOTA: il pattern "sosp(eso) + dal" è intenzionalmente mantenuto per casi come
 // "(sospeso dal 2020)" ma viene neutralizzato da applyNarrativeDiscontinuations
 // quando preceduto da "mai" o "non" (es. "mai sospeso dal 2011").
-const PAST_AFTER_RE = /\(\s*(?:inefficace|non\s+tollerat[oa]|sospeso|sospesa|interrotto|interrotta|controindicato|non\s+efficace)[^)]*\)|\b(?:sosp(?:eso|esa|esi|ese)|interrott[oa]|smessa?|cessata?)\s+(?:per|dopo|da[l]?\s|a\s+causa\s+di|dalla?\s+paziente|autonomamente|in\s+autonomia)\b|\bsosp(?:eso|esa)\s+(?:nel|del|dopo)\s+(?:\d+\s+\w+\s+)?per\b|\bsosp(?:eso|esa)\s+a\s+\S+(?:\s+\d{4})?\s+per\b|\bnon\s+tollerat[oa]\b|\bnon\s+iniziat[oa]\b|\bnon\s+ha\s+(?:iniziato|assunto)\b|\bnon\s+(?:assume|prende|usa|assumeva)\s+pi[uù](?!\w)|\bha\s+smesso\b|\bmantenuta?\s+sosp(?:eso|esa)\b/i;
+const PAST_AFTER_RE = /\(\s*(?:inefficace|non\s+tollerat[oa]|sospeso|sospesa|interrotto|interrotta|controindicato|non\s+efficace)[^)]*\)|\b(?:sosp(?:eso|esa|esi|ese)|interrott[oa]|smessa?|cessata?)\s+(?:per|dopo|da[l]?\s|a\s+causa\s+di|dalla?\s+paziente|autonomamente|in\s+autonomia)\b|\bsosp(?:eso|esa)\s+(?:nel|del|dopo)\s+(?:\d+(?:\s+\w+)?\s+)?per\b|\bsosp(?:eso|esa)\s+a\s+\S+(?:\s+\d{4})?\s+per\b|\bnon\s+tollerat[oa]\b|\bnon\s+iniziat[oa]\b|\bnon\s+ha\s+(?:iniziato|assunto)\b|\bnon\s+(?:assume|prende|usa|assumeva)\s+pi[uù](?!\w)|\bha\s+smesso\b|\bmantenuta?\s+sosp(?:eso|esa)\b/i;
 
 // Pattern stretto per segnale immediato di sospensione (max 80 car. dopo il farmaco).
 // Usato per override anche quando il farmaco appare nella sezione terapia attiva.

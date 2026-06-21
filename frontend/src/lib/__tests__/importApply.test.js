@@ -1797,3 +1797,119 @@ Follow-up tra 3 mesi.`;
     }
   });
 });
+
+describe("Audit dedup terapia/timeline — separazione scoping raccordo vs visita corrente", () => {
+  const VD = "2026-06-01";
+  const PT = { id: "pid-dedup" };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    patientsApi.update.mockResolvedValue({});
+    patientsApi.patch.mockResolvedValue({});
+    therapiesApi.upsert.mockResolvedValue({});
+    clinicalEventsApi.batchCreate.mockResolvedValue({});
+    workupVisitsApi.create.mockResolvedValue({ id: "wv-dedup" });
+    workupVisitsApi.list.mockResolvedValue([]);
+    workupVisitsApi.patch.mockResolvedValue({});
+  });
+
+  it("G3: farmaco sospeso nel raccordo NON appare come active in extracted.therapies", () => {
+    const testo = `TERAPIA IN ATTO:
+Idrossiclorochina 200mg/die
+
+RACCORDO ANAMNESTICO
+In terapia con Methotrexate 15mg dal 2018, sospeso nel 2024 per tossicità epatica.`;
+    const { extracted } = parseVisitText(testo, {});
+    const mtx = extracted.therapies?.find(t => t.drug_name === "Methotrexate");
+    if (mtx) {
+      expect(mtx.status).toBe("discontinued");
+    } else {
+      expect(mtx).toBeUndefined();
+    }
+    const hcq = extracted.therapies?.find(t => t.drug_name === "Idrossiclorochina");
+    expect(hcq?.status).toBe("active");
+  });
+
+  it("G3: farmaco sospeso nel raccordo NON genera therapy_start nell'apply", async () => {
+    const testo = `TERAPIA IN ATTO:
+Idrossiclorochina 200mg/die
+
+RACCORDO ANAMNESTICO
+In terapia con Methotrexate 15mg dal 2018, sospeso nel 2024 per tossicità epatica.`;
+    const { extracted } = parseVisitText(testo, {});
+    await applyOneDraft(
+      { ...extracted, visit_date: VD, visit_type: "follow_up" },
+      PT, { therapies: true, raccordo_events: true }, "follow_up", null, {}
+    );
+    const allEvents = (clinicalEventsApi.batchCreate.mock.calls[0]?.[1]?.events || []);
+    const mtxStart = allEvents.filter(
+      e => e.event_type === "therapy_start" &&
+           (e.drug_canonical || "").includes("methotrexate")
+    );
+    expect(mtxStart).toHaveLength(0);
+  });
+
+  it("G4: switch raccordo (SEC sospeso → RIT avviato) + solo RIT in IN TERAPIA → 1 episodio RIT, nessun episodio SEC attivo", () => {
+    const testo = `TERAPIA IN ATTO:
+Rituximab 1g ev ogni 6 mesi
+
+RACCORDO ANAMNESTICO
+In terapia con Secukinumab 300mg dal 2021, sospeso nel 2025 per inefficacia. Avviato Rituximab 1g ev a marzo 2025.`;
+    const { extracted } = parseVisitText(testo, {});
+    const sec = extracted.therapies?.find(t => t.drug_name === "Secukinumab");
+    if (sec) {
+      expect(sec.status).toBe("discontinued");
+    }
+    const rit = extracted.therapies?.find(t => t.drug_name === "Rituximab");
+    expect(rit?.status).toBe("active");
+  });
+
+  it("G4: switch raccordo → nell'apply, RIT ha un solo therapy_start (raccordo, non sintetico duplicato)", async () => {
+    const testo = `TERAPIA IN ATTO:
+Rituximab 1g ev ogni 6 mesi
+
+RACCORDO ANAMNESTICO
+In terapia con Secukinumab 300mg dal 2021, sospeso nel 2025 per inefficacia. Avviato Rituximab 1g ev a marzo 2025.`;
+    const { extracted } = parseVisitText(testo, {});
+    await applyOneDraft(
+      { ...extracted, visit_date: VD, visit_type: "follow_up" },
+      PT, { therapies: true, raccordo_events: true }, "follow_up", null, {}
+    );
+    const allEvents = (clinicalEventsApi.batchCreate.mock.calls[0]?.[1]?.events || []);
+    const ritStart = allEvents.filter(
+      e => e.event_type === "therapy_start" &&
+           (e.drug_canonical || e.drug_name || "").toLowerCase().includes("rituximab")
+    );
+    expect(ritStart.length).toBeLessThanOrEqual(1);
+  });
+
+  it("G5 (fallback): testo senza header terapia → farmaci del raccordo non entrano come attivi se contengono segnale di sospensione", () => {
+    const testo = `Paziente con AR sieropositiva.
+In terapia con Methotrexate 15mg dal 2015, sospeso nel 2023 per intolleranza.
+Attualmente in terapia con Adalimumab 40mg eow.`;
+    const { extracted } = parseVisitText(testo, {});
+    const mtx = extracted.therapies?.find(t => t.drug_name === "Methotrexate");
+    if (mtx) {
+      expect(mtx.status).not.toBe("active");
+    }
+  });
+
+  it("G2: farmaco solo in IN TERAPIA senza menzione raccordo → sintetico therapy_start emesso a data visita", async () => {
+    const draft = {
+      visit_date: VD,
+      visit_type: "follow_up",
+      therapies: [
+        { drug_name: "Baricitinib", category: "tsDMARD", status: "active",
+          _action: "new_episode", _skip: false, dose: "4 mg", route: "os" },
+      ],
+      raccordo_events: [],
+    };
+    await applyOneDraft(draft, PT, { therapies: true, raccordo_events: true }, "follow_up", null, {});
+    expect(clinicalEventsApi.batchCreate).toHaveBeenCalledTimes(1);
+    const events = clinicalEventsApi.batchCreate.mock.calls[0][1].events;
+    const startEv = events.find(e => e.event_type === "therapy_start");
+    expect(startEv).toBeTruthy();
+    expect(startEv.drug_canonical).toBe("baricitinib");
+    expect(startEv.date_value).toBe(VD);
+  });
+});

@@ -119,7 +119,7 @@ const SECTION_DEFS = [
   { key: "CONCLUSIONI",    re: /^(?:CONCLUSIONI?|VALUTAZIONE(?:\s+CLINICA)?|ASSESSMENT|IMPRESSIONE\s+DIAGNOSTICA)\b/i },
 
   // Therapy prescribed at this visit (second therapy section, distinct from baseline)
-  { key: "IN_TERAPIA",     re: /^IN\s+TERAPIA\b/i },
+  { key: "IN_TERAPIA",     re: /^IN\s+TERAPIA(?!\s+con\b)\b/i },
 
   // Recommendations / follow-up plan
   {
