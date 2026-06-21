@@ -145,6 +145,8 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   }
 
   let importedVisitId = null;
+  let _exitTherapyTextForLedger = null;
+  let _exitTherapyVisitDate = null;
   const therapyStartEvents = [];
   const wantVisitSections = selected.visit_sections && extracted.visit_sections &&
     Object.values(extracted.visit_sections).some(Boolean);
@@ -186,35 +188,9 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         importedVisitId = createdVisit?.id || null;
       }
       updates += 1;
-
-      if (payload.exit_therapy_text && importedVisitId) {
-        const visitDate = (extracted.visit_date || new Date().toISOString()).slice(0, 10);
-        const exitChanges = parseExitTherapyChanges(payload.exit_therapy_text, visitDate);
-        console.log(
-          "[ImportApply] dose changes found:",
-          exitChanges.length,
-          exitChanges.map((t) => ({ drug_name: t.drug_name, dose: t.dose, frequency: t.frequency, _visit_event: t._visit_event })),
-        );
-        for (const t of exitChanges) {
-          try {
-            const upsertPayload = {
-              patient_id: patient.id,
-              drug_name:  t.drug_name,
-              category:   t.category || "other",
-              dose:       t.dose     || null,
-              frequency:  t.frequency || null,
-              route:      t.route    || null,
-              status:     "active",
-              visit_id:   importedVisitId,
-              source:     "visita",
-            };
-            console.log("[ImportApply] upsert payload:", upsertPayload);
-            const upsertResult = await therapiesApi.upsert(upsertPayload);
-            console.log("[ImportApply] upsert result:", JSON.stringify(upsertResult));
-          } catch (err) {
-            console.error("[ImportApply] upsert error:", err?.response?.status, err?.response?.data || err?.message);
-          }
-        }
+      if (payload.exit_therapy_text) {
+        _exitTherapyTextForLedger = payload.exit_therapy_text;
+        _exitTherapyVisitDate = (extracted.visit_date || new Date().toISOString()).slice(0, 10);
       }
     } catch (e) { errors.push(apiErrMsg(e, "Sezioni visita")); }
   }
@@ -252,6 +228,38 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
       try {
         await therapiesApi.upsert(buildTherapyContinuityPayload(t, patient.id, importedVisitId, today));
       } catch (_) { /* continued events are non-critical — silently skip */ }
+    }
+  }
+
+  // ── Applica cambi dose da exit_therapy_text DOPO selected.therapies ──────
+  // Eseguito per ultimo così sovrascrive eventuali upsert DOM-scope che
+  // avrebbero riportato la dose precedente (es. "150 mg" da TERAPIA DOMICILIARE).
+  if (_exitTherapyTextForLedger && importedVisitId) {
+    const exitChanges = parseExitTherapyChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
+    console.log(
+      "[ImportApply] dose changes found:",
+      exitChanges.length,
+      exitChanges.map((t) => ({ drug_name: t.drug_name, dose: t.dose, frequency: t.frequency, _visit_event: t._visit_event })),
+    );
+    for (const t of exitChanges) {
+      try {
+        const upsertPayload = {
+          patient_id: patient.id,
+          drug_name:  t.drug_name,
+          category:   t.category || "other",
+          dose:       t.dose     || null,
+          frequency:  t.frequency || null,
+          route:      t.route    || null,
+          status:     "active",
+          visit_id:   importedVisitId,
+          source:     "visita",
+        };
+        console.log("[ImportApply] upsert payload:", upsertPayload);
+        const upsertResult = await therapiesApi.upsert(upsertPayload);
+        console.log("[ImportApply] upsert result:", JSON.stringify(upsertResult));
+      } catch (err) {
+        console.error("[ImportApply] upsert error:", err?.response?.status, err?.response?.data || err?.message);
+      }
     }
   }
 
