@@ -116,7 +116,7 @@ function formatActiveTherapies(therapies) {
   }).join("\n");
 }
 
-export default function PlanSection({ patient, patientId, therapies, onPlanChange, onRegisterHandle, onSaveVisit, onOpenReport, onDuplicatePrevious, onAddTherapy, onTherapySaved, onClinimetrySaved, appendPlanText }) {
+export default function PlanSection({ patient, patientId, therapies, onPlanChange, onRegisterHandle, onSaveVisit, onOpenReport, onDuplicatePrevious, onAddTherapy, onTherapySaved, onClinimetrySaved, appendPlanText, initialTherapyText }) {
   const [therapyAction, setTherapyAction] = useState(null);
   const [therapyNote,   setTherapyNote]   = useState("");
   const [indicazioni,   setIndicazioni]   = useState("");
@@ -140,6 +140,9 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
   // Due ref separati per evitare race condition tra therapies e clinical_cockpit
   const hasInitFromTherapies = useRef(false);
   const hasInitFromCockpit   = useRef(false);
+  // Ref separato per exit_therapy_text (sorgente DB): vince su formatActiveTherapies
+  // anche se questa arriva in ritardo (workupVisits carica dopo therapies).
+  const hasInitFromSavedText = useRef(false);
 
   const isPmrLvv = isPmrDiagnosis(patient) || isLvvDiagnosis(patient);
   const pid = patientId || patient?.id;
@@ -157,9 +160,22 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
     safeInsertTherapyText(indicazioniRef.current, () => setIndicazioni(appendPlanText.text));
   }, [appendPlanText]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── §10 Terapia: sorgente primaria = prescrizioni attive (sempre aggiornate) ──
-  // Sovrascrive anche il valore già impostato dal clinical_cockpit (che potrebbe
-  // essere stale della prima visita), perché le prescrizioni sono la fonte più affidabile.
+  // ── §10 Terapia: sorgente primaria = exit_therapy_text dal DB (visita esistente) ──
+  // workupVisits carica DOPO therapies nel load() sequenziale di PatientDetail, quindi
+  // formatActiveTherapies può aver già girato. Non controlla hasInitFromTherapies
+  // deliberatamente: il testo salvato dal medico VINCE sempre sul ricostruito, anche
+  // se arriva in ritardo. hasInitFromSavedText evita di sovrascrivere due volte.
+  useEffect(() => {
+    if (!initialTherapyText) return;
+    if (hasInitFromSavedText.current) return;
+    hasInitFromSavedText.current = true;
+    hasInitFromTherapies.current = true;
+    setIndicazioni(initialTherapyText);
+  }, [initialTherapyText]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── §10 Terapia: fallback = prescrizioni attive (solo se nessun testo salvato) ──
+  // Usato come pre-compilazione per visite nuove; non sovrascrive mai un testo già
+  // inizializzato da initialTherapyText.
   useEffect(() => {
     if (hasInitFromTherapies.current) return;
     const formatted = formatActiveTherapies(therapies);
@@ -167,8 +183,6 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
     setIndicazioni(formatted);
     setInheritedPlanFields(prev => new Set([...prev, 'indicazioni']));
     hasInitFromTherapies.current = true;
-    // Se il cockpit aveva già impostato il campo (stale), il soprascritto lo marca
-    // come non-reviewed di nuovo, quindi il badge inherited rimane visibile.
   }, [therapies]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── pending_items da clinical_cockpit (non tocca §10 Terapia) ────────────
@@ -254,7 +268,7 @@ export default function PlanSection({ patient, patientId, therapies, onPlanChang
     setSaving(true);
     try {
       await savePlan(true);
-      onSaveVisit?.();
+      onSaveVisit?.(indicazioniRef.current);
     } finally {
       setSaving(false);
     }

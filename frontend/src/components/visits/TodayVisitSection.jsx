@@ -677,7 +677,7 @@ export default function TodayVisitSection({
     return rawNote.trim() ? `[Conclusioni]\n${rawNote.trim()}` : "";
   }
 
-  const save = async () => {
+  const save = async (exitTherapyText) => {
     setSaving(true);
     let _savedOk = false;
     try {
@@ -745,6 +745,7 @@ export default function TodayVisitSection({
         physical_exam_lei:             Object.keys(examLei).length     ? examLei     : null,
         labs_imaging:                  labsImaging.trim()    || null,
         conclusions:                   note.trim()           || null,
+        exit_therapy_text:             (typeof exitTherapyText === "string" ? exitTherapyText : "").trim() || null,
         status:                        "completed",
       };
       const fuVisit = existingFu
@@ -897,7 +898,7 @@ export default function TodayVisitSection({
   useEffect(() => { onDateChange?.(date); }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     onRegisterSaveHandle?.({
-      save: () => _saveHandleRef.current?.save(),
+      save: (exitTherapyText) => _saveHandleRef.current?.save(exitTherapyText),
       openReport: () => setReportModalOpen(true),
       duplicatePrevious: () => _saveHandleRef.current?.duplicatePrevious(),
       appendRaccordo:       (text) => setRaccordoText    ((prev) => prev ? `${prev}\n\n${text}` : text),

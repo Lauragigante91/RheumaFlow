@@ -1119,7 +1119,8 @@ export default function PatientDetail() {
                 onPlanChange={setPlanData}
                 onRegisterHandle={(h) => { planHandle.current = h; }}
                 appendPlanText={appendPlanText}
-                onSaveVisit={() => todayVisitHandle.current?.save()}
+                initialTherapyText={workupVisits.find(v => v.visit_type === "follow_up" && v.visit_date?.slice(0, 10) === followupVisitDate)?.exit_therapy_text || null}
+                onSaveVisit={(txt) => todayVisitHandle.current?.save(txt)}
                 onOpenReport={() => todayVisitHandle.current?.openReport()}
                 onDuplicatePrevious={() => todayVisitHandle.current?.duplicatePrevious()}
                 onAddTherapy={openTherapyManager}
