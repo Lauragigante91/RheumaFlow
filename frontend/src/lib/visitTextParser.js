@@ -1587,6 +1587,32 @@ function stripNarrativeFromHomeTherapy(text) {
   return head;
 }
 
+const _RHEUM_CATEGORIES_SET = new Set([
+  "csDMARD", "bDMARD", "tsDMARD", "glucocorticoid", "NSAID", "antiinflammatory",
+  "urate_lowering", "anticoagulant", "immunotherapy",
+]);
+
+/**
+ * Parsa il testo della "Terapia in uscita" (§10) alla ricerca di modifiche
+ * posologiche esplicite ("aumenta/riduce/modifica X a Y mg"). Restituisce
+ * solo le terapie con un segnale di cambiamento e una dose o frequenza
+ * estratta, per aggiornare il ledger senza toccare le terapie invariate.
+ *
+ * scopeKind "ind" = sezione INDICAZIONI: inferisce _visit_event dal verbo
+ * che precede il nome del farmaco.
+ */
+export function parseExitTherapyChanges(text, today) {
+  if (!text?.trim()) return [];
+  const th = extractTherapies(text, today, "ind");
+  return th.filter(
+    (t) =>
+      _RHEUM_CATEGORIES_SET.has(t.category) &&
+      t.status === "active" &&
+      t._visit_event === "change" &&
+      (t.dose != null || t.frequency != null),
+  );
+}
+
 export function parseVisitText(text) {
   if (!text?.trim()) return { extracted: {}, _trace: [] };
 
@@ -1683,10 +1709,7 @@ export function parseVisitText(text) {
   // urate_lowering   = allopurinolo, febuxostat, benzbromarone, pegloticase (gotta)
   // anticoagulant    = warfarin, acenocumarolo, DOAC, LMWH (APS/CAPS)
   // immunotherapy    = IVIg (CAPS, miosite, IgG4-RD)
-  const RHEUM_CATEGORIES = new Set([
-    "csDMARD", "bDMARD", "tsDMARD", "glucocorticoid", "NSAID", "antiinflammatory",
-    "urate_lowering", "anticoagulant", "immunotherapy",
-  ]);
+  const RHEUM_CATEGORIES = _RHEUM_CATEGORIES_SET;
 
   // Therapies — conflict-aware extraction:
   //   DOM scope = TERAPIA DOMICILIARE + IN TERAPIA (current baseline)

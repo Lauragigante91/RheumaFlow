@@ -1,5 +1,6 @@
 - [IN_TERAPIA false section on "in terapia con"](in-terapia-con-false-section.md) — regex /i cattura raccordo body text come sezione; fix: negative lookahead (?!\s+con\b).
 - [PAST_AFTER_RE "sospeso nel ANNO per" non matchato](past-after-re-year-per.md) — gruppo opzionale greedy consuma "per" come \w+; fix: (?:\d+(?:\s+\w+)?\s+)?per\b.
+- [Exit therapy text → ledger update](exit-therapy-ledger-update.md) — parseExitTherapyChanges filters _visit_event=change+dose/freq present; backend standard pathway handles dose_increased/dose_reduced automatically.
 - [Codebase lineage](codebase-lineage.md) — modular backup branch is the canonical superset; monolith origin/main is an older divergent line.
 - [Git reset vs .replit guard](git-replit-guard.md) — guarded .replit/replit.nix block reset --hard; recovery merges can leave one file hybrid (diff vs backup, restore blob); sanitize .env/DB/patient-PII before any GitHub push.
 - [DB config — Atlas vs local](db-config-atlas-vs-local.md) — prod data on Atlas (DB 'rheumaflow'); .env is gitignored so resets/recovery don't restore it → app silently uses empty local 'test_database', login fails.

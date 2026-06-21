@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { assessmentsApi, workupVisitsApi } from "../../lib/api";
+import { assessmentsApi, workupVisitsApi, therapiesApi } from "../../lib/api";
+import { parseExitTherapyChanges } from "../../lib/visitTextParser";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -752,6 +753,31 @@ export default function TodayVisitSection({
         ? await workupVisitsApi.patch(existingFu.id, narrativePayload)
         : await workupVisitsApi.create(patient.id, narrativePayload);
       const visitId = fuVisit.id;
+
+      // ── Aggiorna il ledger terapie dai cambi espliciti nella terapia in uscita ──
+      // "aumenta/riduce/modifica X a Y mg" → evento dose_increased/dose_reduced nel ledger.
+      // Il backend standard pathway confronta vs episodio attivo esistente e genera
+      // l'evento appropriato; non tocca le terapie non menzionate.
+      if (narrativePayload.exit_therapy_text) {
+        const changes = parseExitTherapyChanges(narrativePayload.exit_therapy_text, date);
+        if (changes.length > 0) {
+          await Promise.allSettled(
+            changes.map((t) =>
+              therapiesApi.upsert({
+                patient_id: patient.id,
+                drug_name:  t.drug_name,
+                category:   t.category || "other",
+                dose:       t.dose     || null,
+                frequency:  t.frequency || null,
+                route:      t.route    || null,
+                status:     "active",
+                visit_id:   visitId,
+                source:     "visita",
+              }),
+            ),
+          );
+        }
+      }
 
       if (workflow.key === "ra") {
         const baseInputs = {
