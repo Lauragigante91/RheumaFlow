@@ -23,6 +23,29 @@ export const STATUS_META = {
   uncertain:  { label: "Da confermare",     color: "violet", dot: "#8b5cf6", desc: "Dato dubbio — verifica prima di salvare" },
 };
 
+export const LONGITUDINAL_FIELDS = [
+  { key: "diagnosi",             label: "Diagnosi",                  mode: "single"  },
+  { key: "allergie_testo",       label: "Allergie / Intolleranze",   mode: "append"  },
+  { key: "anamnesi_familiare",   label: "Anamnesi familiare",        mode: "append"  },
+  { key: "anamnesi_fisiologica", label: "Anamnesi fisiologica",      mode: "append"  },
+  { key: "comorbidita_apr",      label: "Comorbidità / APR",         mode: "append"  },
+  { key: "terapia_domiciliare",  label: "Terapia domiciliare",       mode: "replace" },
+];
+
+export const LONGIT_STATUS = {
+  INVARIATO:  "invariato",
+  NUOVO_DATO: "nuovo_dato",
+  CONFLITTO:  "conflitto",
+  MODIFICA:   "modifica",
+};
+
+export const LONGIT_STATUS_META = {
+  invariato:  { label: "Invariato",     color: "gray",  dot: "#9ca3af", desc: "Già presente — nessuna azione" },
+  nuovo_dato: { label: "Nuovo dato",    color: "teal",  dot: "#0d9488", desc: "Verrà aggiunto al profilo" },
+  conflitto:  { label: "Conflitto",     color: "red",   dot: "#ef4444", desc: "Diverso dal valore attuale — richiede conferma" },
+  modifica:   { label: "Aggiornamento", color: "amber", dot: "#f59e0b", desc: "Modifica rispetto al valore attuale — richiede conferma" },
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normDrug(name) {
@@ -163,6 +186,58 @@ function normTextSig(s) {
   return [...new Set(norm.split(" "))].sort().join(" ");
 }
 
+// ── Longitudinal field comparison ─────────────────────────────────────────────
+
+function extractDraftLongitudinalField(draft, key) {
+  const pg = draft.profilo_generale || {};
+  const pp = draft.patient || {};
+  switch (key) {
+    case "diagnosi":             return pg.diagnosi || pp.diagnosi || null;
+    case "allergie_testo":       return pg.allergie || null;
+    case "anamnesi_familiare":   return pg.anamnesi_familiare || null;
+    case "anamnesi_fisiologica": return pg.anamnesi_fisiologica || null;
+    case "comorbidita_apr":      return pg.comorbidita_apr || null;
+    case "terapia_domiciliare":  return pg.terapia_domiciliare || null;
+    default:                     return null;
+  }
+}
+
+function longitudinalFieldStatus(key, mode, previous, current) {
+  if (!current) return null;
+  const normPrev = normTextSig(previous || "");
+  const normCurr = normTextSig(current || "");
+  if (!normPrev) return LONGIT_STATUS.NUOVO_DATO;
+  if (normPrev === normCurr) return LONGIT_STATUS.INVARIATO;
+
+  if (mode === "single") return LONGIT_STATUS.CONFLITTO;
+  if (mode === "replace") return LONGIT_STATUS.MODIFICA;
+
+  // mode === "append": check if current adds something genuinely new
+  const currWords = normCurr.split(" ").filter(Boolean);
+  const prevWords = new Set(normPrev.split(" ").filter(Boolean));
+  if (currWords.every(w => prevWords.has(w))) return LONGIT_STATUS.INVARIATO;
+
+  const overlap = currWords.filter(w => prevWords.has(w)).length;
+  const overlapRatio = currWords.length > 0 ? overlap / currWords.length : 0;
+  return overlapRatio >= 0.4 ? LONGIT_STATUS.NUOVO_DATO : LONGIT_STATUS.CONFLITTO;
+}
+
+export function diffLongitudinalFields(draft, existingPatient) {
+  if (!existingPatient) return [];
+  const result = [];
+  for (const { key, label, mode } of LONGITUDINAL_FIELDS) {
+    const current  = extractDraftLongitudinalField(draft, key);
+    const previous = existingPatient[key] || null;
+    const status   = longitudinalFieldStatus(key, mode, previous, current);
+    if (!status) continue;
+    const _skip = status === LONGIT_STATUS.INVARIATO ||
+                  status === LONGIT_STATUS.CONFLITTO  ||
+                  status === LONGIT_STATUS.MODIFICA;
+    result.push({ key, label, mode, previous, current, status, _skip });
+  }
+  return result;
+}
+
 function eventDateKey(e) {
   const raw = (e.date_value || e.date_estimated || "").toString();
   if (e.date_precision === "year" || raw.length === 4) return raw.slice(0, 4);
@@ -206,13 +281,14 @@ export function reconcileDrafts(drafts, existingData) {
   const eventSet      = buildEventSet(existingEvents);
 
   // Cross-draft deduplication trackers (shared across all drafts)
-  const seenDrugs       = new Set();
-  const seenAssessments = new Set();
-  const seenLabValues   = new Map();
-  const seenEvents      = new Set();
-  const seenActiveDrugs = new Set();
-  const seenDisc        = new Map();
-  const activeStartYear = new Map();
+  const seenDrugs        = new Set();
+  const seenAssessments  = new Set();
+  const seenLabValues    = new Map();
+  const seenEvents       = new Set();
+  const seenActiveDrugs  = new Set();
+  const seenDisc         = new Map();
+  const activeStartYear  = new Map();
+  const seenActiveDoseMap = new Map(); // dose dell'ultima lettera che ha visto questo farmaco attivo
 
   const recordSchedule = (t, key) => {
     seenDrugs.add(key);
@@ -225,6 +301,7 @@ export function reconcileDrafts(drafts, existingData) {
       seenActiveDrugs.add(key);
       const y = startYear(t);
       if (y) activeStartYear.set(key, y);
+      seenActiveDoseMap.set(key, t.dose || null);
     }
   };
 
@@ -282,6 +359,23 @@ export function reconcileDrafts(drafts, existingData) {
               _statusReason: "Sospensione pregressa distinta (farmaco, motivo o data diversi)",
               _action: "new_episode",
             };
+          }
+          // ── Dose change vs lettera precedente del batch ───────────────
+          if (seenActiveDoseMap.has(key)) {
+            const prevDose = seenActiveDoseMap.get(key);
+            const prevMg   = normDoseMg(prevDose);
+            const newMg    = normDoseMg(t.dose);
+            if (prevMg !== null && newMg !== null && prevMg !== newMg) {
+              recordSchedule(t, key);
+              return {
+                ...t,
+                _status: ITEM_STATUS.CONFLICT,
+                _statusReason: `Cambio dose rispetto alla lettera precedente: ${prevDose} → ${t.dose}`,
+                _skip: false,
+                _action: "dose_change",
+                _dose_before: prevDose,
+              };
+            }
           }
           return {
             ...t,
@@ -562,6 +656,10 @@ export function reconcileDrafts(drafts, existingData) {
       out._sclero_profile_status = hasConflict
         ? ITEM_STATUS.CONFLICT
         : hasNew ? ITEM_STATUS.NEW : ITEM_STATUS.DUPLICATE;
+    }
+
+    if (existingData.patient) {
+      out._longitudinal = diffLongitudinalFields(draft, existingData.patient);
     }
 
     return out;

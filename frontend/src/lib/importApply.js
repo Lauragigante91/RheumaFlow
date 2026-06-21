@@ -29,6 +29,16 @@ function isCleanDiagnosis(text) {
   return !/\b(posta nel|trattata|in terapia|seguita per|con diagnosi di|affetto da|paziente con|dal \d{4}|per cui|mediante)\b/i.test(text);
 }
 
+// Restituisce true se il medico ha scelto di ignorare questo campo longitudinale
+// (ovvero _longitudinal[key]._skip === true dopo l'interazione nella review UI).
+function shouldSkipLongitudinalField(draft, key) {
+  const longit = draft._longitudinal;
+  if (!Array.isArray(longit)) return false;
+  const entry = longit.find(f => f.key === key);
+  if (!entry) return false;
+  return entry._skip === true;
+}
+
 export function apiErrMsg(e, label) {
   const detail = e?.response?.data?.detail;
   let msg = "";
@@ -118,7 +128,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
       ["nome", "cognome", "data_nascita", "sesso", "codice_fiscale"].forEach((k) => {
         if (pp[k] && pp[k] !== patient[k]) patch[k] = pp[k];
       });
-      if (pp.diagnosi) {
+      if (pp.diagnosi && !shouldSkipLongitudinalField(extracted, "diagnosi")) {
         // Preserva label brevi e pulite; mappa solo frammenti narrativi lunghi.
         const toMerge = isCleanDiagnosis(pp.diagnosi) ? pp.diagnosi : mapDiagnosisToControlled(pp.diagnosi);
         if (toMerge) {
@@ -303,13 +313,18 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         const merged = mergeFreeTextConservative(patient[field], incoming);
         if (merged && merged !== (patient[field] || "")) patch[field] = merged;
       };
-      mergeField("anamnesi_fisiologica", pg.anamnesi_fisiologica);
-      mergeField("anamnesi_familiare", pg.anamnesi_familiare);
-      mergeField("terapia_domiciliare", pg.terapia_domiciliare);
+      if (!shouldSkipLongitudinalField(extracted, "anamnesi_fisiologica"))
+        mergeField("anamnesi_fisiologica", pg.anamnesi_fisiologica);
+      if (!shouldSkipLongitudinalField(extracted, "anamnesi_familiare"))
+        mergeField("anamnesi_familiare", pg.anamnesi_familiare);
+      if (!shouldSkipLongitudinalField(extracted, "terapia_domiciliare"))
+        mergeField("terapia_domiciliare", pg.terapia_domiciliare);
       const _hasComorbItems = (extracted.comorbidita || []).filter(x => !x._skip).length > 0;
       const _hasIntollItems = (extracted.intolleranze || []).filter(x => !x._skip).length > 0;
-      if (pg.comorbidita_apr && !_hasComorbItems) mergeField("comorbidita_apr", pg.comorbidita_apr);
-      if (pg.allergie && !_hasIntollItems) mergeField("allergie_testo", pg.allergie);
+      if (pg.comorbidita_apr && !_hasComorbItems && !shouldSkipLongitudinalField(extracted, "comorbidita_apr"))
+        mergeField("comorbidita_apr", pg.comorbidita_apr);
+      if (pg.allergie && !_hasIntollItems && !shouldSkipLongitudinalField(extracted, "allergie_testo"))
+        mergeField("allergie_testo", pg.allergie);
       if (Object.keys(patch).length > 0) {
         await patientsApi.patch(patient.id, patch);
         updates += 1;

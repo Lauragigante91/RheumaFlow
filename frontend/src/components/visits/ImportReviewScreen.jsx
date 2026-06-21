@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Check, Loader2, X, AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, Loader2, X, AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
 import { Button } from "../ui/button";
 import VisitFacsimile from "./VisitFacsimile";
-import { STATUS_META } from "../../lib/visitReconciler";
+import { STATUS_META, LONGIT_STATUS, LONGIT_STATUS_META } from "../../lib/visitReconciler";
 
 function fmtIso(iso) {
   if (!iso) return null;
@@ -101,6 +101,90 @@ const FIELD_LABEL_IT = {
   terapia_domiciliare: "Terapia domiciliare",
 };
 
+const LONGIT_COLOR = {
+  gray:  { bg: "bg-gray-50",   border: "border-gray-200",  text: "text-gray-600",  badge: "bg-gray-100 text-gray-500 border-gray-200"  },
+  teal:  { bg: "bg-teal-50",   border: "border-teal-200",  text: "text-teal-700",  badge: "bg-teal-50 text-teal-700 border-teal-200"   },
+  red:   { bg: "bg-red-50",    border: "border-red-200",   text: "text-red-700",   badge: "bg-red-50 text-red-700 border-red-200"       },
+  amber: { bg: "bg-amber-50",  border: "border-amber-200", text: "text-amber-700", badge: "bg-amber-50 text-amber-700 border-amber-200" },
+};
+
+function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
+  const [open, setOpen] = useState(true);
+  if (!Array.isArray(longitudinal) || longitudinal.length === 0) return null;
+  const nonInvariato = longitudinal.filter(f => f.status !== LONGIT_STATUS.INVARIATO);
+  if (nonInvariato.length === 0) return null;
+
+  return (
+    <div className="border-b border-gray-200 bg-white flex-shrink-0">
+      <button
+        type="button"
+        className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
+        onClick={() => setOpen(v => !v)}
+      >
+        <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+        <span className="text-xs font-semibold text-gray-700">
+          Confronto longitudinale — {nonInvariato.length} campo{nonInvariato.length !== 1 ? "i" : ""} da verificare
+        </span>
+        {open
+          ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+          : <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-auto" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-3 space-y-2">
+          {nonInvariato.map(f => {
+            const meta  = LONGIT_STATUS_META[f.status] || {};
+            const clr   = LONGIT_COLOR[meta.color] || LONGIT_COLOR.gray;
+            const skipped = f._skip;
+            return (
+              <div key={f.key} className={`rounded-lg border ${clr.border} ${skipped ? "opacity-50" : ""}`}>
+                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${clr.bg}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${clr.text}`}>{f.label}</span>
+                  <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded border ml-1 ${clr.badge}`}>
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.dot, display: "inline-block", flexShrink: 0 }} />
+                    {meta.label}
+                  </span>
+                  <div className="ml-auto flex gap-1">
+                    {f.status !== LONGIT_STATUS.INVARIATO && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onToggle(f.key, true)}
+                          className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${skipped ? "border-gray-300 bg-gray-100 text-gray-700 font-semibold" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"}`}
+                        >
+                          Ignora
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onToggle(f.key, false)}
+                          className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${!skipped ? "border-teal-400 bg-teal-50 text-teal-700 font-semibold" : "border-gray-200 bg-white text-gray-500 hover:border-teal-200"}`}
+                        >
+                          {f.status === LONGIT_STATUS.NUOVO_DATO ? "Aggiungi" : "Conferma"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-0 divide-x divide-gray-200">
+                  <div className="px-3 py-2">
+                    <div className="text-[9px] text-gray-400 mb-1 font-semibold uppercase tracking-wider">Precedente</div>
+                    <pre className="text-[11px] text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">
+                      {f.previous || <span className="italic text-gray-300">nessun dato</span>}
+                    </pre>
+                  </div>
+                  <div className="px-3 py-2">
+                    <div className="text-[9px] text-gray-400 mb-1 font-semibold uppercase tracking-wider">Estratto</div>
+                    <pre className="text-[11px] text-gray-800 whitespace-pre-wrap font-sans leading-relaxed">{f.current}</pre>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BatchFieldConflictsPanel({ conflicts, overrides, onFieldOverride }) {
   const [open, setOpen] = useState(true);
   if (!conflicts || conflicts.length === 0) return null;
@@ -175,6 +259,7 @@ export default function ImportReviewScreen({
   batchFieldConflicts,
   fieldOverrides,
   onFieldOverride,
+  onLongitudinalToggle,
 }) {
   const isMulti = visitResults.length > 1;
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -365,10 +450,14 @@ export default function ImportReviewScreen({
             </div>
           </div>
 
-          <div className="flex-1 min-w-0 overflow-y-auto bg-white">
+          <div className="flex-1 min-w-0 overflow-y-auto bg-white flex flex-col">
             <div className="px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Dati strutturati</span>
             </div>
+            <LongitudinalFieldsPanel
+              longitudinal={current.draft?._longitudinal}
+              onToggle={(fieldKey, skip) => onLongitudinalToggle?.(currentIdx, fieldKey, skip)}
+            />
             <div className="px-4 py-4">
               <VisitFacsimile
                 draft={current.draft}

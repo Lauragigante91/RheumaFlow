@@ -193,6 +193,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             },
             sclero_profile:   scleroRes.status === "fulfilled" ? scleroRes.value : null,
             clinical_events:  ceRes.status    === "fulfilled" ? (ceRes.value    || []) : [],
+            patient:          patient || null,
           };
         } catch (_) {}
       }
@@ -279,6 +280,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             },
             sclero_profile:  scleroRes.status === "fulfilled" ? scleroRes.value : null,
             clinical_events: ceRes.status === "fulfilled" ? (ceRes.value || []) : [],
+            patient:         patient || null,
           };
         } catch (_) {}
       }
@@ -447,6 +449,15 @@ export default function VisitImportButton({ patient, onImported, open: externalO
               batchFieldConflicts={batchFieldConflicts}
               fieldOverrides={fieldOverrides}
               onFieldOverride={(field, value) => setFieldOverrides(prev => ({ ...prev, [field]: value }))}
+              onLongitudinalToggle={(visitIdx, fieldKey, skip) => {
+                setMultiExtracted(prev => prev.map((v, i) => {
+                  if (i !== visitIdx) return v;
+                  const longitudinal = (v.draft?._longitudinal || []).map(f =>
+                    f.key === fieldKey ? { ...f, _skip: skip } : f
+                  );
+                  return { ...v, draft: { ...v.draft, _longitudinal: longitudinal } };
+                }));
+              }}
             />
           ) : (
             <>
