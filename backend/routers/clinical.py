@@ -402,14 +402,14 @@ async def upsert_instrumental_exam(payload: InstrumentalExamBase, user: dict = D
     """Upsert idempotente: dedup su patient_id + exam_type + date (ISO slice 10) + territory.
     Se esiste già un record con stessa chiave lo restituisce invariato; altrimenti crea."""
     await verify_patient_in_org(payload.patient_id, user["organization_id"])
-    date_key = (payload.date or "")[:10]
+    date_key = (payload.exam_date or "")[:10]
     filter_: dict = {
         "patient_id": payload.patient_id,
         "organization_id": user["organization_id"],
         "exam_type": payload.exam_type,
     }
     if date_key:
-        filter_["date"] = {"$regex": f"^{re.escape(date_key)}"}
+        filter_["exam_date"] = {"$regex": f"^{re.escape(date_key)}"}
     if payload.territory:
         filter_["territory"] = payload.territory
     existing = await db.instrumental_exams.find_one(filter_, {"_id": 0})
