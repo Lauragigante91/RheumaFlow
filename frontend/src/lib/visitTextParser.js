@@ -593,7 +593,7 @@ function extractTherapies(text, today, scopeKind = null) {
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 90);
-      const _visit_event = scopeKind === "ind"
+      const _visit_event = (scopeKind === "ind" || scopeKind === "dom")
         ? inferVisitTherapyEvent(ctxBefore.slice(-48), ctxAfter.slice(0, 30), drugName)
         : null;
       found.push({ drug_name: drugName, category, dose, frequency, route, start_date: null, status, notes, discontinuation_reason, source_fragment: sourceFragment, _prn: isPrn, _visit_event });
