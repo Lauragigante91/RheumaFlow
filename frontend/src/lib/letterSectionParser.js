@@ -246,23 +246,36 @@ export function segmentLetterSections(text) {
 /**
  * extractRequestedTests(sectionText)
  *
- * Parses the HO_RICHIESTO section into an array of individual test strings.
- * Handles bullet lists (-, •, >) and plain lines.
+ * Parses the HO_RICHIESTO section, separating lab/instrumental exams from
+ * follow-up appointments and clinical instructions.
  *
  * @param {string|undefined} sectionText
- * @returns {string[]|null}
+ * @returns {{ tests: string[]|null, referral: string|null }}
  */
 export function extractRequestedTests(sectionText) {
-  if (!sectionText?.trim()) return null;
+  if (!sectionText?.trim()) return { tests: null, referral: null };
 
-  const NOISE = /^(?:cordiali\s+saluti|si\s+ricorda|duplicato|per\s+ogni\s+info|in\s+caso\s+di|accertamenti\s+prescritti|accertamenti\s+prenotati|\d{1,2}\s+\w+\s+\d{4}|il\s+medico)/i;
+  const NOISE = /^(?:cordiali\s+saluti|distinti\s+saluti|cordialit[àa]|si\s+ricorda|duplicato|per\s+ogni\s+info|in\s+caso\s+di|accertamenti\s+prescritti|accertamenti\s+prenotati|\d{1,2}\s+\w+\s+\d{4}|il\s+medico|\[anagrafica\])/i;
 
-  const tests = sectionText
-    .split(/\n/)
-    .map((l) => l.replace(/^[\s\-–•·>]+/, "").trim())
-    .filter((l) => l.length > 3 && !NOISE.test(l));
+  const APPOINTMENT_RE = /^(?:visita\b|appuntament\w*\b|rivalutazion\w*\b|follow[\s\-]?up\b|prossim[ao]\s+(?:visita|controllo)\b|controllo\s+(?:clinico|reumatol\w*|ortoped\w*|cardiolog\w*|pneumol\w*|oftalm\w*|dermat\w*|specialist\w*)\b)/i;
 
-  return tests.length ? tests : null;
+  const tests = [];
+  const referralLines = [];
+
+  for (const raw of sectionText.split(/\n/)) {
+    const l = raw.replace(/^[\s\-–•·>]+/, "").trim();
+    if (l.length <= 3 || NOISE.test(l)) continue;
+    if (APPOINTMENT_RE.test(l)) {
+      referralLines.push(l);
+    } else {
+      tests.push(l);
+    }
+  }
+
+  return {
+    tests:   tests.length        ? tests                      : null,
+    referral: referralLines.length ? referralLines.join("\n") : null,
+  };
 }
 
 // ── Regression tests ──────────────────────────────────────────────────────────

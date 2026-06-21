@@ -1594,6 +1594,11 @@ export function parseVisitText(text) {
   _PARSE_TRACE = [];
   _lastDateSource = null;
 
+  // BUG A — tronca al primo footer-saluti: tutto dopo è dati amministrativi
+  const _footerCutRE = /\b(?:Cordiali|Distinti)\s+saluti\b|\bCordialit[àa]\b/i;
+  const _footerIdx = text.search(_footerCutRE);
+  if (_footerIdx > 0) text = text.slice(0, _footerIdx);
+
   // Normalizza il testo prima di ogni altra elaborazione
   text = normalizeImportedText(text);
 
@@ -1818,7 +1823,10 @@ export function parseVisitText(text) {
   const intolleranze = extractIntolleranze(intoScope);
 
   // Requested tests — from HO RICHIESTO section → workup visit planned exams
-  const requested_tests = extractRequestedTests(S.HO_RICHIESTO);
+  // BUG B: extractRequestedTests ora restituisce { tests, referral }
+  const _rt = extractRequestedTests(S.HO_RICHIESTO);
+  const requested_tests     = _rt.tests;
+  const _requestedReferral  = _rt.referral;
 
   // ── Profilo generale paziente ─────────────────────────────────────────────
   // Campi narrativi che vanno nel record paziente (non nella visita).
@@ -1886,7 +1894,9 @@ export function parseVisitText(text) {
     S.ESAME_OBIETTIVO ? `ESAME OBIETTIVO\n${S.ESAME_OBIETTIVO}`     : null,
     S.CONCLUSIONI     ? `CONCLUSIONI\n${S.CONCLUSIONI}`             : null,
     terapiaUscitaText ? `TERAPIA IN USCITA\n${terapiaUscitaText}`   : null,
-    S.INDICAZIONI     ? `INDICAZIONI\n${S.INDICAZIONI}`             : null,
+    (S.INDICAZIONI || _requestedReferral)
+      ? `INDICAZIONI\n${S.INDICAZIONI || _requestedReferral}`
+      : null,
   ].filter(Boolean).join("\n\n");
   const visit_sections = extractVisitSections(vsScope || text);
 

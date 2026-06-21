@@ -10,6 +10,7 @@ import {
 import { buildTherapyUpsertPayload } from "../importPayloadBuilders";
 import { buildTerapiaUscita } from "../terapiaUscita";
 import { parseVisitText } from "../visitTextParser";
+import { extractRequestedTests } from "../letterSectionParser";
 import { reconcileDrafts } from "../visitReconciler";
 import {
   patientsApi,
@@ -1938,5 +1939,99 @@ Attualmente in terapia con Adalimumab 40mg eow.`;
     expect(startEv).toBeTruthy();
     expect(startEv.drug_canonical).toBe("baricitinib");
     expect(startEv.date_value).toBe(VD);
+  });
+});
+
+describe("BUG A — footer truncation a 'Cordiali saluti'", () => {
+  it("testo dopo 'Cordiali saluti' non compare in requested_tests", () => {
+    const testo = `HO RICHIESTO:
+- Emocromo completo
+- VES, PCR
+
+Cordiali saluti
+
+[ANAGRAFICA]) ADDIMANDA OLGA
+Lista impegnative: Emocromo, Urine`;
+    const { extracted } = parseVisitText(testo, {});
+    const tests = extracted.requested_tests || [];
+    expect(tests.some((t) => /anagrafica/i.test(t))).toBe(false);
+    expect(tests.some((t) => /ADDIMANDA/i.test(t))).toBe(false);
+    expect(tests.some((t) => /Cordiali/i.test(t))).toBe(false);
+  });
+
+  it("contenuto clinico prima di 'Cordiali saluti' viene estratto correttamente", () => {
+    const testo = `HO RICHIESTO:
+- Emocromo completo
+- PCR, VES
+
+Cordiali saluti
+Dr. Bianchi`;
+    const { extracted } = parseVisitText(testo, {});
+    const tests = extracted.requested_tests || [];
+    expect(tests.some((t) => /emocromo/i.test(t))).toBe(true);
+    expect(tests.some((t) => /PCR/i.test(t) || /VES/i.test(t))).toBe(true);
+  });
+});
+
+describe("BUG B — extractRequestedTests: split esami vs. appuntamenti", () => {
+  it("restituisce { tests, referral } anche per input nullo", () => {
+    const r = extractRequestedTests(null);
+    expect(r).toEqual({ tests: null, referral: null });
+    const r2 = extractRequestedTests("   ");
+    expect(r2).toEqual({ tests: null, referral: null });
+  });
+
+  it("'visita reumatologica di controllo a marzo' va in referral, non in tests", () => {
+    const input = `Emocromo completo
+VES, PCR
+visita reumatologica di controllo a marzo`;
+    const { tests, referral } = extractRequestedTests(input);
+    expect(tests).toContain("Emocromo completo");
+    expect(tests.some((t) => /visita/i.test(t))).toBe(false);
+    expect(referral).toMatch(/visita reumatologica di controllo/i);
+  });
+
+  it("'visita ortopedica' va in referral", () => {
+    const input = `Ecografia articolare spalla dx
+visita ortopedica`;
+    const { tests, referral } = extractRequestedTests(input);
+    expect(tests).toContain("Ecografia articolare spalla dx");
+    expect(referral).toMatch(/visita ortopedica/i);
+  });
+
+  it("esami puri senza appuntamenti: referral null", () => {
+    const input = `Emocromo, VES, PCR
+Urine con sedimento
+Dosaggio C3, C4`;
+    const { tests, referral } = extractRequestedTests(input);
+    expect(tests.length).toBe(3);
+    expect(referral).toBeNull();
+  });
+
+  it("linee NOISE vengono scartate in entrambi i bucket", () => {
+    const input = `Emocromo
+Cordiali saluti
+[ANAGRAFICA]
+visita ortopedica`;
+    const { tests, referral } = extractRequestedTests(input);
+    expect(tests).toContain("Emocromo");
+    expect(tests.some((t) => /cordiali|anagrafica/i.test(t))).toBe(false);
+    expect(referral).toMatch(/visita ortopedica/i);
+  });
+
+  it("referral_note nel payload via parseVisitText quando INDICAZIONI assente", () => {
+    const testo = `Visita del 10/03/2026
+
+RACCORDO ANAMNESTICO
+AR in follow-up.
+
+HO RICHIESTO:
+- Emocromo completo
+- PCR
+- visita reumatologica di controllo a giugno`;
+    const { extracted } = parseVisitText(testo, {});
+    expect(extracted.visit_sections?.indicazioni).toMatch(/visita reumatologica/i);
+    const tests = extracted.requested_tests || [];
+    expect(tests.some((t) => /visita/i.test(t))).toBe(false);
   });
 });
