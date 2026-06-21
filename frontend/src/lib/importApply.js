@@ -18,7 +18,7 @@ import {
   buildLabExamPayload,
   buildInstrumentalExamPayload,
 } from "./importPayloadBuilders";
-import { parseExitTherapyChanges, parseExitTherapyAllChanges } from "./visitTextParser";
+import { parseExitTherapyChanges, parseExitTherapyAllChanges, parseExitTherapyActiveList } from "./visitTextParser";
 import { DRUG_ALIAS_MAP } from "./drugs";
 
 // Restituisce true se il testo è già una label diagnostica pulita (breve, senza
@@ -113,6 +113,17 @@ function patchTerapiaDomiciliare(text, changes) {
   console.log('[patchTerapiaDom] testo risultante:', newText);
   console.log('[patchTerapiaDom] patch chiamato:', text !== newText);
   return newText;
+}
+
+// Costruisce terapia_domiciliare da zero con i soli farmaci reumatologici attivi.
+function buildTerapiaDomiciliareDaExitText(drugs) {
+  return drugs
+    .map((t) => {
+      const dosePart = t.dose || "";
+      const suffix = _freqSuffix(t.frequency);
+      return `${t.drug_name.toUpperCase()} ${dosePart}${suffix}`.trim();
+    })
+    .join("\n");
 }
 
 export function apiErrMsg(e, label) {
@@ -333,13 +344,25 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   // (start) e le sospensioni (stop) estratti dalla sezione "Terapia in uscita".
   // I farmaci non reumatologici già presenti nel testo rimangono invariati.
   console.log('[patchTerapiaDom] chiamata?', { exitText: !!_exitTherapyTextForLedger, terapiaDom: patient.terapia_domiciliare });
-  if (_exitTherapyTextForLedger && patient.terapia_domiciliare) {
-    const allExitChanges = parseExitTherapyAllChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
-    if (allExitChanges.length > 0) {
-      const patchedText = patchTerapiaDomiciliare(patient.terapia_domiciliare, allExitChanges);
-      if (patchedText !== patient.terapia_domiciliare) {
+  if (_exitTherapyTextForLedger) {
+    if (patient.terapia_domiciliare) {
+      const allExitChanges = parseExitTherapyAllChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
+      if (allExitChanges.length > 0) {
+        const patchedText = patchTerapiaDomiciliare(patient.terapia_domiciliare, allExitChanges);
+        if (patchedText !== patient.terapia_domiciliare) {
+          try {
+            await patientsApi.patch(patient.id, { terapia_domiciliare: patchedText });
+          } catch (_) {}
+        }
+      }
+    } else {
+      const activeDrugs = parseExitTherapyActiveList(_exitTherapyTextForLedger, _exitTherapyVisitDate);
+      console.log('[patchTerapiaDom] costruzione da zero — farmaci attivi:', activeDrugs);
+      if (activeDrugs.length > 0) {
+        const builtText = buildTerapiaDomiciliareDaExitText(activeDrugs);
+        console.log('[patchTerapiaDom] testo costruito:', builtText);
         try {
-          await patientsApi.patch(patient.id, { terapia_domiciliare: patchedText });
+          await patientsApi.patch(patient.id, { terapia_domiciliare: builtText });
         } catch (_) {}
       }
     }

@@ -1623,6 +1623,14 @@ export function parseExitTherapyAllChanges(text, today) {
   );
 }
 
+export function parseExitTherapyActiveList(text, today) {
+  if (!text?.trim()) return [];
+  const th = extractTherapies(text, today, "ind");
+  return th.filter(
+    (t) => _RHEUM_CATEGORIES_SET.has(t.category) && t.status === "active",
+  );
+}
+
 export function parseVisitText(text) {
   if (!text?.trim()) return { extracted: {}, _trace: [] };
 
