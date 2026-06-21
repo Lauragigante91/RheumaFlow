@@ -146,7 +146,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     };
   }
 
-  const parse = () => {
+  const parse = async () => {
     if (text.trim().length < 30) {
       toast.error("Inserisci almeno 30 caratteri di testo della visita");
       return;
@@ -154,7 +154,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     setLoading(true);
     try {
       const res = parseVisitText(text);
-      const draft = buildEditableDraft(res.extracted);
+      let draft = buildEditableDraft(res.extracted);
       const todayIso = new Date().toISOString().slice(0, 10);
       const isWeakDate = !draft.visit_date || draft.visit_date === todayIso || res._dateSource === "RE3";
       if (initialDateHint && isWeakDate) {
@@ -168,6 +168,37 @@ export default function VisitImportButton({ patient, onImported, open: externalO
           body: JSON.stringify({ trace: res._trace }),
         }).catch(() => {});
       }
+
+      let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
+      if (patient?.id) {
+        try {
+          const [thRes, assRes, labRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
+            therapiesApi.listByPatient(patient.id),
+            assessmentsApi.listByPatient(patient.id),
+            labExamsApi.listByPatient(patient.id),
+            diseaseProfileApi.get(patient.id, "ra").catch(() => null),
+            diseaseProfileApi.get(patient.id, "spa").catch(() => null),
+            diseaseProfileApi.get(patient.id, "sle").catch(() => null),
+            scleroProfileApi.get(patient.id).catch(() => null),
+            clinicalEventsApi.list(patient.id),
+          ]);
+          existingData = {
+            therapies:        thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
+            assessments:      assRes.status   === "fulfilled" ? (assRes.value   || []) : [],
+            lab_exams:        labRes.status   === "fulfilled" ? (labRes.value   || []) : [],
+            disease_profiles: {
+              ra:  raRes.status  === "fulfilled" ? raRes.value  : null,
+              spa: spaRes.status === "fulfilled" ? spaRes.value : null,
+              sle: sleRes.status === "fulfilled" ? sleRes.value : null,
+            },
+            sclero_profile:   scleroRes.status === "fulfilled" ? scleroRes.value : null,
+            clinical_events:  ceRes.status    === "fulfilled" ? (ceRes.value    || []) : [],
+          };
+        } catch (_) {}
+      }
+      const [reconciledDraft] = reconcileDrafts([draft], existingData);
+      draft = reconciledDraft;
+
       const stats = draftSummaryStats(draft);
       const result = {
         id:         "single",
