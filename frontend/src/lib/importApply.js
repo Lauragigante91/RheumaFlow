@@ -18,7 +18,8 @@ import {
   buildLabExamPayload,
   buildInstrumentalExamPayload,
 } from "./importPayloadBuilders";
-import { parseExitTherapyChanges } from "./visitTextParser";
+import { parseExitTherapyChanges, parseExitTherapyAllChanges } from "./visitTextParser";
+import { DRUG_ALIAS_MAP } from "./drugs";
 
 // Restituisce true se il testo è già una label diagnostica pulita (breve, senza
 // marcatori narrativi) — in quel caso viene preservato così com'è (non mappato
@@ -38,6 +39,75 @@ function shouldSkipLongitudinalField(draft, key) {
   const entry = longit.find(f => f.key === key);
   if (!entry) return false;
   return entry._skip === true;
+}
+
+// ── Helpers per aggiornamento terapia_domiciliare ────────────────────────────
+
+function _escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function _freqSuffix(freq) {
+  if (!freq) return "";
+  const f = freq.toLowerCase();
+  if (/\bdie\b|giornal|quotid|ogni\s*giorno/.test(f)) return "/die";
+  if (/settimanal|ogni\s*7|weekly/.test(f)) return "/settimana";
+  if (/mensi|ogni\s*mese|ogni\s*4\s*sett/.test(f)) return "/mese";
+  return "";
+}
+
+// Mappa canonical (es. "Secukinumab") → array di alias (es. ["secukinumab","cosentyx"])
+function _buildCanonicalAliasMap() {
+  const map = {};
+  for (const [alias, info] of Object.entries(DRUG_ALIAS_MAP)) {
+    const key = info.canonical;
+    if (!map[key]) map[key] = [];
+    map[key].push(alias);
+  }
+  return map;
+}
+
+// Applica i cambi di exit_therapy_text al testo terapia_domiciliare:
+//   "change" → aggiorna dose nella riga esistente
+//   "start"  → aggiunge riga in cima (solo se non già presente)
+//   "stop"   → rimuove la riga corrispondente
+function patchTerapiaDomiciliare(text, changes) {
+  if (!text || !changes.length) return text;
+  const byCanonical = _buildCanonicalAliasMap();
+  let lines = text.split("\n");
+
+  const findIdx = (canonical) => {
+    const aliases = byCanonical[canonical] || [canonical.toLowerCase()];
+    return lines.findIndex((l) =>
+      aliases.some((a) => new RegExp("\\b" + _escapeRe(a) + "\\b", "i").test(l)),
+    );
+  };
+
+  for (const change of changes) {
+    const canonical = change.drug_name;
+    if (!canonical) continue;
+
+    if (change._visit_event === "change" && change.dose) {
+      const idx = findIdx(canonical);
+      if (idx !== -1) {
+        lines[idx] = lines[idx].replace(
+          /\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|UI|cp|fl|fiale?|ml)\b/i,
+          change.dose,
+        );
+      }
+    } else if (change._visit_event === "stop") {
+      const idx = findIdx(canonical);
+      if (idx !== -1) lines.splice(idx, 1);
+    } else if (change._visit_event === "start") {
+      if (findIdx(canonical) === -1) {
+        const dosePart = change.dose || "";
+        const suffix = _freqSuffix(change.frequency);
+        lines.unshift(`${canonical.toUpperCase()} ${dosePart}${suffix}`.trim());
+      }
+    }
+  }
+
+  return lines.filter((l) => l.trim()).join("\n");
 }
 
 export function apiErrMsg(e, label) {
@@ -236,14 +306,9 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   // avrebbero riportato la dose precedente (es. "150 mg" da TERAPIA DOMICILIARE).
   if (_exitTherapyTextForLedger && importedVisitId) {
     const exitChanges = parseExitTherapyChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
-    console.log(
-      "[ImportApply] dose changes found:",
-      exitChanges.length,
-      exitChanges.map((t) => ({ drug_name: t.drug_name, dose: t.dose, frequency: t.frequency, _visit_event: t._visit_event })),
-    );
     for (const t of exitChanges) {
       try {
-        const upsertPayload = {
+        await therapiesApi.upsert({
           patient_id: patient.id,
           drug_name:  t.drug_name,
           category:   t.category || "other",
@@ -253,12 +318,23 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
           status:     "active",
           visit_id:   importedVisitId,
           source:     "visita",
-        };
-        console.log("[ImportApply] upsert payload:", upsertPayload);
-        const upsertResult = await therapiesApi.upsert(upsertPayload);
-        console.log("[ImportApply] upsert result:", JSON.stringify(upsertResult));
-      } catch (err) {
-        console.error("[ImportApply] upsert error:", err?.response?.status, err?.response?.data || err?.message);
+        });
+      } catch (_) {}
+    }
+  }
+
+  // ── Aggiorna terapia_domiciliare da exit_therapy_text ────────────────────
+  // Riflette nel testo libero i cambi posologici (change), i nuovi farmaci
+  // (start) e le sospensioni (stop) estratti dalla sezione "Terapia in uscita".
+  // I farmaci non reumatologici già presenti nel testo rimangono invariati.
+  if (_exitTherapyTextForLedger && patient.terapia_domiciliare) {
+    const allExitChanges = parseExitTherapyAllChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
+    if (allExitChanges.length > 0) {
+      const patchedText = patchTerapiaDomiciliare(patient.terapia_domiciliare, allExitChanges);
+      if (patchedText !== patient.terapia_domiciliare) {
+        try {
+          await patientsApi.patch(patient.id, { terapia_domiciliare: patchedText });
+        } catch (_) {}
       }
     }
   }
