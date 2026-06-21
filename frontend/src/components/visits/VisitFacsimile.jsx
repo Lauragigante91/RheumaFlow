@@ -19,7 +19,7 @@ const VISIT_TYPE_OPTIONS = [
   { value: "teleconsulto", label: "Teleconsulto" },
 ];
 
-function clinicalActionLabel(therapy) {
+function clinicalActionLabel(therapy, visitYear) {
   const action = therapy._action;
   const status = therapy.status;
   if (action === "continued")
@@ -28,8 +28,13 @@ function clinicalActionLabel(therapy) {
     return { label: "cambio posologia", cls: "bg-amber-100 text-amber-700 border border-amber-200" };
   if (action === "discontinue")
     return { label: "sospendi",         cls: "bg-red-100 text-red-700 border border-red-200" };
-  if (action === "new_episode" && status === "active")
-    return { label: "avvia",            cls: "bg-emerald-100 text-emerald-700 border border-emerald-200" };
+  if (action === "new_episode" && status === "active") {
+    const startYear = therapy.therapy_year
+      || (therapy.start_date ? parseInt(therapy.start_date.slice(0, 4), 10) : null);
+    if (startYear && visitYear && startYear === visitYear)
+      return { label: "avvia",          cls: "bg-emerald-100 text-emerald-700 border border-emerald-200" };
+    return   { label: "continua",       cls: "bg-blue-100 text-blue-700 border border-blue-200" };
+  }
   if (status === "discontinued")
     return { label: "pregressa",        cls: "bg-gray-100 text-gray-500 border border-gray-200" };
   return   { label: "continua",         cls: "bg-blue-100 text-blue-700 border border-blue-200" };
@@ -55,12 +60,12 @@ function RawTextToggle({ label, text }) {
   );
 }
 
-function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
+function TherapyItemRow({ therapy, onChange, onSkip, conflicts, visitYear }) {
   const [editing, setEditing] = useState(false);
   const hasConflict = conflicts && conflicts.some(
     c => (c.drug_name || "").toLowerCase() === (therapy.drug_name || "").toLowerCase()
   );
-  const actionLabel = clinicalActionLabel(therapy);
+  const actionLabel = clinicalActionLabel(therapy, visitYear);
 
   if (therapy._skip) {
     return (
@@ -149,7 +154,7 @@ function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
   );
 }
 
-function TherapyEditor({ therapies, onChange, conflicts }) {
+function TherapyEditor({ therapies, onChange, conflicts, visitYear }) {
   return (
     <ul className="space-y-1.5">
       {therapies.map((t, i) => (
@@ -157,6 +162,7 @@ function TherapyEditor({ therapies, onChange, conflicts }) {
           key={t._id ?? i}
           therapy={t}
           conflicts={conflicts}
+          visitYear={visitYear}
           onChange={updated => onChange(therapies.map((x, j) => j === i ? updated : x))}
           onSkip={() => onChange(therapies.map((x, j) => j === i ? { ...x, _skip: true } : x))}
         />
@@ -960,6 +966,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
                 <TherapyEditor
                   therapies={exitTherapies}
                   conflicts={conflicts}
+                  visitYear={parseInt(visitDateIso.slice(0, 4), 10)}
                   onChange={updated => {
                     const historical = (draft.therapies || []).filter(
                       t => t.status === "discontinued" && t._action === "new_episode"
@@ -982,6 +989,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
               t => t.status === "discontinued" && t._action === "new_episode"
             )}
             conflicts={[]}
+            visitYear={parseInt(visitDateIso.slice(0, 4), 10)}
             onChange={updated => {
               const exit = (draft.therapies || []).filter(
                 t => !(t.status === "discontinued" && t._action === "new_episode")
