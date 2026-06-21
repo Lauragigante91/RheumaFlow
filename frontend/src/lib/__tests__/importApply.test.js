@@ -1603,6 +1603,42 @@ MTX 15mg`;
     expect(patchCall?.terapia_domiciliare).toBe("SEC 300mg + Prednisone 5mg");
   });
 
+  it("parser: INDICAZIONI estratte da header esplicito e mappate a referral_note", () => {
+    const testo = `Visita del 15/03/2026
+
+RACCORDO ANAMNESTICO
+AR sieropositiva in follow-up.
+
+ESAME OBIETTIVO
+Ndr.
+
+INDICAZIONI
+Continuare terapia invariata. Controllo clinico tra 3 mesi con emocromo, VES, PCR, transaminasi.
+Richiedo ecografia articolare.`;
+    const { extracted } = parseVisitText(testo, {});
+    const ind = extracted.visit_sections?.indicazioni;
+    expect(ind).toBeTruthy();
+    expect(ind).toContain("Continuare terapia invariata");
+    expect(ind).toContain("Controllo clinico tra 3 mesi");
+
+    const { buildWorkupVisitPayload } = require("../importPayloadBuilders");
+    const payload = buildWorkupVisitPayload(extracted, "pid", "follow_up", false);
+    expect(payload.referral_note).toBe(ind);
+  });
+
+  it("parser: variante FOLLOW-UP riconosciuta come sezione indicazioni", () => {
+    const testo = `Controllo del 10/01/2026
+
+RACCORDO ANAMNESTICO
+LES in remissione.
+
+FOLLOW-UP
+Idrossiclorochina invariata. Laboratorio tra 6 mesi. Rivalutazione in caso di riacutizzazione.`;
+    const { extracted } = parseVisitText(testo, {});
+    expect(extracted.visit_sections?.indicazioni).toBeTruthy();
+    expect(extracted.visit_sections.indicazioni).toContain("Idrossiclorochina invariata");
+  });
+
   it("terapia_domiciliare: se ultima visita ha campo vuoto, usa la penultima", async () => {
     const patient = { id: "p1" };
     const drafts = [
