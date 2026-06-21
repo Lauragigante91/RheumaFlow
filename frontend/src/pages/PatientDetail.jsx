@@ -655,6 +655,21 @@ export default function PatientDetail() {
     [firstVisit, workupVisits, assessments, therapiesActiveOn, examsByDate]
   );
 
+  // §10 Terapia: testo base per la visita corrente.
+  // Priorità: (1) testo già salvato per oggi, (2) exit_therapy_text dell'ultima
+  // visita confermata precedente, (3) null → PlanSection usa formatActiveTherapies.
+  const planInitialTherapyText = useMemo(() => {
+    const fuVisits = workupVisits
+      .filter(v => v.visit_type === "follow_up")
+      .sort((a, b) => (b.visit_date || "").localeCompare(a.visit_date || ""));
+    const todayVisit = fuVisits.find(v => v.visit_date?.slice(0, 10) === followupVisitDate);
+    if (todayVisit?.exit_therapy_text) return todayVisit.exit_therapy_text;
+    const prevVisit = fuVisits.find(
+      v => (v.visit_date || "").slice(0, 10) < followupVisitDate && v.exit_therapy_text,
+    );
+    return prevVisit?.exit_therapy_text || null;
+  }, [workupVisits, followupVisitDate]);
+
   const hasProfiles = (
     isRaDiagnosis(patient) || isSpaDiagnosis(patient) || isSleDiagnosis(patient) ||
     isAavDiagnosis(patient) || isIgaVDiagnosis(patient) ||
@@ -1119,7 +1134,7 @@ export default function PatientDetail() {
                 onPlanChange={setPlanData}
                 onRegisterHandle={(h) => { planHandle.current = h; }}
                 appendPlanText={appendPlanText}
-                initialTherapyText={workupVisits.find(v => v.visit_type === "follow_up" && v.visit_date?.slice(0, 10) === followupVisitDate)?.exit_therapy_text || null}
+                initialTherapyText={planInitialTherapyText}
                 onSaveVisit={(txt) => todayVisitHandle.current?.save(txt)}
                 onOpenReport={() => todayVisitHandle.current?.openReport()}
                 onDuplicatePrevious={() => todayVisitHandle.current?.duplicatePrevious()}
