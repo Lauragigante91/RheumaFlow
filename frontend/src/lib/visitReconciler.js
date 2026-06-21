@@ -145,6 +145,22 @@ function buildAssessmentSet(assessments) {
   return set;
 }
 
+function instrKey(f) {
+  const type = (f.exam_type || f.indexType || f.examType || f.type || "").toLowerCase().trim();
+  const date = normDate(f.date || f.exam_date || "");
+  const terr = (f.territory || "").toLowerCase().trim();
+  return `${type}::${date}::${terr}`;
+}
+
+function buildInstrumentalSet(exams) {
+  const set = new Set();
+  for (const e of exams || []) {
+    const k = instrKey(e);
+    if (k !== "::" ) set.add(k);
+  }
+  return set;
+}
+
 function normLabValue(v) {
   if (v === null || v === undefined) return "";
   return String(v).toLowerCase().replace(/\s+/g, "").replace(",", ".");
@@ -267,28 +283,31 @@ function buildEventSet(events) {
 
 export function reconcileDrafts(drafts, existingData) {
   const {
-    therapies:        existingTherapies    = [],
-    assessments:      existingAssessments  = [],
-    lab_exams:        existingLabs         = [],
-    disease_profiles: existingProfiles     = {},
-    sclero_profile:   existingSclero       = null,
-    clinical_events:  existingEvents       = [],
+    therapies:          existingTherapies    = [],
+    assessments:        existingAssessments  = [],
+    lab_exams:          existingLabs         = [],
+    instrumental_exams: existingInstrumental = [],
+    disease_profiles:   existingProfiles     = {},
+    sclero_profile:     existingSclero       = null,
+    clinical_events:    existingEvents       = [],
   } = existingData;
 
-  const therapyMap    = buildTherapyMap(existingTherapies);
-  const assessmentSet = buildAssessmentSet(existingAssessments);
-  const labValueMap   = buildLabValueMap(existingLabs);
-  const eventSet      = buildEventSet(existingEvents);
+  const therapyMap      = buildTherapyMap(existingTherapies);
+  const assessmentSet   = buildAssessmentSet(existingAssessments);
+  const instrumentalSet = buildInstrumentalSet(existingInstrumental);
+  const labValueMap     = buildLabValueMap(existingLabs);
+  const eventSet        = buildEventSet(existingEvents);
 
   // Cross-draft deduplication trackers (shared across all drafts)
-  const seenDrugs        = new Set();
-  const seenAssessments  = new Set();
-  const seenLabValues    = new Map();
-  const seenEvents       = new Set();
-  const seenActiveDrugs  = new Set();
-  const seenDisc         = new Map();
-  const activeStartYear  = new Map();
-  const seenActiveDoseMap = new Map(); // dose dell'ultima lettera che ha visto questo farmaco attivo
+  const seenDrugs         = new Set();
+  const seenAssessments   = new Set();
+  const seenLabValues     = new Map();
+  const seenEvents        = new Set();
+  const seenInstrumental  = new Set();
+  const seenActiveDrugs   = new Set();
+  const seenDisc          = new Map();
+  const activeStartYear   = new Map();
+  const seenActiveDoseMap = new Map();
 
   const recordSchedule = (t, key) => {
     seenDrugs.add(key);
@@ -604,6 +623,24 @@ export function reconcileDrafts(drafts, existingData) {
         seenEvents.add(key);
         return { ...e, _status: ITEM_STATUS.NEW };
       });
+    }
+
+    // ── Instrumental findings (esami strumentali e imaging in visione) ───────
+    // Dedup su exam_type + date + territory vs DB e vs altri draft del batch.
+    for (const arrayKey of ["instrumental_findings", "exam_imaging"]) {
+      if (Array.isArray(draft[arrayKey])) {
+        out[arrayKey] = draft[arrayKey].map(f => {
+          const key = instrKey(f);
+          if (instrumentalSet.has(key)) {
+            return { ...f, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Già presente in archivio per questa data e tipo", _skip: true };
+          }
+          if (seenInstrumental.has(key)) {
+            return { ...f, _status: ITEM_STATUS.DUPLICATE, _statusReason: "Duplicato in un'altra lettera del batch", _skip: true };
+          }
+          seenInstrumental.add(key);
+          return { ...f, _status: ITEM_STATUS.NEW };
+        });
+      }
     }
 
     // ── Disease profiles ────────────────────────────────────────────────────

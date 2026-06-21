@@ -190,7 +190,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     for (const a of extracted.assessments.filter(x => !x._skip)) {
       if (!a.index_type) continue;
       try {
-        await assessmentsApi.create(
+        await assessmentsApi.upsert(
           buildAssessmentPayload(a, patient.id, fallbackDate, importedVisitId, visitType, sourceFilename)
         );
         updates += 1;
@@ -236,7 +236,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     const visitDate = extracted.visit_date || new Date().toISOString().slice(0, 10);
     for (const f of extracted.instrumental_findings.filter(x => !x._skip)) {
       try {
-        await instrumentalExamsApi.create(buildInstrumentalExamPayload(f, patient.id, visitDate, null));
+        await instrumentalExamsApi.upsert(buildInstrumentalExamPayload(f, patient.id, visitDate, null));
         updates += 1;
       } catch (e) { errors.push(apiErrMsg(e, `Esame strum. ${f.examLabel}`)); }
     }
@@ -246,7 +246,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     const visitDate = extracted.visit_date || new Date().toISOString().slice(0, 10);
     for (const f of extracted.exam_imaging.filter(x => !x._skip)) {
       try {
-        await instrumentalExamsApi.create(buildInstrumentalExamPayload(f, patient.id, visitDate, "imaging_report"));
+        await instrumentalExamsApi.upsert(buildInstrumentalExamPayload(f, patient.id, visitDate, "imaging_report"));
         updates += 1;
       } catch (e) { errors.push(apiErrMsg(e, `Esame (visione) ${f.examLabel}`)); }
     }

@@ -311,6 +311,36 @@ async def delete_assessment(assessment_id: str, user: dict = Depends(get_current
     return {"success": True}
 
 
+@router.post("/assessments/upsert", response_model=Assessment)
+async def upsert_assessment(payload: AssessmentBase, user: dict = Depends(get_current_user)):
+    """Upsert idempotente: dedup su patient_id + index_type + date (ISO slice 10).
+    Se esiste già un record con stessa chiave aggiorna i campi; altrimenti crea."""
+    await verify_patient_in_org(payload.patient_id, user["organization_id"])
+    date_key = (payload.date or "")[:10]
+    filter_: dict = {
+        "patient_id": payload.patient_id,
+        "organization_id": user["organization_id"],
+        "index_type": payload.index_type,
+    }
+    if date_key:
+        filter_["date"] = {"$regex": f"^{re.escape(date_key)}"}
+    existing = await db.assessments.find_one(filter_, {"_id": 0})
+    if existing:
+        await db.assessments.update_one(
+            {"id": existing["id"]},
+            {"$set": payload.model_dump(exclude_none=True)},
+        )
+        return await db.assessments.find_one({"id": existing["id"]}, {"_id": 0})
+    a = Assessment(
+        **payload.model_dump(),
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+    )
+    await db.assessments.insert_one(a.model_dump())
+    return a
+
+
 # ── Instrumental Exams ────────────────────────────────────────────────────────
 
 @router.post("/instrumental-exams", response_model=InstrumentalExam)
@@ -365,6 +395,34 @@ async def delete_instrumental_exam(exam_id: str, user: dict = Depends(get_curren
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Esame strumentale non trovato")
     return {"success": True}
+
+
+@router.post("/instrumental-exams/upsert", response_model=InstrumentalExam)
+async def upsert_instrumental_exam(payload: InstrumentalExamBase, user: dict = Depends(get_current_user)):
+    """Upsert idempotente: dedup su patient_id + exam_type + date (ISO slice 10) + territory.
+    Se esiste già un record con stessa chiave lo restituisce invariato; altrimenti crea."""
+    await verify_patient_in_org(payload.patient_id, user["organization_id"])
+    date_key = (payload.date or "")[:10]
+    filter_: dict = {
+        "patient_id": payload.patient_id,
+        "organization_id": user["organization_id"],
+        "exam_type": payload.exam_type,
+    }
+    if date_key:
+        filter_["date"] = {"$regex": f"^{re.escape(date_key)}"}
+    if payload.territory:
+        filter_["territory"] = payload.territory
+    existing = await db.instrumental_exams.find_one(filter_, {"_id": 0})
+    if existing:
+        return existing
+    exam = InstrumentalExam(
+        **payload.model_dump(),
+        organization_id=user["organization_id"],
+        created_by=user["id"],
+        created_by_name=user.get("name"),
+    )
+    await db.instrumental_exams.insert_one(exam.model_dump())
+    return exam
 
 
 # ── Criteria Evaluations ──────────────────────────────────────────────────────

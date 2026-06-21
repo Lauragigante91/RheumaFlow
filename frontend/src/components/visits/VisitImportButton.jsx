@@ -4,7 +4,7 @@ import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Loader2, FileText, ScanSearch, Layers, X, Calendar, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi } from "../../lib/api";
+import { assessmentsApi, scleroProfileApi, therapiesApi, labExamsApi, diseaseProfileApi, clinicalEventsApi, instrumentalExamsApi } from "../../lib/api";
 import { parseVisitText } from "../../lib/visitTextParser";
 import { applyOneDraft, applyDraftBatch, computeLongitudinalState } from "../../lib/importApply";
 import { reconcileDrafts, draftSummaryStats } from "../../lib/visitReconciler";
@@ -169,13 +169,14 @@ export default function VisitImportButton({ patient, onImported, open: externalO
         }).catch(() => {});
       }
 
-      let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
+      let existingData = { therapies: [], assessments: [], lab_exams: [], instrumental_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {
         try {
-          const [thRes, assRes, labRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
+          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
             therapiesApi.listByPatient(patient.id),
             assessmentsApi.listByPatient(patient.id),
             labExamsApi.listByPatient(patient.id),
+            instrumentalExamsApi.listByPatient(patient.id),
             diseaseProfileApi.get(patient.id, "ra").catch(() => null),
             diseaseProfileApi.get(patient.id, "spa").catch(() => null),
             diseaseProfileApi.get(patient.id, "sle").catch(() => null),
@@ -183,9 +184,10 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             clinicalEventsApi.list(patient.id),
           ]);
           existingData = {
-            therapies:        thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
-            assessments:      assRes.status   === "fulfilled" ? (assRes.value   || []) : [],
-            lab_exams:        labRes.status   === "fulfilled" ? (labRes.value   || []) : [],
+            therapies:          thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
+            assessments:        assRes.status   === "fulfilled" ? (assRes.value   || []) : [],
+            lab_exams:          labRes.status   === "fulfilled" ? (labRes.value   || []) : [],
+            instrumental_exams: instrRes.status === "fulfilled" ? (instrRes.value || []) : [],
             disease_profiles: {
               ra:  raRes.status  === "fulfilled" ? raRes.value  : null,
               spa: spaRes.status === "fulfilled" ? spaRes.value : null,
@@ -256,13 +258,14 @@ export default function VisitImportButton({ patient, onImported, open: externalO
 
       rawResults.sort((a, b) => (a.block.date || "").localeCompare(b.block.date || ""));
 
-      let existingData = { therapies: [], assessments: [], lab_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
+      let existingData = { therapies: [], assessments: [], lab_exams: [], instrumental_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {
         try {
-          const [thRes, assRes, labRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
+          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
             therapiesApi.listByPatient(patient.id),
             assessmentsApi.listByPatient(patient.id),
             labExamsApi.listByPatient(patient.id),
+            instrumentalExamsApi.listByPatient(patient.id),
             diseaseProfileApi.get(patient.id, "ra").catch(() => null),
             diseaseProfileApi.get(patient.id, "spa").catch(() => null),
             diseaseProfileApi.get(patient.id, "sle").catch(() => null),
@@ -270,9 +273,10 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             clinicalEventsApi.list(patient.id),
           ]);
           existingData = {
-            therapies:       thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
-            assessments:     assRes.status   === "fulfilled" ? (assRes.value   || []) : [],
-            lab_exams:       labRes.status   === "fulfilled" ? (labRes.value   || []) : [],
+            therapies:          thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
+            assessments:        assRes.status   === "fulfilled" ? (assRes.value   || []) : [],
+            lab_exams:          labRes.status   === "fulfilled" ? (labRes.value   || []) : [],
+            instrumental_exams: instrRes.status === "fulfilled" ? (instrRes.value || []) : [],
             disease_profiles: {
               ra:  raRes.status  === "fulfilled" ? raRes.value  : null,
               spa: spaRes.status === "fulfilled" ? spaRes.value : null,

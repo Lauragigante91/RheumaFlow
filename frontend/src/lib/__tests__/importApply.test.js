@@ -25,8 +25,8 @@ import {
 
 jest.mock("../api", () => ({
   patientsApi:         { update: jest.fn(), patch: jest.fn() },
-  assessmentsApi:      { create: jest.fn() },
-  instrumentalExamsApi:{ create: jest.fn() },
+  assessmentsApi:      { upsert: jest.fn() },
+  instrumentalExamsApi:{ upsert: jest.fn() },
   scleroProfileApi:    { get: jest.fn(), upsert: jest.fn() },
   therapiesApi:        { upsert: jest.fn() },
   labExamsApi:         { upsert: jest.fn() },
@@ -71,8 +71,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   let seq = 0;
   workupVisitsApi.create.mockImplementation(() => Promise.resolve({ id: `wv-${++seq}` }));
-  assessmentsApi.create.mockResolvedValue({});
-  instrumentalExamsApi.create.mockResolvedValue({});
+  assessmentsApi.upsert.mockResolvedValue({});
+  instrumentalExamsApi.upsert.mockResolvedValue({});
   therapiesApi.upsert.mockResolvedValue({});
   labExamsApi.upsert.mockResolvedValue({});
   patientsApi.update.mockResolvedValue({});
@@ -223,7 +223,7 @@ describe("applyOneDraft — sezione deselezionata non importata", () => {
       { exam_imaging: false },
       "follow_up"
     );
-    expect(instrumentalExamsApi.create).not.toHaveBeenCalled();
+    expect(instrumentalExamsApi.upsert).not.toHaveBeenCalled();
   });
 
   it("exam_imaging selezionato -> esame strumentale creato con la data della visita", async () => {
@@ -237,8 +237,8 @@ describe("applyOneDraft — sezione deselezionata non importata", () => {
       { exam_imaging: true },
       "follow_up"
     );
-    expect(instrumentalExamsApi.create).toHaveBeenCalledTimes(1);
-    expect(instrumentalExamsApi.create.mock.calls[0][0].exam_date).toBe("2024-01-10");
+    expect(instrumentalExamsApi.upsert).toHaveBeenCalledTimes(1);
+    expect(instrumentalExamsApi.upsert.mock.calls[0][0].exam_date).toBe("2024-01-10");
   });
 });
 
@@ -254,8 +254,8 @@ describe("applyOneDraft — clinimetrie con data della visita", () => {
       ALL_SELECTED,
       "follow_up"
     );
-    expect(assessmentsApi.create).toHaveBeenCalledTimes(1);
-    expect(assessmentsApi.create.mock.calls[0][0].date).toBe("2024-03-01");
+    expect(assessmentsApi.upsert).toHaveBeenCalledTimes(1);
+    expect(assessmentsApi.upsert.mock.calls[0][0].date).toBe("2024-03-01");
   });
 
   it("assessment con data propria mantiene la propria data", async () => {
@@ -269,7 +269,7 @@ describe("applyOneDraft — clinimetrie con data della visita", () => {
       ALL_SELECTED,
       "follow_up"
     );
-    expect(assessmentsApi.create.mock.calls[0][0].date).toBe("2024-02-20");
+    expect(assessmentsApi.upsert.mock.calls[0][0].date).toBe("2024-02-20");
   });
 });
 
@@ -290,8 +290,8 @@ describe("applyOneDraft — più draft: N visita-odierna + N assessment con data
       );
     }
     expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
-    expect(assessmentsApi.create).toHaveBeenCalledTimes(3);
-    const usedDates = assessmentsApi.create.mock.calls.map((c) => c[0].date);
+    expect(assessmentsApi.upsert).toHaveBeenCalledTimes(3);
+    const usedDates = assessmentsApi.upsert.mock.calls.map((c) => c[0].date);
     expect(usedDates).toEqual(dates);
     const visitDates = workupVisitsApi.create.mock.calls.map((c) => c[1].visit_date);
     expect(visitDates).toEqual(dates);
@@ -309,7 +309,7 @@ describe("applyOneDraft — più draft: N visita-odierna + N assessment con data
       ALL_SELECTED,
       "follow_up"
     );
-    expect(assessmentsApi.create.mock.calls[0][0].visit_id).toBe("wv-1");
+    expect(assessmentsApi.upsert.mock.calls[0][0].visit_id).toBe("wv-1");
   });
 });
 
@@ -881,7 +881,7 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     await applyDraftBatch(toApply, patient, { defaultVisitType: "follow_up" });
 
     expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
-    expect(assessmentsApi.create).toHaveBeenCalledTimes(3);
+    expect(assessmentsApi.upsert).toHaveBeenCalledTimes(3);
 
     const visitDates = workupVisitsApi.create.mock.calls.map((c) => c[1].visit_date);
     expect(visitDates).toEqual(["2023-01-10", "2023-06-15", "2024-02-20"]);
@@ -892,7 +892,7 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     const exams = workupVisitsApi.create.mock.calls.map((c) => c[1].physical_exam);
     expect(exams).toEqual(["EO 2023-01-10", "EO 2023-06-15", "EO 2024-02-20"]);
 
-    const assessmentDates = assessmentsApi.create.mock.calls.map((c) => c[0].date);
+    const assessmentDates = assessmentsApi.upsert.mock.calls.map((c) => c[0].date);
     expect(assessmentDates).toEqual(["2023-01-10", "2023-06-15", "2024-02-20"]);
   });
 
@@ -1023,12 +1023,12 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
       expect(p.home_therapies_text).toBe(`Terapia ${d[i]}`);
     });
 
-    expect(assessmentsApi.create).toHaveBeenCalledTimes(3);
-    expect(assessmentsApi.create.mock.calls.map((c) => c[0].date)).toEqual(d);
-    expect(assessmentsApi.create.mock.calls.map((c) => c[0].score)).toEqual([4.1, 3.0, 1.8]);
+    expect(assessmentsApi.upsert).toHaveBeenCalledTimes(3);
+    expect(assessmentsApi.upsert.mock.calls.map((c) => c[0].date)).toEqual(d);
+    expect(assessmentsApi.upsert.mock.calls.map((c) => c[0].score)).toEqual([4.1, 3.0, 1.8]);
 
-    expect(instrumentalExamsApi.create).toHaveBeenCalledTimes(3);
-    expect(instrumentalExamsApi.create.mock.calls.map((c) => c[0].exam_date)).toEqual(d);
+    expect(instrumentalExamsApi.upsert).toHaveBeenCalledTimes(3);
+    expect(instrumentalExamsApi.upsert.mock.calls.map((c) => c[0].exam_date)).toEqual(d);
 
     expect(patientsApi.update).toHaveBeenCalledTimes(1);
     expect(patientsApi.update.mock.calls[0][1].diagnosi).toMatch(/^Dx \d{4}-\d{2}-\d{2}$/);
@@ -1325,7 +1325,7 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
       expect(workupVisitsApi.list).toHaveBeenCalledWith("p1");
       expect(workupVisitsApi.create).toHaveBeenCalledTimes(1);
       expect(workupVisitsApi.patch).not.toHaveBeenCalled();
-      const assessmentPayload = assessmentsApi.create.mock.calls[0][0];
+      const assessmentPayload = assessmentsApi.upsert.mock.calls[0][0];
       expect(assessmentPayload.visit_id).toBe("wv-1");
     });
 
@@ -1346,7 +1346,7 @@ describe("terapia in uscita (TERAPIA IN USCITA) — testo del referto", () => {
         "wv-existing",
         expect.objectContaining({ physical_exam: "EO stabile" })
       );
-      const assessmentPayload = assessmentsApi.create.mock.calls[0][0];
+      const assessmentPayload = assessmentsApi.upsert.mock.calls[0][0];
       expect(assessmentPayload.visit_id).toBe("wv-existing");
     });
 

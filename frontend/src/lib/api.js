@@ -73,6 +73,7 @@ export const orgApi = {
 
 export const assessmentsApi = {
   create: (data) => api.post("/assessments", data).then((r) => r.data),
+  upsert: (data) => api.post("/assessments/upsert", data).then((r) => r.data),
   update: (id, data) => api.put(`/assessments/${id}`, data).then((r) => r.data),
   listByPatient: (patientId) =>
     api.get(`/patients/${patientId}/assessments`).then((r) => r.data),
@@ -82,8 +83,11 @@ export const assessmentsApi = {
 
 export const instrumentalExamsApi = {
   create: (data) => api.post("/instrumental-exams", data).then((r) => r.data),
+  upsert: (data) => api.post("/instrumental-exams/upsert", data).then((r) => r.data),
   update: (id, data) => api.put(`/instrumental-exams/${id}`, data).then((r) => r.data),
   list: (patientId) =>
+    api.get(`/patients/${patientId}/instrumental-exams`).then((r) => r.data),
+  listByPatient: (patientId) =>
     api.get(`/patients/${patientId}/instrumental-exams`).then((r) => r.data),
   get: (id) => api.get(`/instrumental-exams/${id}`).then((r) => r.data),
   remove: (id) => api.delete(`/instrumental-exams/${id}`).then((r) => r.data),
