@@ -18,6 +18,7 @@ import {
   buildLabExamPayload,
   buildInstrumentalExamPayload,
 } from "./importPayloadBuilders";
+import { parseExitTherapyChanges } from "./visitTextParser";
 
 // Restituisce true se il testo è già una label diagnostica pulita (breve, senza
 // marcatori narrativi) — in quel caso viene preservato così com'è (non mappato
@@ -185,6 +186,31 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         importedVisitId = createdVisit?.id || null;
       }
       updates += 1;
+
+      if (payload.exit_therapy_text && importedVisitId) {
+        const visitDate = (extracted.visit_date || new Date().toISOString()).slice(0, 10);
+        const exitChanges = parseExitTherapyChanges(payload.exit_therapy_text, visitDate);
+        console.log(
+          "[ImportApply] dose changes found:",
+          exitChanges.length,
+          exitChanges.map((t) => ({ drug_name: t.drug_name, dose: t.dose, frequency: t.frequency, _visit_event: t._visit_event })),
+        );
+        for (const t of exitChanges) {
+          try {
+            await therapiesApi.upsert({
+              patient_id: patient.id,
+              drug_name:  t.drug_name,
+              category:   t.category || "other",
+              dose:       t.dose     || null,
+              frequency:  t.frequency || null,
+              route:      t.route    || null,
+              status:     "active",
+              visit_id:   importedVisitId,
+              source:     "visita",
+            });
+          } catch (_) { /* non-critical — non blocca l'import */ }
+        }
+      }
     } catch (e) { errors.push(apiErrMsg(e, "Sezioni visita")); }
   }
 
