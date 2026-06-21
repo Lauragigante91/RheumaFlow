@@ -378,6 +378,21 @@ export function reconcileDrafts(drafts, existingData) {
 
           if (existing.status === "discontinued" || existing.status === "paused") {
             if (t.status === "active") {
+              // Se la lettera è anteriore alla data di sospensione in DB, non è un
+              // riavvio: la terapia era semplicemente ancora attiva all'epoca della
+              // lettera e verrà poi sospesa. Saltiamo silenziosamente.
+              const letterDate = (draft.visit_date || "").slice(0, 10);
+              const stopDate   = (existing.end_date  || "").slice(0, 10);
+              if (letterDate && stopDate && letterDate < stopDate) {
+                recordSchedule(t, key);
+                return {
+                  ...t,
+                  _status: ITEM_STATUS.CONTINUITY,
+                  _statusReason: `Attiva alla data della lettera (${letterDate}), poi sospesa in DB (${stopDate}) — non è un riavvio`,
+                  _skip: true,
+                  _action: "continued",
+                };
+              }
               recordSchedule(t, key);
               return {
                 ...t,

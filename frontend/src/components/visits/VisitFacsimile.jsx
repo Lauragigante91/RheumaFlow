@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Trash2, RotateCcw, Plus, Pencil, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import LabValueReviewPanel from "./LabValueReviewPanel";
 import { LAB_REVIEW_TRUSTED_UNITS } from "../../lib/labValueExtractor";
 import { parseJointExam } from "../../lib/jointExamParser";
 import Homunculus from "../imaging/Homunculus";
+import { CONTROLLED_DIAGNOSES, mapDiagnosisToControlled } from "../../lib/diagnosisSuggestions";
 
 function fmtIso(iso) {
   if (!iso) return null;
@@ -36,6 +37,35 @@ function clinicalActionLabel(therapy) {
   if (status === "discontinued")
     return { label: "pregressa",        cls: "bg-gray-100 text-gray-500 border border-gray-200" };
   return   { label: "continua",         cls: "bg-blue-100 text-blue-700 border border-blue-200" };
+}
+
+function DiagnosiSelect({ value, onChange }) {
+  const isControlled = !value || CONTROLLED_DIAGNOSES.includes(value);
+  const mapped = isControlled ? value || "" : mapDiagnosisToControlled(value) || "";
+
+  useEffect(() => {
+    if (!isControlled && mapped) onChange(mapped);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-1">
+      <select
+        value={isControlled ? (value || "") : mapped}
+        onChange={e => onChange(e.target.value)}
+        className="text-xs w-full border border-gray-300 rounded px-2 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-teal-400"
+      >
+        <option value="">— da scegliere —</option>
+        {CONTROLLED_DIAGNOSES.map(d => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </select>
+      {!isControlled && value && (
+        <div className="text-[10px] text-amber-600 italic truncate">
+          Estratto: {value.slice(0, 120)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RawTextToggle({ label, text }) {
@@ -800,7 +830,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </div>
 
       <SectionBlock title="1) Diagnosi">
-        <TextSection value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
+        <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
       </SectionBlock>
 
       <SectionBlock title="2) Anamnesi fisiologica">

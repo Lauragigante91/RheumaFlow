@@ -53,7 +53,13 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
 }
 
 export function buildTherapyUpsertPayload(t, patientId, importedVisitId) {
-  const isHistorical = t.status === "discontinued" && t._action === "new_episode";
+  const isHistorical   = t.status === "discontinued" && t._action === "new_episode";
+  // Solo un avvio esplicito nella visita corrente non è pre_existing; tutto il
+  // resto (continuità, storico, cambio dose) viene dall'anamnesi e non deve
+  // contare come "avviata oggi" nel contatore TherapySection.
+  const isGenuineStart = t.status === "active"
+    && t._action === "new_episode"
+    && t._visit_event === "start";
   return {
     patient_id:             patientId,
     drug_name:              t.drug_name,
@@ -68,21 +74,23 @@ export function buildTherapyUpsertPayload(t, patientId, importedVisitId) {
     notes:                  t.notes || null,
     raw_string:             t.raw_string || null,
     visit_id:               importedVisitId || null,
+    therapy_event:          isGenuineStart ? null : "pre_existing",
     ...(isHistorical ? { event_type_override: "historical_exposure" } : {}),
   };
 }
 
 export function buildTherapyContinuityPayload(t, patientId, importedVisitId, today) {
   return {
-    patient_id: patientId,
-    drug_name:  t.drug_name,
-    category:   t.category || "other",
-    dose:       t.dose || null,
-    frequency:  t.frequency || null,
-    route:      t.route || null,
-    start_date: t.start_date || today,
-    status:     "active",
-    visit_id:   importedVisitId || null,
+    patient_id:    patientId,
+    drug_name:     t.drug_name,
+    category:      t.category || "other",
+    dose:          t.dose || null,
+    frequency:     t.frequency || null,
+    route:         t.route || null,
+    start_date:    t.start_date || today,
+    status:        "active",
+    visit_id:      importedVisitId || null,
+    therapy_event: "pre_existing",
   };
 }
 

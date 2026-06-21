@@ -112,6 +112,43 @@ const RULES = [
   },
 ];
 
+const EXTRA_DIAGNOSES = [
+  "Artrite indifferenziata",
+  "Artrite reattiva",
+  "Connettivite indifferenziata",
+  "Condrocalcinosi / CPPD",
+  "Dermatomiosite clinicamente amiopatica",
+  "IgAV (Porpora di Henoch-Schönlein)",
+  "Malattia di Behçet",
+  "Malattia mista del tessuto connettivo (MCTD)",
+  "Osteoporosi secondaria",
+  "PAN (poliarterite nodosa)",
+  "Policondrite atrofiante",
+  "Polimiosite",
+  "Sarcoidosi",
+  "Sindrome di Raynaud primitiva",
+  "Sindrome overlap",
+  "Vasculite crioglobulinemica",
+  "Vasculite da CSVV",
+  "Vasculite urticariale ipocomplementemica",
+];
+
+export const CONTROLLED_DIAGNOSES = [
+  ...RULES.map((r) => r.diseaseLabel),
+  ...EXTRA_DIAGNOSES,
+].sort((a, b) => a.localeCompare(b, "it"));
+
+export function mapDiagnosisToControlled(rawText) {
+  if (!rawText) return null;
+  const norm = String(rawText).toLowerCase();
+  if (CONTROLLED_DIAGNOSES.some((d) => d.toLowerCase() === norm)) return rawText;
+  const match = RULES.find((r) => r.keywords.some((k) => norm.includes(k.toLowerCase())));
+  if (match) return match.diseaseLabel;
+  const extraMatch = EXTRA_DIAGNOSES.find((d) => norm.includes(d.toLowerCase().split(" ")[0]));
+  if (extraMatch) return extraMatch;
+  return null;
+}
+
 export function suggestForDiagnosis(diagnosis) {
   if (!diagnosis) return { indices: [], criteria: [], matchedRules: [] };
   const text = String(diagnosis).toLowerCase();

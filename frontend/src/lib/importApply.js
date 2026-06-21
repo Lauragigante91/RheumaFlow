@@ -9,6 +9,7 @@ import {
   workupVisitsApi,
   clinicalEventsApi,
 } from "./api";
+import { mapDiagnosisToControlled, CONTROLLED_DIAGNOSES } from "./diagnosisSuggestions";
 import {
   buildWorkupVisitPayload,
   buildTherapyUpsertPayload,
@@ -17,6 +18,16 @@ import {
   buildLabExamPayload,
   buildInstrumentalExamPayload,
 } from "./importPayloadBuilders";
+
+// Restituisce true se il testo è già una label diagnostica pulita (breve, senza
+// marcatori narrativi) — in quel caso viene preservato così com'è (non mappato
+// alla voce del dizionario, che potrebbe essere meno specifica).
+function isCleanDiagnosis(text) {
+  if (!text) return false;
+  if (CONTROLLED_DIAGNOSES.includes(text)) return true;
+  if (text.length >= 80) return false;
+  return !/\b(posta nel|trattata|in terapia|seguita per|con diagnosi di|affetto da|paziente con|dal \d{4}|per cui|mediante)\b/i.test(text);
+}
 
 export function apiErrMsg(e, label) {
   const detail = e?.response?.data?.detail;
@@ -108,8 +119,12 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         if (pp[k] && pp[k] !== patient[k]) patch[k] = pp[k];
       });
       if (pp.diagnosi) {
-        const mergedDx = mergeFreeTextConservative(patient.diagnosi, pp.diagnosi);
-        if (mergedDx && mergedDx !== (patient.diagnosi || "")) patch.diagnosi = mergedDx;
+        // Preserva label brevi e pulite; mappa solo frammenti narrativi lunghi.
+        const toMerge = isCleanDiagnosis(pp.diagnosi) ? pp.diagnosi : mapDiagnosisToControlled(pp.diagnosi);
+        if (toMerge) {
+          const mergedDx = mergeFreeTextConservative(patient.diagnosi, toMerge);
+          if (mergedDx && mergedDx !== (patient.diagnosi || "")) patch.diagnosi = mergedDx;
+        }
       }
       if (Object.keys(patch).length > 0) {
         await patientsApi.update(patient.id, patch);
@@ -504,7 +519,10 @@ export function extractDraftState(draft, selected = {}) {
     if (pg.anamnesi_fisiologica) out.anamnesi_fisiologica = pg.anamnesi_fisiologica;
     if (pg.anamnesi_familiare)   out.anamnesi_familiare   = pg.anamnesi_familiare;
     if (pg.terapia_domiciliare)  out.terapia_domiciliare  = pg.terapia_domiciliare;
-    if (pg.diagnosi)             out.diagnosi             = pg.diagnosi;
+    if (pg.diagnosi) {
+      const toMerge = isCleanDiagnosis(pg.diagnosi) ? pg.diagnosi : mapDiagnosisToControlled(pg.diagnosi);
+      if (toMerge) out.diagnosi = toMerge;
+    }
   }
   const comorb = draftComorbidita(draft, selected);
   if (comorb) out.comorbidita_apr = comorb;
