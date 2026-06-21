@@ -72,6 +72,8 @@ function _buildCanonicalAliasMap() {
 //   "start"  → aggiunge riga in cima (solo se non già presente)
 //   "stop"   → rimuove la riga corrispondente
 function patchTerapiaDomiciliare(text, changes) {
+  console.log('[patchTerapiaDom] testo originale:', text);
+  console.log('[patchTerapiaDom] farmaci ricevuti:', changes);
   if (!text || !changes.length) return text;
   const byCanonical = _buildCanonicalAliasMap();
   let lines = text.split("\n");
@@ -107,7 +109,10 @@ function patchTerapiaDomiciliare(text, changes) {
     }
   }
 
-  return lines.filter((l) => l.trim()).join("\n");
+  const newText = lines.filter((l) => l.trim()).join("\n");
+  console.log('[patchTerapiaDom] testo risultante:', newText);
+  console.log('[patchTerapiaDom] patch chiamato:', text !== newText);
+  return newText;
 }
 
 export function apiErrMsg(e, label) {
