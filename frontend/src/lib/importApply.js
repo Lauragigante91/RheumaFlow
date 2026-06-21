@@ -332,6 +332,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   // Riflette nel testo libero i cambi posologici (change), i nuovi farmaci
   // (start) e le sospensioni (stop) estratti dalla sezione "Terapia in uscita".
   // I farmaci non reumatologici già presenti nel testo rimangono invariati.
+  console.log('[patchTerapiaDom] chiamata?', { exitText: !!_exitTherapyTextForLedger, terapiaDom: patient.terapia_domiciliare });
   if (_exitTherapyTextForLedger && patient.terapia_domiciliare) {
     const allExitChanges = parseExitTherapyAllChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
     if (allExitChanges.length > 0) {
