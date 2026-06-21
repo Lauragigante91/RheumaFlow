@@ -341,6 +341,9 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
       if (patchedText !== patient.terapia_domiciliare) {
         try {
           await patientsApi.patch(patient.id, { terapia_domiciliare: patchedText });
+          window.dispatchEvent(
+            new CustomEvent("rheumaflow:patient-patched", { detail: { patientId: patient.id } }),
+          );
         } catch (_) {}
       }
     }

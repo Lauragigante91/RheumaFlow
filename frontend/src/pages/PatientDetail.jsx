@@ -245,6 +245,12 @@ export default function PatientDetail() {
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const handler = (e) => { if (e.detail?.patientId === id) load(); };
+    window.addEventListener("rheumaflow:patient-patched", handler);
+    return () => window.removeEventListener("rheumaflow:patient-patched", handler);
+  }, [id, load]);
+
   // ── Sync: Homunculus / CompositeAssessmentDialog → TodayVisitSection fields ──
   // Fires when any assessment changes. Finds the most recent RA-type assessment
   // for today and pushes its inputs (TJC, SJC, GH, EGA, PCR, VES) into the
