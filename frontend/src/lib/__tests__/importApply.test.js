@@ -1665,6 +1665,33 @@ Idrossiclorochina invariata. Laboratorio tra 6 mesi. Rivalutazione in caso di ri
     const patchCall = patientsApi.patch.mock.calls[0]?.[1];
     expect(patchCall?.terapia_domiciliare).toBe("MTX 15mg + ADA 40mg eow");
   });
+
+  it("terapia_domiciliare: se ultima visita ha campo whitespace-only, usa la penultima", async () => {
+    const patient = { id: "p1" };
+    const drafts = [
+      {
+        date: "2023-01-10", visitType: "follow_up", label: "V1",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2023-01-10",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: "MTX 15mg + HCQ 200mg" },
+        },
+      },
+      {
+        date: "2024-09-20", visitType: "follow_up", label: "V2",
+        selected: { profilo_generale: true },
+        draft: {
+          visit_date: "2024-09-20",
+          visit_type: "follow_up",
+          profilo_generale: { terapia_domiciliare: "   " },
+        },
+      },
+    ];
+    await applyDraftBatch(drafts, patient, {});
+    const patchCall = patientsApi.patch.mock.calls[0]?.[1];
+    expect(patchCall?.terapia_domiciliare).toBe("MTX 15mg + HCQ 200mg");
+  });
 });
 
 describe("P1 — avvio terapia genera evento timeline (therapy_start)", () => {

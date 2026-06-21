@@ -153,6 +153,9 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   if (wantVisitSections) {
     try {
       const payload = buildWorkupVisitPayload(extracted, patient.id, visitType, wantExamImaging);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Import][buildWorkupVisitPayload] payload pre-scrittura:", JSON.stringify(payload, null, 2));
+      }
       const visitDateKey = (extracted.visit_date || "").slice(0, 10);
       const wantType = visitType || "follow_up";
       let existing = null;
@@ -600,7 +603,8 @@ export async function applyLongitudinalState(draftsAsc, patient, overrides = {})
       if (RECENCY_FIELDS.has(k)) {
         for (let i = draftsAsc.length - 1; i >= 0; i--) {
           const s = extractDraftState(draftsAsc[i].draft, draftsAsc[i].selected || {});
-          if (s[k]) { incoming = s[k]; break; }
+          const v = s[k];
+          if (v && v.trim()) { incoming = v; break; }
         }
       } else {
         incoming = state[k]?.selected?.value;
