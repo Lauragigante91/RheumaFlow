@@ -1602,15 +1602,21 @@ const _RHEUM_CATEGORIES_SET = new Set([
  * che precede il nome del farmaco.
  */
 export function parseExitTherapyChanges(text, today) {
-  if (!text?.trim()) return [];
+  console.log("[parseExitTherapy] input:", text);
+  if (!text?.trim()) {
+    console.log("[parseExitTherapy] output:", []);
+    return [];
+  }
   const th = extractTherapies(text, today, "ind");
-  return th.filter(
+  const result = th.filter(
     (t) =>
       _RHEUM_CATEGORIES_SET.has(t.category) &&
       t.status === "active" &&
       t._visit_event === "change" &&
       (t.dose != null || t.frequency != null),
   );
+  console.log("[parseExitTherapy] output:", result);
+  return result;
 }
 
 export function parseVisitText(text) {

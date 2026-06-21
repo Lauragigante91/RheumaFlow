@@ -760,6 +760,11 @@ export default function TodayVisitSection({
       // l'evento appropriato; non tocca le terapie non menzionate.
       if (narrativePayload.exit_therapy_text) {
         const changes = parseExitTherapyChanges(narrativePayload.exit_therapy_text, date);
+        console.log(
+          "[TodayVisitSection] dose changes found:",
+          changes.length,
+          changes.map((t) => ({ drug_name: t.drug_name, dose: t.dose, frequency: t.frequency, _visit_event: t._visit_event })),
+        );
         if (changes.length > 0) {
           await Promise.allSettled(
             changes.map((t) =>
