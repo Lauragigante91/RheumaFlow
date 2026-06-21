@@ -1925,6 +1925,7 @@ export function parseVisitText(text) {
       visit_sections,
       requested_tests,
       profilo_generale:         hasProfiloGenerale ? profilo_generale : null,
+      terapia_reumatologica_testo: terapiaUscitaText || S.TERAPIA_DOMICILIARE || null,
       summary,
       criteria_flags:           null,
       _parse_review,

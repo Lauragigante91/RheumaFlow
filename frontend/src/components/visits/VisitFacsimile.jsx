@@ -19,11 +19,48 @@ const VISIT_TYPE_OPTIONS = [
   { value: "teleconsulto", label: "Teleconsulto" },
 ];
 
+function clinicalActionLabel(therapy) {
+  const action = therapy._action;
+  const status = therapy.status;
+  if (action === "continued")
+    return { label: "continua",         cls: "bg-blue-100 text-blue-700 border border-blue-200" };
+  if (action === "dose_change" || action === "regimen_change")
+    return { label: "cambio posologia", cls: "bg-amber-100 text-amber-700 border border-amber-200" };
+  if (action === "discontinue")
+    return { label: "sospendi",         cls: "bg-red-100 text-red-700 border border-red-200" };
+  if (action === "new_episode" && status === "active")
+    return { label: "avvia",            cls: "bg-emerald-100 text-emerald-700 border border-emerald-200" };
+  if (status === "discontinued")
+    return { label: "pregressa",        cls: "bg-gray-100 text-gray-500 border border-gray-200" };
+  return   { label: "continua",         cls: "bg-blue-100 text-blue-700 border border-blue-200" };
+}
+
+function RawTextToggle({ label, text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <div className="border border-gray-200 rounded-md mb-3 overflow-hidden">
+      <button type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
+        {open ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="px-3 py-2 bg-white">
+          <pre className="text-[11px] text-gray-600 whitespace-pre-wrap font-mono leading-relaxed">{text.trim()}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
   const [editing, setEditing] = useState(false);
   const hasConflict = conflicts && conflicts.some(
     c => (c.drug_name || "").toLowerCase() === (therapy.drug_name || "").toLowerCase()
   );
+  const actionLabel = clinicalActionLabel(therapy);
 
   if (therapy._skip) {
     return (
@@ -69,8 +106,8 @@ function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
               className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none"
               value={therapy.status}
               onChange={e => onChange({ ...therapy, status: e.target.value })}>
-              <option value="active">Terapia attiva</option>
-              <option value="discontinued">Pregressa / sospesa</option>
+              <option value="active">Attiva</option>
+              <option value="discontinued">Sospesa / pregressa</option>
             </select>
             <button type="button" onClick={() => setEditing(false)}
               className="text-[11px] font-semibold text-teal-700 hover:text-teal-900 px-2 py-1 rounded bg-teal-50 border border-teal-200 flex-shrink-0">
@@ -82,18 +119,14 @@ function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${actionLabel.cls}`}>
+                {actionLabel.label}
+              </span>
               <span className="font-bold text-teal-700 text-[11px]">{therapy.drug_name}</span>
               {therapy.dose && <span className="text-gray-600 text-[11px]">{therapy.dose}</span>}
               {therapy.frequency && <span className="text-gray-400 text-[10px]">· {therapy.frequency}</span>}
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
-                therapy.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-              }`}>
-                {therapy.status === "active" ? "attiva" : "pregressa"}
-              </span>
-              {therapy._status && (
-                <span className="text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">
-                  {therapy._status}
-                </span>
+              {therapy._statusReason && (
+                <span className="text-[9px] text-gray-500 italic">{therapy._statusReason}</span>
               )}
             </div>
             {therapy.source_fragment && (
@@ -903,30 +936,41 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </SectionBlock>
 
       <SectionBlock
-        title="13) Terapia reumatologica (avvii, modifiche, sospensioni)"
+        title="13) Terapia reumatologica"
         badge={conflicts.length > 0 && (
           <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
             <AlertTriangle className="w-3 h-3" /> {conflicts.length} conflitto{conflicts.length > 1 ? "i" : ""}
           </span>
         )}
       >
+        <RawTextToggle
+          label="Testo originale"
+          text={draft.terapia_reumatologica_testo}
+        />
         {(() => {
           const exitTherapies = (draft.therapies || []).filter(
             t => !(t.status === "discontinued" && t._action === "new_episode")
           );
-          return exitTherapies.length > 0 ? (
-            <TherapyEditor
-              therapies={exitTherapies}
-              conflicts={conflicts}
-              onChange={updated => {
-                const historical = (draft.therapies || []).filter(
-                  t => t.status === "discontinued" && t._action === "new_episode"
-                );
-                upd({ therapies: [...updated, ...historical] });
-              }}
-            />
-          ) : (
-            <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
+          return (
+            <>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                Strutturata
+              </div>
+              {exitTherapies.length > 0 ? (
+                <TherapyEditor
+                  therapies={exitTherapies}
+                  conflicts={conflicts}
+                  onChange={updated => {
+                    const historical = (draft.therapies || []).filter(
+                      t => t.status === "discontinued" && t._action === "new_episode"
+                    );
+                    upd({ therapies: [...updated, ...historical] });
+                  }}
+                />
+              ) : (
+                <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
+              )}
+            </>
           );
         })()}
       </SectionBlock>
