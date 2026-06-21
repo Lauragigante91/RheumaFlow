@@ -197,7 +197,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         );
         for (const t of exitChanges) {
           try {
-            await therapiesApi.upsert({
+            const upsertPayload = {
               patient_id: patient.id,
               drug_name:  t.drug_name,
               category:   t.category || "other",
@@ -207,8 +207,13 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
               status:     "active",
               visit_id:   importedVisitId,
               source:     "visita",
-            });
-          } catch (_) { /* non-critical — non blocca l'import */ }
+            };
+            console.log("[ImportApply] upsert payload:", upsertPayload);
+            const upsertResult = await therapiesApi.upsert(upsertPayload);
+            console.log("[ImportApply] upsert result:", JSON.stringify(upsertResult));
+          } catch (err) {
+            console.error("[ImportApply] upsert error:", err?.response?.status, err?.response?.data || err?.message);
+          }
         }
       }
     } catch (e) { errors.push(apiErrMsg(e, "Sezioni visita")); }

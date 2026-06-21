@@ -630,6 +630,11 @@ async def _upsert_therapy_impl(payload: TherapyUpsert, user: dict):
     event_date = payload.start_date or today
     existing = await _find_active_episode(payload.patient_id, user["organization_id"], canonical)
 
+    print(f"[upsert_therapy] drug={payload.drug_name!r} canonical={canonical!r} source={payload.source!r} override={override!r}")
+    print(f"[upsert_therapy] _find_active_episode → {'trovato id=' + existing.get('id','?') if existing else 'NESSUN episodio attivo'}")
+    if existing:
+        print(f"[upsert_therapy] existing.dose={existing.get('dose')!r} existing.drug_canonical={existing.get('drug_canonical')!r}")
+
     if existing:
         episode_id = existing["id"]
 
@@ -703,6 +708,7 @@ async def _upsert_therapy_impl(payload: TherapyUpsert, user: dict):
             dose_changed  = (existing_mg is not None and new_mg is not None and existing_mg != new_mg)
             freq_changed  = bool(payload.frequency and payload.frequency != existing.get("frequency"))
             route_changed = bool(payload.route and payload.route != existing.get("route"))
+            print(f"[upsert_therapy] existing_mg={existing_mg} new_mg={new_mg} dose_changed={dose_changed} freq_changed={freq_changed}")
             if dose_changed:
                 evt_type = "dose_increased" if new_mg > existing_mg else "dose_reduced"
                 ev: dict = {**base_event, "type": evt_type, "date": event_date,
