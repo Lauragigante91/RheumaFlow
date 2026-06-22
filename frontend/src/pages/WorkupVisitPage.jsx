@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, FlaskConical, Save, Plus,
   Trash2, Pencil, ClipboardList, Calendar, Check,
-  ExternalLink, Stethoscope, FileText, Printer, X, Pill, CheckCircle2, Camera,
+  ExternalLink, Stethoscope, FileText, Printer, X, CheckCircle2, Camera,
 } from "lucide-react";
 import SelectableTextBlock from "../components/shared/SelectableTextBlock";
 
@@ -18,11 +18,8 @@ import PhysicalExamSection from "../components/clinical/PhysicalExamSection";
 import SelectableTextArea from "../components/shared/SelectableTextArea";
 import QuickTherapyModal  from "../components/therapy/QuickTherapyModal";
 import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
-import TherapyActionLauncher from "../components/therapy/TherapyActionLauncher";
 import useConfirmReplace from "../components/shared/useConfirmReplace";
 import { patientsApi, workupVisitsApi, diseaseProfileApi, therapiesApi } from "../lib/api";
-import { parseTherapyText } from "../lib/therapyTextParser";
-import { detectSafetyReminders, detectDrugsInText } from "../lib/safetyReminders";
 import { isScleroDiagnosis, isSpaDiagnosis } from "../lib/diseaseDetection";
 import PatientProfileStrip from "../components/layout/PatientProfileStrip";
 import RheumatologicStatusStrip from "../components/layout/RheumatologicStatusStrip";
@@ -206,7 +203,6 @@ function makeEmptyForm() {
     requested_tests:               [],
     requested_tests_notes:         "",
     followup_date:                 "",
-    therapy_modification:          "",
     referred_to_gp:                false,
     referral_note:                 "",
     exit_therapy_text:             "",
@@ -287,7 +283,6 @@ const WORKUP_REPORT_SECTIONS = [
   { key: "labs_imaging",                  label: "6 · Esami",            color: "#6366f1" },
   { key: "diagnostic_hypotheses",         label: "7 · Assessment",       color: "#dc2626" },
   { key: "conclusions",                   label: "8 · Conclusioni",      color: "#be185d" },
-  { key: "therapy_modification",          label: "9 · Piano",            color: "#15803d" },
 ];
 
 function PastVisitCard({ visit, patient, onEdit, onDelete }) {
@@ -316,8 +311,7 @@ function PastVisitCard({ visit, patient, onEdit, onDelete }) {
       ].filter(Boolean).join("\n"),
     },
     requestedTestsText && { color: "blue", number: "8", label: "ESAMI RICHIESTI", text: requestedTestsText },
-    visit.therapy_modification?.trim() && { color: "blue", number: "9", label: "TERAPIA INDICATA", text: visit.therapy_modification.trim() },
-    visit.referral_note?.trim() && { color: "blue", number: "10", label: "INDICAZIONI", text: visit.referral_note.trim() },
+    visit.referral_note?.trim() && { color: "blue", number: "9", label: "INDICAZIONI", text: visit.referral_note.trim() },
   ].filter(Boolean);
 
   const badge = isConverting ? (
@@ -385,8 +379,7 @@ function FirstVisitTimelineCard({ fv, patientId, patient, onInsertToSection, ins
       text: [d.suggested_diagnosis, d.diagnostic_conclusion].filter(Boolean).join("\n"),
       noSelect: true,
     },
-    d.therapy_modification  && { number: "5", label: "TERAPIA INDICATA",       text: d.therapy_modification },
-    d.outcome_notes         && { number: "6", label: "INDICAZIONI",            text: d.outcome_notes },
+    d.outcome_notes         && { number: "5", label: "INDICAZIONI",            text: d.outcome_notes },
   ].filter(Boolean);
 
   const badge = (
@@ -457,7 +450,7 @@ export default function WorkupVisitPage() {
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [form, setForm]                 = useState(makeEmptyForm());
-  const { safeInsertTherapyText, confirmDialog } = useConfirmReplace();
+  const { confirmDialog } = useConfirmReplace();
   const [labImportOpen, setLabImportOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState(null);
   const [cockpitData, setCockpitData] = useState(null);
@@ -467,28 +460,19 @@ export default function WorkupVisitPage() {
     "workup_motivo_ipotesi", "workup_esami_richiesti",
     "rheumatologic_history_summary", "interval_history", "physical_exam",
     "labs_imaging", "clinimetria_notes",
-    "conclusions", "piano", "therapy_modification", "referral_note",
+    "conclusions", "piano", "referral_note",
   ]));
   const [reportModalOpen,   setReportModalOpen]   = useState(false);
   const [examsDialogOpen,   setExamsDialogOpen]   = useState(false);
   const [profileDiseaseKey, setProfileDiseaseKey] = useState(null);
-  const [therapyMenu, setTherapyMenu] = useState(null); // { x, y, text, selStart, selEnd } | null
-  const [therapyQTM,  setTherapyQTM]  = useState({ open: false, src: "", selStart: 0, selEnd: 0 });
   const [therapies, setTherapies] = useState([]);
   const [gestioneOpen, setGestioneOpen] = useState(false);
   const [therapyLauncherAction, setTherapyLauncherAction] = useState(null);
   const frozenTherapiesRef = useRef(null);
   const hasAutoImportedExam    = useRef(false);
-  const hasAutoImportedTherapy = useRef(false);
   // Snapshot of pastVisits taken at page-load — frozen for the duration of the session
   // so that adding therapy in the plan does NOT immediately update the cockpit header.
   const frozenPastVisitsRef    = useRef(null);
-
-  // Safety reminders from drug names typed in the therapy plan (real-time, before any early return)
-  const planReminders = useMemo(
-    () => detectSafetyReminders(detectDrugsInText(form.therapy_modification), patient),
-    [form.therapy_modification, patient]
-  );
 
   const load = useCallback(async () => {
     try {
@@ -551,16 +535,6 @@ export default function WorkupVisitPage() {
         hasAutoImportedExam.current = true;
       }
     }
-    if (!hasAutoImportedTherapy.current && pastVisits.length > 0) {
-      const completedForTherapy = pastVisits.filter(v => v.status === "completed" || v.report_generated);
-      const therapyPool = completedForTherapy.length > 0 ? completedForTherapy : pastVisits;
-      const sorted = [...therapyPool].sort((a, b) => (b.visit_date || "").localeCompare(a.visit_date || ""));
-      const last = sorted[0];
-      if (last?.therapy_modification) {
-        setForm(f => ({ ...f, therapy_modification: last.therapy_modification }));
-        hasAutoImportedTherapy.current = true;
-      }
-    }
   }, [pastVisits, firstVisit, editingVisit]);
 
   // Auto-open a specific visit for editing when arriving via ?editVisit=<id>
@@ -600,7 +574,6 @@ export default function WorkupVisitPage() {
       requested_tests:               visit.requested_tests               || [],
       requested_tests_notes:         visit.requested_tests_notes         || "",
       followup_date:                 visit.followup_date                 || "",
-      therapy_modification:          visit.therapy_modification          || "",
       referred_to_gp:                visit.referred_to_gp               || false,
       referral_note:                 visit.referral_note                 || "",
       exit_therapy_text:             visit.exit_therapy_text             || "",
@@ -638,67 +611,6 @@ export default function WorkupVisitPage() {
       return { ...f, diagnostic_hypotheses: next.join(", ") };
     });
   };
-
-  // ── "Salva in Terapia" — text selection menu ─────────────────────────────
-  const handleTherapyMouseUp = useCallback((e) => {
-    const ta = e.currentTarget;
-    const start = ta.selectionStart;
-    const end   = ta.selectionEnd;
-    if (start === end) { setTherapyMenu(null); return; }
-    const text = ta.value.substring(start, end).trim();
-    if (!text) { setTherapyMenu(null); return; }
-    setTherapyMenu({ x: e.clientX, y: e.clientY, text, selStart: start, selEnd: end });
-  }, []);
-
-  const handleTherapyContextMenu = useCallback((e) => {
-    const ta = e.currentTarget;
-    const start = ta.selectionStart;
-    const end   = ta.selectionEnd;
-    const text = ta.value.substring(start, end).trim();
-    if (!text) return;
-    e.preventDefault();
-    setTherapyMenu({ x: e.clientX, y: e.clientY, text, selStart: start, selEnd: end });
-  }, []);
-
-  const saveSelectedAsTherapy = useCallback(async () => {
-    if (!therapyMenu?.text) return;
-    const parsed = parseTherapyText(therapyMenu.text);
-    setTherapyMenu(null);
-    try {
-      await therapiesApi.create({
-        patient_id: id,
-        drug_name:  parsed.drug_name,
-        category:   parsed.category,
-        dose:       parsed.dose       || undefined,
-        frequency:  parsed.frequency  || undefined,
-        route:      parsed.route      || undefined,
-        start_date: form.visit_date   || new Date().toISOString().slice(0, 10),
-        status:     "active",
-        notes:      parsed.parsed ? undefined : parsed.raw_text,
-      });
-      toast.success(
-        parsed.parsed
-          ? `Terapia salvata: ${parsed.drug_name}${parsed.dose ? " · " + parsed.dose : ""}`
-          : `Terapia salvata (testo libero): ${parsed.drug_name}`,
-        {
-          action: { label: "modifica", onClick: () => navigate(`/pazienti/${id}`) },
-          duration: 6000,
-        }
-      );
-    } catch {
-      toast.error("Errore nel salvataggio della terapia");
-    }
-  }, [therapyMenu, id, form.visit_date, navigate]);
-
-  useEffect(() => {
-    if (!therapyMenu) return;
-    const close = (e) => {
-      if (e.target?.closest?.("[data-therapy-menu]")) return;
-      setTherapyMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [therapyMenu]);
 
   const toggleTest = (key) => {
     setForm((f) => ({
@@ -782,7 +694,6 @@ export default function WorkupVisitPage() {
         requested_tests:       form.requested_tests.length > 0 ? form.requested_tests : null,
         requested_tests_notes: form.requested_tests_notes || null,
         followup_date:         form.followup_date || null,
-        therapy_modification:  form.therapy_modification || null,
         referred_to_gp:        form.referred_to_gp || null,
         referral_note:         form.referral_note || null,
         exit_therapy_text:     form.exit_therapy_text     || null,
@@ -1320,77 +1231,7 @@ export default function WorkupVisitPage() {
                 </div>
               </div>
 
-              {/* ── 9 · Terapia indicata ── */}
-              <div className="border-t border-gray-100 pt-5 space-y-2">
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                  <label title="Includi nel referto" style={{ paddingTop: "3px", flexShrink: 0, cursor: "pointer" }}>
-                    <input type="checkbox" checked={reportSections.has("therapy_modification")}
-                      onChange={() => toggleReportSection("therapy_modification")}
-                      style={{ width: "14px", height: "14px", accentColor: "#0A2540", cursor: "pointer" }} />
-                  </label>
-                  <div style={{ flex: 1 }}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">9 · Terapia indicata</p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openTherapyManager()}
-                          className="flex items-center gap-1.5 text-[11px] font-semibold text-[#0A2540] border border-[#0A2540]/30 px-2 py-1 rounded-md hover:bg-[#0A2540] hover:text-white transition-colors"
-                        >
-                          <Pill className="w-3 h-3" />
-                          Gestione terapia
-                        </button>
-                        <TemplatePickerDialog category="therapy"
-                          currentText={form.therapy_modification}
-                          onSelect={(text) => setForm(f => ({ ...f, therapy_modification: f.therapy_modification ? f.therapy_modification + "\n\n" + text : text }))} />
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
-                      Sarà mostrata in evidenza nella sintesi clinica della visita successiva.
-                    </p>
-                    <div className="relative">
-                      <textarea rows={3}
-                        placeholder="Nuova terapia avviata, indicazioni al MMG, terapia ponte, raccomandazioni al paziente…"
-                        value={form.therapy_modification}
-                        onChange={(e) => setForm({ ...form, therapy_modification: e.target.value })}
-                        onMouseUp={handleTherapyMouseUp}
-                        onContextMenu={handleTherapyContextMenu}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-300" />
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        Seleziona un farmaco nel testo e usa tasto destro → <span className="font-medium">Salva in Terapia</span>
-                      </p>
-                    </div>
-
-                    <TherapyActionLauncher text={form.therapy_modification} therapies={therapies} onAddTherapy={openTherapyManager} />
-
-                    {/* ── Safety reminders — triggered as drugs are typed in the plan ── */}
-                    {planReminders.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
-                        <p style={{ fontSize: "10px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                          Promemoria di sicurezza
-                        </p>
-                        {planReminders.map(r => (
-                          <div key={r.id} style={{
-                            background: r.priority === "high" ? "#fef2f2" : "#fffbeb",
-                            border: `1px solid ${r.priority === "high" ? "#fecaca" : "#fde68a"}`,
-                            borderRadius: "8px",
-                            padding: "8px 11px",
-                          }}>
-                            <p style={{ fontSize: "11px", fontWeight: 700, color: r.priority === "high" ? "#dc2626" : "#92400e", marginBottom: "3px" }}>
-                              {r.priority === "high" ? "⚠ " : "· "}{r.label}
-                            </p>
-                            <p style={{ fontSize: "11px", color: "#6b7280", whiteSpace: "pre-wrap", lineHeight: "1.5" }}>
-                              {r.detail}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── 10 · Indicazioni ── */}
+              {/* ── 9 · Indicazioni ── */}
               <div className="border-t border-gray-100 pt-5 space-y-2">
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
                   <label title="Includi nel referto" style={{ paddingTop: "3px", flexShrink: 0, cursor: "pointer" }}>
@@ -1400,7 +1241,7 @@ export default function WorkupVisitPage() {
                   </label>
                   <div style={{ flex: 1 }}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">10 · Indicazioni</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">9 · Indicazioni</p>
                       <TemplatePickerDialog category="outcome_notes"
                         currentText={form.referral_note}
                         onSelect={(text) => setForm(f => ({ ...f, referral_note: f.referral_note ? f.referral_note + "\n\n" + text : text }))} />
@@ -1501,50 +1342,15 @@ export default function WorkupVisitPage() {
         }}
       />
 
-      {/* ── Floating "Salva in Terapia" pill (fixed, appears on text selection) ── */}
-      {therapyMenu && (
-        <div
-          data-therapy-menu
-          onClick={() => {
-            setTherapyQTM({ open: true, src: therapyMenu.text, selStart: therapyMenu.selStart, selEnd: therapyMenu.selEnd });
-            setTherapyMenu(null);
-          }}
-          style={{
-            position: "fixed",
-            left: therapyMenu.x,
-            top: therapyMenu.y - 10,
-            transform: "translate(-50%, -100%)",
-            zIndex: 99999,
-          }}
-          className="flex items-center gap-1.5 bg-[#0A2540] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-xl cursor-pointer select-none whitespace-nowrap hover:bg-[#0d2e52] transition-colors"
-        >
-          <Pill className="w-3 h-3 flex-shrink-0" />
-          Salva in Terapia
-          <span className="text-[10px] opacity-60 font-normal ml-0.5 truncate max-w-[140px]">
-            "{therapyMenu.text.slice(0, 30)}{therapyMenu.text.length > 30 ? "…" : ""}"
-          </span>
-        </div>
-      )}
-
       <QuickTherapyModal
-        open={therapyQTM.open}
-        onClose={() => setTherapyQTM({ open: false, src: "", selStart: 0, selEnd: 0 })}
-        sourceText={therapyQTM.src}
+        open={false}
+        onClose={() => {}}
+        sourceText=""
         patientId={id}
         patient={patient}
         visitDate={form.visit_date}
         onSaved={() => reloadTherapies()}
-        onAppendToPlan={(text) => safeInsertTherapyText(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
-        onExpand={(newText) => {
-          const sel = therapyQTM;
-          setForm(f => ({
-            ...f,
-            therapy_modification:
-              f.therapy_modification.substring(0, sel.selStart) +
-              newText +
-              f.therapy_modification.substring(sel.selEnd),
-          }));
-        }}
+        onAppendToPlan={() => {}}
       />
 
       <GestioneTerapiaModal
@@ -1554,7 +1360,7 @@ export default function WorkupVisitPage() {
         visitDate={form.visit_date}
         visitStartTherapies={frozenTherapiesRef.current}
         initialAction={therapyLauncherAction}
-        onAppendToPlan={(text) => safeInsertTherapyText(form.therapy_modification, () => setForm(f => ({ ...f, therapy_modification: text })))}
+        onAppendToPlan={() => {}}
         onTherapySaved={() => reloadTherapies()}
       />
 

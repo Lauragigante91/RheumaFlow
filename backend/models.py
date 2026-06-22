@@ -340,6 +340,7 @@ class SpecialistVisit(SpecialistVisitBase):
 
 
 class InstrumentalExamBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     patient_id: str
     exam_date: str
     exam_type: str

@@ -67,22 +67,10 @@ function detectSidebarBoundary(items, pageWidth) {
     const gapSize  = gapRight - gapLeft;
 
     if (gapLeft >= minBound && gapRight <= maxBound && gapSize > 0) {
-      console.log("[PDF-LAYOUT] ✓ confine spalla/corpo →", {
-        gapLeft:     gapLeft.toFixed(1),
-        gapRight:    gapRight.toFixed(1),
-        gapPt:       gapSize.toFixed(1),
-        sidebarCutX: gapRight.toFixed(1),
-        pageWidth:   pageWidth.toFixed(1),
-        mergedZones: merged.length,
-      });
       return gapRight;
     }
   }
 
-  // Debug: mostra i merged intervals trovati (max 8)
-  console.log("[PDF-LAYOUT] nessuna spalla rilevata — merged intervals:",
-    merged.slice(0, 8).map(([l, r]) => `[${l.toFixed(0)},${r.toFixed(0)}]`).join(" ")
-  );
   return 0;
 }
 
@@ -181,15 +169,7 @@ export async function extractTextFromPdf(file, onProgress) {
   const filteredWc   = wordCount(filteredText);
   const ratio        = rawWc > 0 ? filteredWc / rawWc : 0;
 
-  console.log("[PDF-LAYOUT] fallback check →", {
-    sidebarCutX:      sidebarCutX > 0 ? `${sidebarCutX.toFixed(1)}pt` : "nessuno",
-    rawWords:         rawWc,
-    filteredWords:    filteredWc,
-    ratio:            ratio.toFixed(2),
-  });
-
   if (sidebarCutX > 0 && (filteredWc < MIN_FILTERED_WORDS || ratio < MIN_FILTERED_RATIO)) {
-    console.warn(`[PDF-LAYOUT] fallback → testo grezzo (${rawWc} parole)`);
     return rawText;
   }
 

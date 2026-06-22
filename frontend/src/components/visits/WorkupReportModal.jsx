@@ -18,7 +18,6 @@ const SECTIONS = [
   { key: "clinimetria_notes",             label: "Clinimetria"                               },
   { key: "conclusions",                   label: "Conclusioni"                               },
   { key: "piano",                         label: "Esami richiesti (questa visita)"           },
-  { key: "therapy_modification",          label: "Terapia indicata"                          },
   { key: "referral_note",                 label: "Indicazioni"                               },
 ];
 
@@ -76,7 +75,6 @@ export default function WorkupReportModal({
       });
       return serialized?.trim() || form.physical_exam?.trim() || null;
     }
-    if (key === "therapy_modification") return form.therapy_modification?.trim() || null;
     if (key === "referral_note")        return form.referral_note?.trim() || null;
     return form[key]?.trim() || null;
   };

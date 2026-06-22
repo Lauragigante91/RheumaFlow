@@ -72,8 +72,6 @@ function _buildCanonicalAliasMap() {
 //   "start"  → aggiunge riga in cima (solo se non già presente)
 //   "stop"   → rimuove la riga corrispondente
 function patchTerapiaDomiciliare(text, changes) {
-  console.log('[patchTerapiaDom] testo originale:', text);
-  console.log('[patchTerapiaDom] farmaci ricevuti:', changes);
   if (!text || !changes.length) return text;
   const byCanonical = _buildCanonicalAliasMap();
   let lines = text.split("\n");
@@ -109,10 +107,7 @@ function patchTerapiaDomiciliare(text, changes) {
     }
   }
 
-  const newText = lines.filter((l) => l.trim()).join("\n");
-  console.log('[patchTerapiaDom] testo risultante:', newText);
-  console.log('[patchTerapiaDom] patch chiamato:', text !== newText);
-  return newText;
+  return lines.filter((l) => l.trim()).join("\n");
 }
 
 export function apiErrMsg(e, label) {
@@ -131,6 +126,31 @@ export function apiErrMsg(e, label) {
 
 function isEmptyVal(v) {
   return v === null || v === undefined || v === "";
+}
+
+// ── Dedup firma eventi clinici — replica di _clinical_event_sig (backend) ──────
+// Stessa logica di backend/routers/clinical_events.py per escludere eventi
+// già presenti nel DB prima di chiamare batchCreate.
+function _normEventText(s) {
+  if (!s) return "";
+  let norm = String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  norm = norm.replace(/[^a-z0-9]+/g, " ").trim();
+  if (!norm) return "";
+  return [...new Set(norm.split(" "))].sort().join(" ");
+}
+
+function _eventDateKey(e) {
+  const raw = String(e.date_value || e.date_estimated || "");
+  if (e.date_precision === "year" || raw.length === 4) return raw.slice(0, 4);
+  return raw.slice(0, 10);
+}
+
+const _NO_TEXT_SIG_TYPES = new Set(["diagnosis", "disease_status"]);
+
+function _clinicalEventSig(e) {
+  const drug = e.drug_canonical || e.to_drug || e.from_drug || "";
+  const text = _NO_TEXT_SIG_TYPES.has(e.event_type) ? "" : _normEventText(e.manifestation || e.detail);
+  return `${e.event_type || ""}::${_eventDateKey(e)}::${_normEventText(drug)}::${text}`;
 }
 
 function normDrugName(name) {
@@ -231,9 +251,6 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   if (wantVisitSections) {
     try {
       const payload = buildWorkupVisitPayload(extracted, patient.id, visitType, wantExamImaging);
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[Import][buildWorkupVisitPayload] payload pre-scrittura:", JSON.stringify(payload, null, 2));
-      }
       const visitDateKey = (extracted.visit_date || "").slice(0, 10);
       const wantType = visitType || "follow_up";
       let existing = null;
@@ -333,7 +350,6 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   // (start) e le sospensioni (stop) estratti dalla sezione "Terapia in uscita".
   // I farmaci non reumatologici già presenti nel testo rimangono invariati.
   const _baseText = patient.terapia_domiciliare || extracted.profilo_generale?.terapia_domiciliare || null;
-  console.log('[patchTerapiaDom] chiamata?', { exitText: !!_exitTherapyTextForLedger, baseText: _baseText });
   if (_exitTherapyTextForLedger && _baseText) {
     const allExitChanges = parseExitTherapyAllChanges(_exitTherapyTextForLedger, _exitTherapyVisitDate);
     if (allExitChanges.length > 0) {
@@ -492,9 +508,6 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
   const raccordoStartDrugs = new Set();
   if (selected.raccordo_events) {
     const confirmed = (extracted.raccordo_events || []).filter(e => !e._skip);
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[import][save] eventi raccordo da salvare:", confirmed.length);
-    }
     for (const ev of confirmed) {
       if (ev.event_type === "therapy_start") {
         const k = normDrugName(ev.drug_canonical || ev.drug_name);
@@ -524,12 +537,20 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
 
   if (stampedEvents.length > 0) {
     try {
-      await clinicalEventsApi.batchCreate(patient.id, {
-        patient_id: patient.id,
-        events: stampedEvents,
-        visit_id: null,
-      });
-      updates += 1;
+      let eventsToSend = stampedEvents;
+      try {
+        const existingEvents = await clinicalEventsApi.list(patient.id);
+        const seenSigs = new Set((existingEvents || []).map(_clinicalEventSig));
+        eventsToSend = stampedEvents.filter(ev => !seenSigs.has(_clinicalEventSig(ev)));
+      } catch (_) {}
+      if (eventsToSend.length > 0) {
+        await clinicalEventsApi.batchCreate(patient.id, {
+          patient_id: patient.id,
+          events: eventsToSend,
+          visit_id: null,
+        });
+        updates += 1;
+      }
     } catch (e) { errors.push(apiErrMsg(e, "Cronologia clinica")); }
   }
 

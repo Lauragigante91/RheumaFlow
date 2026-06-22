@@ -414,7 +414,10 @@ async def upsert_instrumental_exam(payload: InstrumentalExamBase, user: dict = D
         filter_["territory"] = payload.territory
     existing = await db.instrumental_exams.find_one(filter_, {"_id": 0})
     if existing:
-        return existing
+        try:
+            return InstrumentalExam.model_validate(existing)
+        except Exception:
+            pass
     exam = InstrumentalExam(
         **payload.model_dump(),
         organization_id=user["organization_id"],
