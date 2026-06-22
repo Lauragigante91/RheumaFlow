@@ -118,6 +118,12 @@ export default function EnthesisBodyChart({ sites = {}, onChange, labels = {}, r
           <text x="100" y="288" textAnchor="middle">Condilo femorale mediale</text>
           <text x="100" y="402" textAnchor="middle">Achille (calcagno)</text>
         </g>
+
+        {/* Etichette laterali DX/SX (convenzione radiologica: DX paziente = sinistra schermo) */}
+        <g fontSize="11" fontWeight="bold" fill="#6B7280" fontFamily="system-ui">
+          <text x="8" y="224" textAnchor="middle">DX</text>
+          <text x="192" y="224" textAnchor="middle">SX</text>
+        </g>
       </svg>
 
       {/* Legenda */}
