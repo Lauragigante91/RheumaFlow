@@ -246,8 +246,8 @@ export default function Homunculus({ mode = "28", joints = {}, onChange, readOnl
 
         {/* Etichette laterali DX/SX (convenzione radiologica: DX paziente = sinistra schermo) */}
         <g fontSize="11" fontWeight="bold" fill="#6B7280" fontFamily="system-ui">
-          <text x="8" y="225" textAnchor="middle">DX</text>
-          <text x="192" y="225" textAnchor="middle">SX</text>
+          <text x="8" y="262" textAnchor="middle">DX</text>
+          <text x="192" y="262" textAnchor="middle">SX</text>
         </g>
       </svg>
 
