@@ -52,6 +52,7 @@ export default function FollowUpReportModal({
   note, symptoms, symptomDefs,
   das28crp, das28esr, cdai, sdai,
   asdas, dapsa,
+  spaHasAxial, spaProfileKnown,
   tjc, sjc, gh, ega, pcr, ves,
   spaBack, spaStiff, spaPeriph, spaPga, spaPcr, spaTjc, spaSjc,
   spaDactylitis, spaEnthesitis,
@@ -79,11 +80,12 @@ export default function FollowUpReportModal({
     if (ves !== "" && ves != null) raInputs.push(`VES: ${ves} mm/h`);
     if (raInputs.length) lines.push("Input AR: " + raInputs.join(" · "));
 
-    if (asdas != null) lines.push(`ASDAS-CRP: ${asdas}  →  ${interpretASDAS(asdas)}`);
+    const showAxial = !spaProfileKnown || spaHasAxial;
+    if (asdas != null && showAxial) lines.push(`ASDAS-CRP: ${asdas}  →  ${interpretASDAS(asdas)}`);
     if (dapsa != null) lines.push(`DAPSA: ${dapsa}  →  ${interpretDAPSA(dapsa)}`);
     const spaInputs = [];
-    if (spaBack      !== "" && spaBack      != null) spaInputs.push(`Lombalgia: ${spaBack}`);
-    if (spaStiff     !== "" && spaStiff     != null) spaInputs.push(`Rigidità: ${spaStiff}`);
+    if (showAxial && spaBack  !== "" && spaBack  != null) spaInputs.push(`Lombalgia: ${spaBack}`);
+    if (showAxial && spaStiff !== "" && spaStiff != null) spaInputs.push(`Rigidità: ${spaStiff}`);
     if (spaPeriph    !== "" && spaPeriph    != null) spaInputs.push(`Dolore periferico: ${spaPeriph}`);
     if (spaPga       !== "" && spaPga       != null) spaInputs.push(`PGA: ${spaPga}`);
     if (spaPcr       !== "" && spaPcr       != null) spaInputs.push(`PCR: ${spaPcr} mg/L`);

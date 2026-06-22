@@ -1433,6 +1433,8 @@ export default function TodayVisitSection({
       sdai={sdai}
       asdas={asdas}
       dapsa={dapsa}
+      spaHasAxial={spaHasAxial}
+      spaProfileKnown={spaProfileKnown}
       tjc={tjc} sjc={sjc} gh={gh} ega={ega} pcr={pcr} ves={ves}
       spaBack={spaBack} spaStiff={spaStiff} spaPeriph={spaPeriph}
       spaPga={spaPga} spaPcr={spaPcr} spaTjc={spaTjc} spaSjc={spaSjc}
