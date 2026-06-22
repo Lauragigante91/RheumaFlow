@@ -1,3 +1,4 @@
+- [DAPSA sync PatientDetail → TodayVisitSection](dapsa-sync-bug.md) — "dapsa" mancante da SPA_TYPES; patientPain≠peripheralPain; crp in mg/dL va ×10 per spaPcr.
 - [IN_TERAPIA false section on "in terapia con"](in-terapia-con-false-section.md) — regex /i cattura raccordo body text come sezione; fix: negative lookahead (?!\s+con\b).
 - [PAST_AFTER_RE "sospeso nel ANNO per" non matchato](past-after-re-year-per.md) — gruppo opzionale greedy consuma "per" come \w+; fix: (?:\d+(?:\s+\w+)?\s+)?per\b.
 - [Exit therapy text → ledger update](exit-therapy-ledger-update.md) — parseExitTherapyChanges filters _visit_event=change+dose/freq present; backend standard pathway handles dose_increased/dose_reduced automatically.
