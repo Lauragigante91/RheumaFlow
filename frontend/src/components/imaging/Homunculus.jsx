@@ -251,6 +251,8 @@ export default function Homunculus({ mode = "28", joints = {}, onChange, readOnl
         </g>
       </svg>
 
+      <div className="text-xs text-gray-400 tracking-wide">Paziente di fronte</div>
+
       {/* Legenda */}
       <div className="flex flex-wrap gap-3 text-xs justify-center">
         <LegendDot color={COLORS.none} label="Nessuno" />
