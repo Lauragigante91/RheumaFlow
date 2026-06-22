@@ -212,19 +212,18 @@ export default function LabImportFromImageDialog({ open, onOpenChange, patient, 
     setStep("ocr");
     setOcrProgress(0);
     try {
-      // Dynamic import so Tesseract doesn't bloat the main bundle
-      const Tesseract = (await import("tesseract.js")).default;
-      const { data } = await Tesseract.recognize(
-        imageFile,
-        "ita+eng",
-        {
-          logger: (m) => {
-            if (m.status === "recognizing text") {
-              setOcrProgress(Math.round((m.progress || 0) * 100));
-            }
-          },
-        }
-      );
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("ita+eng", 1, {
+        workerPath: `${window.location.origin}/tesseract/worker.min.js`,
+        workerBlobURL: false,
+        logger: (m) => {
+          if (m.status === "recognizing text") {
+            setOcrProgress(Math.round((m.progress || 0) * 100));
+          }
+        },
+      });
+      const { data } = await worker.recognize(imageFile);
+      await worker.terminate();
       const text = data.text || "";
       const conf  = Math.round(data.confidence ?? 0);
       setOcrText(text);

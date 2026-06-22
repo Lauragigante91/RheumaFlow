@@ -97,14 +97,18 @@ export default function OcrScanButton({ onText, label = "Da immagine", disabled 
     setOcrState("running");
     setProgress(0);
     try {
-      const Tesseract = (await import("tesseract.js")).default;
-      const { data } = await Tesseract.recognize(imgSrc, "ita+eng", {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("ita+eng", 1, {
+        workerPath: `${window.location.origin}/tesseract/worker.min.js`,
+        workerBlobURL: false,
         logger: (m) => {
           if (m.status === "recognizing text") {
             setProgress(Math.round((m.progress || 0) * 100));
           }
         },
       });
+      const { data } = await worker.recognize(imgSrc);
+      await worker.terminate();
       setResultText(data.text || "");
       setOcrState("done");
     } catch (err) {
