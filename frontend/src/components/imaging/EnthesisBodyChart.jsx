@@ -49,70 +49,75 @@ export default function EnthesisBodyChart({ sites = {}, onChange, labels = {}, r
         xmlns="http://www.w3.org/2000/svg"
         data-testid="enthesis-body-chart"
       >
-        {/* Body silhouette (riusa la stessa proporzione dell'homunculus articolare) */}
-        <g fill="#F9FAFB" stroke="#9CA3AF" strokeWidth="1.2">
-          <circle cx="100" cy="30" r="18" />
-          <rect x="93" y="47" width="14" height="12" />
-          <path d="M 72 60 Q 65 70 68 100 L 70 160 Q 70 200 75 220 L 125 220 Q 130 200 130 160 L 132 100 Q 135 70 128 60 Z" />
-          <path d="M 72 65 Q 55 100 50 150 Q 45 180 48 200 L 58 200 Q 62 180 65 150 Q 72 100 78 75 Z" />
-          <path d="M 128 65 Q 145 100 150 150 Q 155 180 152 200 L 142 200 Q 138 180 135 150 Q 128 100 122 75 Z" />
-          <ellipse cx="48" cy="220" rx="14" ry="22" />
-          <ellipse cx="152" cy="220" rx="14" ry="22" />
-          <path d="M 75 222 Q 70 280 78 340 Q 80 380 82 410 L 96 410 Q 97 380 97 340 Q 97 280 95 222 Z" />
-          <path d="M 125 222 Q 130 280 122 340 Q 120 380 118 410 L 104 410 Q 103 380 103 340 Q 103 280 105 222 Z" />
-          <ellipse cx="82" cy="418" rx="12" ry="6" />
-          <ellipse cx="118" cy="418" rx="12" ry="6" />
-        </g>
+        {/* Gruppo specchiato: silhouette + punti cliccabili.
+            Stessa convenzione di Homunculus.jsx: lato destro del paziente (_r) appare
+            a sinistra dello schermo (convenzione radiologica standard). */}
+        <g transform="scale(-1,1) translate(-200,0)">
+          {/* Body silhouette */}
+          <g fill="#F9FAFB" stroke="#9CA3AF" strokeWidth="1.2">
+            <circle cx="100" cy="30" r="18" />
+            <rect x="93" y="47" width="14" height="12" />
+            <path d="M 72 60 Q 65 70 68 100 L 70 160 Q 70 200 75 220 L 125 220 Q 130 200 130 160 L 132 100 Q 135 70 128 60 Z" />
+            <path d="M 72 65 Q 55 100 50 150 Q 45 180 48 200 L 58 200 Q 62 180 65 150 Q 72 100 78 75 Z" />
+            <path d="M 128 65 Q 145 100 150 150 Q 155 180 152 200 L 142 200 Q 138 180 135 150 Q 128 100 122 75 Z" />
+            <ellipse cx="48" cy="220" rx="14" ry="22" />
+            <ellipse cx="152" cy="220" rx="14" ry="22" />
+            <path d="M 75 222 Q 70 280 78 340 Q 80 380 82 410 L 96 410 Q 97 380 97 340 Q 97 280 95 222 Z" />
+            <path d="M 125 222 Q 130 280 122 340 Q 120 380 118 410 L 104 410 Q 103 380 103 340 Q 103 280 105 222 Z" />
+            <ellipse cx="82" cy="418" rx="12" ry="6" />
+            <ellipse cx="118" cy="418" rx="12" ry="6" />
+          </g>
 
-        {/* Etichette laterali dei 3 gruppi LEI */}
-        <g fontSize="9" fill="#6B7280" fontFamily="system-ui">
-          <text x="100" y="118" textAnchor="middle" fontSize="9" fill="#374151">Epicondilo laterale</text>
-          <text x="100" y="288" textAnchor="middle" fontSize="9" fill="#374151">Condilo femorale mediale</text>
-          <text x="100" y="402" textAnchor="middle" fontSize="9" fill="#374151">Achille (calcagno)</text>
-        </g>
-
-        {/* Punti LEI cliccabili */}
-        {Object.entries(positions).map(([key, p]) => {
-          const active = !!sites[key];
-          const c = active ? COLORS.active : COLORS.off;
-          const label = labels[key] || key;
-          return (
-            <g key={key} className="enthesis-clickable">
-              <title>{label}{active ? " — Doloroso" : ""}</title>
-              {/* hit area larger than the visible dot */}
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={p.r + 4}
-                fill="transparent"
-                onClick={() => handleClick(key)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-                data-testid={`enthesis-hit-${key}`}
-              />
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={p.r}
-                fill={c.fill}
-                stroke={c.stroke}
-                strokeWidth={active ? 2.2 : 1.5}
-                data-testid={`enthesis-dot-${key}`}
-                pointerEvents="none"
-              />
-              {active && (
-                <text
-                  x={p.x}
-                  y={p.y + 3}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fontWeight="bold"
-                  fill="white"
+          {/* Punti LEI cliccabili */}
+          {Object.entries(positions).map(([key, p]) => {
+            const active = !!sites[key];
+            const c = active ? COLORS.active : COLORS.off;
+            const label = labels[key] || key;
+            return (
+              <g key={key} className="enthesis-clickable">
+                <title>{label}{active ? " — Doloroso" : ""}</title>
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={p.r + 4}
+                  fill="transparent"
+                  onClick={() => handleClick(key)}
+                  style={{ cursor: readOnly ? "default" : "pointer" }}
+                  data-testid={`enthesis-hit-${key}`}
+                />
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={p.r}
+                  fill={c.fill}
+                  stroke={c.stroke}
+                  strokeWidth={active ? 2.2 : 1.5}
+                  data-testid={`enthesis-dot-${key}`}
                   pointerEvents="none"
-                >!</text>
-              )}
-            </g>
-          );
-        })}
+                />
+                {active && (
+                  <text
+                    x={p.x}
+                    y={p.y + 3}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fontWeight="bold"
+                    fill="white"
+                    pointerEvents="none"
+                    transform={`scale(-1,1) translate(${-2 * p.x},0)`}
+                  >!</text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+
+        {/* Etichette centrate — fuori dal gruppo specchiato per restare leggibili */}
+        <g fontSize="9" fill="#374151" fontFamily="system-ui">
+          <text x="100" y="118" textAnchor="middle">Epicondilo laterale</text>
+          <text x="100" y="288" textAnchor="middle">Condilo femorale mediale</text>
+          <text x="100" y="402" textAnchor="middle">Achille (calcagno)</text>
+        </g>
       </svg>
 
       {/* Legenda */}
