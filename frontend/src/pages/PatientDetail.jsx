@@ -257,7 +257,7 @@ export default function PatientDetail() {
   // shared visit session so TodayVisitSection can auto-populate its fields.
   useEffect(() => {
     const RA_TYPES = ["das28_crp", "das28_esr", "cdai", "sdai"];
-    const SPA_TYPES = ["asdas_crp", "asdas_esr", "basdai", "dapsa"];
+    const SPA_TYPES = ["asdas_crp", "asdas_esr", "basdai"];
     const todayRa = [...assessments]
       .filter((a) => (a.date || "").slice(0, 10) === todayDate && RA_TYPES.includes(a.index_type) && a.inputs)
       .sort((a, b) => (b.id || "").localeCompare(a.id || ""))[0];
@@ -267,17 +267,16 @@ export default function PatientDetail() {
     if (!todayRa && !todaySpa) return;
     const inp = todayRa?.inputs || {};
     const spaInp = todaySpa?.inputs || {};
-    const isDapsa = todaySpa?.index_type === "dapsa";
     const next = {
       tjc:              inp.tjc  ?? inp.tjc28  ?? (todayRa?.tender_joints?.length ?? null),
       sjc:              inp.sjc  ?? inp.sjc28  ?? (todayRa?.swollen_joints?.length ?? null),
       gh:               inp.gh   ?? null,
       ega:              inp.ega  ?? null,
-      pcr:              inp.crp  ?? inp.pcr    ?? (isDapsa && spaInp.crp != null ? Number(spaInp.crp) * 10 : null),
+      pcr:              inp.crp  ?? inp.pcr    ?? null,
       ves:              inp.esr  ?? inp.ves    ?? null,
       backPain:         spaInp.backPain         ?? null,
       morningStiffness: spaInp.morningStiffness ?? null,
-      peripheralPain:   isDapsa ? (spaInp.patientPain ?? null) : (spaInp.peripheralPain ?? null),
+      peripheralPain:   spaInp.peripheralPain   ?? null,
       pga:              spaInp.pga              ?? null,
     };
     setVisitSyncData((prev) => ({ ...next, syncKey: prev.syncKey + 1 }));

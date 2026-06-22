@@ -608,6 +608,10 @@ export default function TodayVisitSection({
   const spaTjcN = safe(spaTjc);
   const spaSjcN = safe(spaSjc);
   const dapsa = useMemo(() => {
+    const savedDapsa = [...(assessments || [])]
+      .filter(a => a.index_type === "dapsa" && (a.date || "").slice(0, 10) === date && a.score != null)
+      .sort((a, b) => (b.id || "").localeCompare(a.id || ""))[0];
+    if (savedDapsa) return savedDapsa.score;
     if (!hasVal(spaTjc) && !hasVal(spaSjc)) return null;
     return calcDAPSA({
       tjc68: spaTjcN, sjc66: spaSjcN,
@@ -615,7 +619,7 @@ export default function TodayVisitSection({
       crp: safe(spaPcr) / 10,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaTjcN, spaSjcN, spaPga, spaPeriph, spaPcr]);
+  }, [spaTjcN, spaSjcN, spaPga, spaPeriph, spaPcr, assessments, date]);
 
   const toggleSymptom = (key) => {
     setSymptoms(prev => {
