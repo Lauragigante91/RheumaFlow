@@ -627,6 +627,18 @@ export default function TodayVisitSection({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaTjcN, spaSjcN, spaPga, spaPeriph, spaPcr, assessments, date]);
 
+  const savedPsaCdai = useMemo(() => {
+    const found = [...(assessments || [])].filter(a => a.index_type === "cdai" && (a.date || "").slice(0, 10) === date && a.score != null);
+    if (!found.length) return null;
+    return found.sort((a, b) => (b.id || "").localeCompare(a.id || ""))[0].score;
+  }, [assessments, date]);
+
+  const savedPsaSdai = useMemo(() => {
+    const found = [...(assessments || [])].filter(a => a.index_type === "sdai" && (a.date || "").slice(0, 10) === date && a.score != null);
+    if (!found.length) return null;
+    return found.sort((a, b) => (b.id || "").localeCompare(a.id || ""))[0].score;
+  }, [assessments, date]);
+
   const toggleSymptom = (key) => {
     setSymptoms(prev => {
       const next = new Set(prev);
@@ -1429,8 +1441,8 @@ export default function TodayVisitSection({
       symptomDefs={symptomDefs}
       das28crp={das28crp}
       das28esr={das28esr}
-      cdai={cdai}
-      sdai={sdai}
+      cdai={cdai ?? savedPsaCdai}
+      sdai={sdai ?? savedPsaSdai}
       asdas={asdas}
       dapsa={dapsa}
       spaHasAxial={spaHasAxial}

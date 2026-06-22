@@ -190,13 +190,15 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
   // ===== PsA computations =====
   const psaResults = useMemo(() => {
     if (mode !== "psa") return null;
-    const validation = validatePsAScores({ crp });
+    const validation = validatePsAScores({ crp, pga, ega, tjc28, sjc28 });
     return {
       dapsa: { score: calcDAPSA({ tjc68: tjcAll, sjc66: sjcAll, pga, patientPain, crp }), interp: interpretDAPSA, missing: validation.dapsa.missing },
+      cdai:  { score: calcCDAI({ tjc28: tjc28 ?? 0, sjc28: sjc28 ?? 0, pga: pga ?? 0, ega: ega ?? 0 }), interp: interpretCDAI, missing: validation.cdai.missing },
+      sdai:  { score: calcSDAI({ tjc28: tjc28 ?? 0, sjc28: sjc28 ?? 0, pga: pga ?? 0, ega: ega ?? 0, crp }), interp: interpretSDAI, missing: validation.sdai.missing },
       lei:   { score: calcLEI(leiSites),  interp: interpretLEI,  missing: validation.lei.missing },
       pasi:  { score: calcPASI(pasiData), interp: interpretPASI, missing: validation.pasi.missing },
     };
-  }, [mode, tjcAll, sjcAll, pga, patientPain, crp, leiSites, pasiData]);
+  }, [mode, tjcAll, sjcAll, tjc28, sjc28, pga, ega, patientPain, crp, leiSites, pasiData]);
 
   // ===== Save =====
   const handleSave = async () => {
@@ -271,6 +273,22 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
             _missing: psaResults.dapsa.missing,
           },
           {
+            index_type: "cdai", score: psaResults.cdai.score,
+            interpretation: psaResults.cdai.interp(psaResults.cdai.score),
+            tender_joints: tenderKeys,
+            swollen_joints: swollenKeys,
+            inputs: { tjc28, sjc28, pga, ega, crp },
+            _missing: psaResults.cdai.missing,
+          },
+          {
+            index_type: "sdai", score: psaResults.sdai.score,
+            interpretation: psaResults.sdai.interp(psaResults.sdai.score),
+            tender_joints: tenderKeys,
+            swollen_joints: swollenKeys,
+            inputs: { tjc28, sjc28, pga, ega, crp },
+            _missing: psaResults.sdai.missing,
+          },
+          {
             index_type: "lei", score: psaResults.lei.score,
             interpretation: psaResults.lei.interp(psaResults.lei.score),
             inputs: { sites: leiSites },
@@ -289,7 +307,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
         await Promise.all(items.map((p) => assessmentsApi.create(p)));
         savedIndexTypes = items.map(i => i.index_type);
         const savedNames = items.map(i => i.index_type.toUpperCase()).join(", ");
-        const msg = skipped.length ? `Salvate: ${savedNames}. Saltate (dati mancanti): ${skipped.join(", ")}` : "3 valutazioni PsA salvate (DAPSA, LEI, PASI)";
+        const msg = skipped.length ? `Salvate: ${savedNames}. Saltate (dati mancanti): ${skipped.join(", ")}` : `${items.length} valutazioni PsA salvate`;
         toast.success(msg);
         onJointsSaved?.(joints, leiSites);
       }
@@ -309,7 +327,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
     ? "AR — Form unificato: DAS28-VES, DAS28-PCR, CDAI, SDAI"
     : mode === "spa"
     ? "SpA — Form unificato: BASDAI, ASDAS-PCR, BASFI"
-    : "AP — Form unificato: DAPSA, LEI, PASI";
+    : "AP — Form unificato: DAPSA, CDAI, SDAI, LEI, PASI";
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -324,7 +342,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
               ? "i punteggi DAS28-VES, DAS28-PCR, CDAI e SDAI verranno calcolati e salvati insieme."
               : mode === "spa"
               ? "i punteggi BASDAI, ASDAS-PCR e BASFI condividono le voci VAS e verranno salvati insieme."
-              : "DAPSA (articolazioni 66/68 + PGA + dolore + PCR), LEI (entesiti) e PASI (psoriasi) verranno salvati insieme."}
+              : "DAPSA (66/68), CDAI/SDAI (TJC28/SJC28 + PGA + PhGA ± PCR), LEI (entesiti) e PASI verranno salvati insieme."}
           </p>
         </DialogHeader>
 
@@ -499,6 +517,16 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                       <div className="font-mono font-bold text-[#FF3333]" data-testid="psa-sjc66">{sjcAll}</div>
                     </div>
                   </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div className="border rounded-md p-2 text-center bg-gray-50">
+                      <div className="text-gray-500 text-[10px]">TJC28</div>
+                      <div className="font-mono font-bold text-[#0055FF]" data-testid="psa-tjc28">{tjc28 ?? "—"}</div>
+                    </div>
+                    <div className="border rounded-md p-2 text-center bg-gray-50">
+                      <div className="text-gray-500 text-[10px]">SJC28</div>
+                      <div className="font-mono font-bold text-[#FF3333]" data-testid="psa-sjc28">{sjc28 ?? "—"}</div>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-4">
                   <div>
@@ -507,6 +535,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
                   </div>
                   <VasSlider label="PGA — Valutazione globale paziente (0-10)" value={pga} onChange={setPga} testid="psa-pga" />
                   <VasSlider label="Dolore paziente (0-10)" value={patientPain} onChange={setPatientPain} hint="Dolore articolare percepito su scala VAS" testid="psa-pain" />
+                  <VasSlider label="PhGA — Physician Global Assessment (0-10)" value={ega} onChange={setEga} hint="Attività di malattia valutata dal medico · 0 = nessuna · 10 = massima · Usato per CDAI e SDAI" testid="psa-ega" />
 
                   {/* LEI body chart */}
                   <div>
@@ -604,8 +633,10 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
           {mode === "psa" && (
             <Card className="p-3 bg-gray-50/60">
               <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2">Risultati in tempo reale</div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                 <ResultTile title="DAPSA" score={psaResults.dapsa.score} interp={psaResults.dapsa.interp(psaResults.dapsa.score)} missingFields={psaResults.dapsa.missing} testid="psa-result-dapsa" />
+                <ResultTile hideIfIncomplete title="CDAI" score={psaResults.cdai.score} interp={psaResults.cdai.interp(psaResults.cdai.score)} missingFields={psaResults.cdai.missing} testid="psa-result-cdai" />
+                <ResultTile hideIfIncomplete title="SDAI" score={psaResults.sdai.score} interp={psaResults.sdai.interp(psaResults.sdai.score)} missingFields={psaResults.sdai.missing} testid="psa-result-sdai" />
                 <ResultTile title="LEI" score={psaResults.lei.score} interp={psaResults.lei.interp(psaResults.lei.score)} subtitle="/ 6" missingFields={psaResults.lei.missing} testid="psa-result-lei" />
                 <ResultTile title="PASI" score={psaResults.pasi.score} interp={psaResults.pasi.interp(psaResults.pasi.score)} missingFields={psaResults.pasi.missing} testid="psa-result-pasi" />
               </div>
@@ -621,7 +652,7 @@ export default function CompositeAssessmentDialog({ open, onClose, mode, patient
           <div className="flex justify-end gap-2 pt-2 border-t">
             <Button variant="ghost" onClick={onClose} data-testid="composite-cancel">Annulla</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-[#0A2540] text-white hover:bg-[#051626]" data-testid="composite-save">
-              <Save className="w-4 h-4 mr-2" /> {saving ? "Salvataggio..." : `Salva ${mode === "ra" ? "4" : "3"} valutazioni`}
+              <Save className="w-4 h-4 mr-2" /> {saving ? "Salvataggio..." : mode === "ra" ? "Salva 4 valutazioni" : mode === "psa" ? "Salva valutazioni" : "Salva 3 valutazioni"}
             </Button>
           </div>
         </div>

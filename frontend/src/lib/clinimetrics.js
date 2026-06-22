@@ -43,12 +43,21 @@ export function validateSpAScores({ crp }) {
 }
 
 /** Valida i campi obbligatori per PsA */
-export function validatePsAScores({ crp }) {
+export function validatePsAScores({ crp, pga, ega, tjc28, sjc28 }) {
   const crpOk = isProvided(crp);
+  const pgaOk = pga !== null && pga !== undefined;
+  const egaOk = ega !== null && ega !== undefined;
+  const tjcOk = tjc28 !== null && tjc28 !== undefined;
+  const sjcOk = sjc28 !== null && sjc28 !== undefined;
+  const jMiss  = (!tjcOk || !sjcOk) ? ["conta articolare"] : [];
+  const pgaMiss = pgaOk ? [] : ["PtGA"];
+  const egaMiss = egaOk ? [] : ["PhGA"];
   return {
     dapsa: { valid: crpOk, missing: crpOk ? [] : ["PCR"] },
-    lei:   { valid: true,  missing: [] },
-    pasi:  { valid: true,  missing: [] },
+    cdai:  { valid: tjcOk && sjcOk && pgaOk && egaOk, missing: [...jMiss, ...pgaMiss, ...egaMiss] },
+    sdai:  { valid: crpOk && tjcOk && sjcOk && pgaOk && egaOk, missing: [...(crpOk ? [] : ["PCR"]), ...jMiss, ...pgaMiss, ...egaMiss] },
+    lei:   { valid: true, missing: [] },
+    pasi:  { valid: true, missing: [] },
   };
 }
 

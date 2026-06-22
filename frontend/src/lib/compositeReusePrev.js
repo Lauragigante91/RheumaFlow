@@ -60,6 +60,8 @@ export function applyPrevToPsa(prevVisit, setters) {
   setters.setPga(Number(dapsaIns.pga) || 0);
   setters.setPatientPain(Number(dapsaIns.patientPain) || 0);
   setters.setCrp(dapsaIns.crp ?? "");
+  const cdaiIns = byType.cdai?.inputs || {};
+  setters.setEga(cdaiIns.ega != null ? Number(cdaiIns.ega) : null);
   const lei = byType.lei?.inputs || {};
   setters.setLeiSites(lei.sites || {});
   const pasiIns = byType.pasi?.inputs || {};
