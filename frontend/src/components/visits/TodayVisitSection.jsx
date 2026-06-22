@@ -1016,6 +1016,20 @@ export default function TodayVisitSection({
           </InheritedFieldWrapper>
         </SectionBlock>
 
+        {/* ── E · Esami pregressi rilevanti (solo referto) ── */}
+        <SectionBlock
+          number="E"
+          title="Esami pregressi rilevanti"
+          subtitle="Seleziona dall'archivio strumentale nel referto — sezione senza contenuto da compilare qui."
+          sectionKey="esami_pregressi"
+          reportChecked={reportSections.has("esami_pregressi")}
+          onToggleReport={toggleReportSection}
+        >
+          <p className="text-[11px] text-gray-400 ml-0.5 italic">
+            Quando spuntata, apri il referto e usa &ldquo;Seleziona esami&rdquo; per scegliere gli esami dall&apos;archivio.
+          </p>
+        </SectionBlock>
+
         {/* ── 1 · Anamnesi intervallare ── */}
         <SectionBlock
           number="1"

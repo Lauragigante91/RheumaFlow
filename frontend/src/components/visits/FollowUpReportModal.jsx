@@ -1,8 +1,11 @@
-import React, { useRef } from "react";
-import { X, Printer, Copy } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+import { X, Printer, Copy, ListChecks } from "lucide-react";
 import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
 import { serializePhysicalExam } from "../clinical/PhysicalExamSection";
 import { toast } from "sonner";
+import { instrumentalExamsApi } from "../../lib/api";
+import { EXAM_TYPE_LABELS } from "../../lib/instrumentalFormatters";
 import {
   interpretDAS28, interpretCDAI, interpretSDAI,
   interpretASDAS, interpretDAPSA,
@@ -32,6 +35,11 @@ function fmtDate(iso) {
   return `${d}/${m}/${y}`;
 }
 
+function fmtExamDate(exam) {
+  const raw = exam.exam_date || exam.date;
+  return raw ? fmtDate(raw.slice(0, 10)) : "—";
+}
+
 const PMR_ACTIVITY_LABELS = {
   clinical_remission:     "Remissione clinica",
   suspected_pmr_activity: "Sospetta attività PMR",
@@ -40,6 +48,98 @@ const PMR_ACTIVITY_LABELS = {
   damage_no_activity:     "Danno/sequele — malattia non attiva",
   alternative_cause:      "Causa alternativa / infezione più probabile",
 };
+
+function buildEsamiText(esami, selectedIds) {
+  const ordered = esami.filter(e => selectedIds.has(e.id));
+  return ordered.map(e => {
+    const tipo = EXAM_TYPE_LABELS[e.exam_type] || e.exam_type || "Esame strumentale";
+    const territorio = e.territory ? ` ${e.territory}` : "";
+    const data = fmtExamDate(e);
+    const testo = (e.result || e.summary || "").slice(0, 500).trim();
+    return `- ${tipo}${territorio} (${data}): ${testo}`;
+  }).join("\n");
+}
+
+function EsamiPickerModal({ esami, selectedIds, onConfirm, onClose }) {
+  const [localSelected, setLocalSelected] = useState(new Set(selectedIds));
+
+  const toggle = (id) => {
+    setLocalSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+          <h3 className="font-semibold text-[#0A2540] text-sm">Seleziona esami pregressi</h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-96 divide-y divide-gray-50">
+          {esami.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Nessun esame strumentale archiviato</p>
+          ) : (
+            esami.map(e => {
+              const tipo = EXAM_TYPE_LABELS[e.exam_type] || e.exam_type || "Esame strumentale";
+              const territorio = e.territory ? ` — ${e.territory}` : "";
+              const anteprima = (e.result || e.summary || "").slice(0, 80).trim();
+              const checked = localSelected.has(e.id);
+              return (
+                <label
+                  key={e.id}
+                  className="flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(e.id)}
+                    className="mt-0.5 flex-shrink-0"
+                    style={{ accentColor: "#0A2540" }}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-gray-700">
+                      {tipo}{territorio}
+                      <span className="ml-2 text-gray-400 font-normal">{fmtExamDate(e)}</span>
+                    </div>
+                    {anteprima && (
+                      <div className="text-[11px] text-gray-400 mt-0.5 truncate">{anteprima}{(e.result || e.summary || "").length > 80 ? "…" : ""}</div>
+                    )}
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 px-5 py-3.5 border-t border-gray-100 bg-gray-50/60 rounded-b-xl">
+          <Button
+            onClick={() => onConfirm(localSelected)}
+            disabled={localSelected.size === 0}
+            className="bg-[#0A2540] hover:bg-[#051626] text-white text-sm"
+          >
+            Conferma selezione ({localSelected.size})
+          </Button>
+          <Button variant="ghost" onClick={onClose} className="text-gray-500 text-sm ml-auto">
+            Annulla
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function FollowUpReportModal({
   open, onClose,
@@ -62,6 +162,22 @@ export default function FollowUpReportModal({
   planIndicazioni, planFurtherIndications, planReportSections,
 }) {
   const bodyRef = useRef(null);
+
+  const [availableEsami,      setAvailableEsami]      = useState([]);
+  const [esamiLoading,        setEsamiLoading]        = useState(false);
+  const [selectedEsamiIds,    setSelectedEsamiIds]    = useState(new Set());
+  const [esamiPregressiText,  setEsamiPregressiText]  = useState("");
+  const [showEsamiPicker,     setShowEsamiPicker]     = useState(false);
+
+  useEffect(() => {
+    if (!open || !patient?.id) return;
+    setEsamiLoading(true);
+    instrumentalExamsApi.listByPatient(patient.id)
+      .then(data => setAvailableEsami(Array.isArray(data) ? data : []))
+      .catch(() => setAvailableEsami([]))
+      .finally(() => setEsamiLoading(false));
+  }, [open, patient?.id]);
+
   if (!open) return null;
 
   function buildClinimetriaText() {
@@ -158,12 +274,13 @@ export default function FollowUpReportModal({
     .filter(s => s.text);
 
   const SECTION_DEFS = [
-    { key: "raccordo",         label: "RACCORDO ANAMNESTICO", getText: () => raccordoText?.trim() },
-    { key: "interval_history", label: "ANAMNESI INTERVALLARE", getText: () => intervalHistory?.trim() },
-    { key: "physical_exam",    label: "ESAME OBIETTIVO",       getText: buildExamText },
-    { key: "labs_imaging",     label: "ESAMI",                 getText: () => labsImaging?.trim() },
-    { key: "clinimetria",      label: "CLINIMETRIA",           getText: buildClinimetriaText },
-    { key: "assessment",       label: "CONCLUSIONI",           getText: buildAssessmentText },
+    { key: "raccordo",         label: "RACCORDO ANAMNESTICO",      getText: () => raccordoText?.trim() },
+    { key: "esami_pregressi",  label: "ESAMI PREGRESSI RILEVANTI", getText: () => esamiPregressiText?.trim() },
+    { key: "interval_history", label: "ANAMNESI INTERVALLARE",     getText: () => intervalHistory?.trim() },
+    { key: "physical_exam",    label: "ESAME OBIETTIVO",           getText: buildExamText },
+    { key: "labs_imaging",     label: "ESAMI",                     getText: () => labsImaging?.trim() },
+    { key: "clinimetria",      label: "CLINIMETRIA",               getText: buildClinimetriaText },
+    { key: "assessment",       label: "CONCLUSIONI",               getText: buildAssessmentText },
   ];
 
   const PLAN_SECTION_DEFS = [
@@ -257,7 +374,11 @@ ${activePlanSections.map(s => `<div class="section">
     setTimeout(() => w.print(), 400);
   };
 
+  const showEsamiControls = reportSections.has("esami_pregressi");
+  const esamiDisabled = esamiLoading || availableEsami.length === 0;
+
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-10 px-4"
       style={{ background: "rgba(0,0,0,0.5)" }}
@@ -287,6 +408,45 @@ ${activePlanSections.map(s => `<div class="section">
             Sono incluse le sezioni spuntate con ☑ nel form. Chiudi e modifica le spunte per cambiare il contenuto.
           </p>
         </div>
+
+        {/* ── Controllo esami pregressi ── */}
+        {showEsamiControls && (
+          <div className="mx-6 mt-3 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ListChecks className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                Esami pregressi rilevanti
+              </span>
+              <button
+                onClick={() => setShowEsamiPicker(true)}
+                disabled={esamiDisabled}
+                title={
+                  esamiLoading ? "Caricamento in corso…" :
+                  availableEsami.length === 0 ? "Nessun esame strumentale in archivio" :
+                  "Seleziona gli esami da includere nel referto"
+                }
+                className="ml-auto text-[11px] px-2.5 py-1 rounded border border-amber-300 bg-white text-amber-800 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {esamiLoading ? "Caricamento…" : "Seleziona esami"}
+              </button>
+            </div>
+            {esamiPregressiText ? (
+              <Textarea
+                value={esamiPregressiText}
+                onChange={e => setEsamiPregressiText(e.target.value)}
+                rows={4}
+                className="text-xs font-mono bg-white border-amber-200 resize-y"
+                placeholder="Seleziona esami dall'archivio per popolare questa sezione…"
+              />
+            ) : (
+              <p className="text-[11px] text-gray-400 italic">
+                {availableEsami.length === 0 && !esamiLoading
+                  ? "Nessun esame strumentale in archivio per questo paziente."
+                  : "Usa il pulsante per selezionare gli esami da includere nel referto."}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── Corpo referto ── */}
         <div className="px-6 py-5 min-h-[160px]" ref={bodyRef}>
@@ -357,5 +517,19 @@ ${activePlanSections.map(s => `<div class="section">
 
       </div>
     </div>
+
+    {showEsamiPicker && (
+      <EsamiPickerModal
+        esami={availableEsami}
+        selectedIds={selectedEsamiIds}
+        onConfirm={(newSelected) => {
+          setSelectedEsamiIds(newSelected);
+          setEsamiPregressiText(buildEsamiText(availableEsami, newSelected));
+          setShowEsamiPicker(false);
+        }}
+        onClose={() => setShowEsamiPicker(false)}
+      />
+    )}
+    </>
   );
 }
