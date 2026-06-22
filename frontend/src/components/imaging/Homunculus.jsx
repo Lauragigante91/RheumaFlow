@@ -91,6 +91,9 @@ const FRONT_JOINTS = {
   dip3_r: { x: 164, y: 248, r: 4.5 },
   dip4_r: { x: 151, y: 248, r: 4.5 },
   dip5_r: { x: 140, y: 242, r: 4.5 },
+  // ── Sacroiliac joints (outside 66/68 standard; excluded from TJC/SJC) ────
+  si_l: { x: 91, y: 209, r: 5 },
+  si_r: { x: 109, y: 209, r: 5 },
   // ── Hips (tender-only in SJC66; excluded from swollen count) ─────
   hip_l: { x: 88, y: 220, r: 5 },
   hip_r: { x: 112, y: 220, r: 5 },
@@ -153,6 +156,7 @@ const JOINT_LABELS_IT = {
   pip1_r: "IFP 1 DX", pip2_r: "IFP 2 DX", pip3_r: "IFP 3 DX", pip4_r: "IFP 4 DX", pip5_r: "IFP 5 DX",
   dip2_l: "IFD 2 SX", dip3_l: "IFD 3 SX", dip4_l: "IFD 4 SX", dip5_l: "IFD 5 SX",
   dip2_r: "IFD 2 DX", dip3_r: "IFD 3 DX", dip4_r: "IFD 4 DX", dip5_r: "IFD 5 DX",
+  si_l: "Sacroiliaca SX", si_r: "Sacroiliaca DX",
   hip_l: "Anca SX", hip_r: "Anca DX",
   knee_l: "Ginocchio SX", knee_r: "Ginocchio DX",
   ankle_l: "Caviglia SX", ankle_r: "Caviglia DX",

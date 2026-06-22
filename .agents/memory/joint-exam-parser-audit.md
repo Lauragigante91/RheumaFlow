@@ -17,7 +17,12 @@ description: Known parser bug families found by audit of parseJointExam (jointEx
 9. "MTF" not normalized to MTP (expandAbbreviations only maps MCF→MCP), even though the UI uses "MTF" as the display label.
 Minor latent: `extractNumbers` doesn't enforce the family's lower bound, so "DIP 1" could emit a non-existent `dip1` key.
 
-**Status (P0 fix):** families 1–5 are RESOLVED. BUG-A (1+3): `TENDER_RE` uses `dolent[ei]`/`dolorant[ei]` and pass-2 borrows status backward from a following status-only sub-segment + a clause-level `parseSides` fallback. BUG-B (2): wrist rule is `\bpols[oi]\b`. BUG-D (4): `parseSides` accepts `destr[oa]`/`sinistr[oa]`. (5): `NEG_RE` covers adjectival `non dolenti/tumefatte/...`. Spillover (8) is mitigated: each joint (large AND numbered) reads its side only up to the next joint mention (`NEXT_JOINT_RE` window), falling back to segment side; plural still forces bilateral. Still OPEN: 6 (sacroiliac unrepresentable — UI), 7 (BUG-G "X e Y" enum), 9 (BUG-I MTF→MTP). All 9 residual audit FN are these out-of-scope families.
+**Status:** ALL 9 bug families RESOLVED.
+- Families 1–5: RESOLVED in P0 fix (already merged).
+- Family 6 (sacroiliac): RESOLVED — si_l/si_r in JOINT_DEFS + SWOLLEN_RE + Homunculus.jsx; excluded from TJC/SJC counts; tests #30/31/32 promoted active; 7/7 new cases pass.
+- Families 7 (BUG-G "X e Y" numeric enum), 9 (BUG-I MTF→MTP), plus G2/G5/G7: RESOLVED in Task #43 (IMPLEMENTED, pending merge).
+- Family 8 (laterality spillover): mitigated via NEXT_JOINT_RE window.
+- Zero open audit gaps.
 
 **Durable gotcha — accented terminal `\b`:** Italian status words ending in an accented vowel (`dolorabilità`, `positività`) break a trailing JS `\b`, because the accented char is `\W` and a following space is also `\W` → no boundary. Symptom: the word is silently NOT recognized as a status marker when followed by space/punct, so a mixed "tumefazione … dolorabilità …" clause collapses to swollen-only and over-marks SJC. Fix pattern: end such alternations with `(?![\wàèéìòù])` instead of `\b`. Applied to `TENDER_RE` and the pass-2 split regex; pass-3 `jointFirst` (joint-first colon form `polso dx: dolorabilità …`) still has the raw `\b` but is not exercised by any audit case — fix only if joint-first colon syntax becomes in-scope.
 
