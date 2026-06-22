@@ -608,9 +608,15 @@ export default function TodayVisitSection({
   const spaTjcN = safe(spaTjc);
   const spaSjcN = safe(spaSjc);
   const dapsa = useMemo(() => {
-    const savedDapsa = [...(assessments || [])]
-      .filter(a => a.index_type === "dapsa" && (a.date || "").slice(0, 10) === date && a.score != null)
-      .sort((a, b) => (b.id || "").localeCompare(a.id || ""))[0];
+    const todayDapsaList = [...(assessments || [])]
+      .filter(a => a.index_type === "dapsa" && (a.date || "").slice(0, 10) === date && a.score != null);
+    const savedDapsa = todayDapsaList
+      .sort((a, b) => {
+        const aDialog = a.inputs?.tjc68 != null ? 1 : 0;
+        const bDialog = b.inputs?.tjc68 != null ? 1 : 0;
+        if (aDialog !== bDialog) return bDialog - aDialog;
+        return (b.id || "").localeCompare(a.id || "");
+      })[0];
     if (savedDapsa) return savedDapsa.score;
     if (!hasVal(spaTjc) && !hasVal(spaSjc)) return null;
     return calcDAPSA({
@@ -841,7 +847,10 @@ export default function TodayVisitSection({
             visit_id: visitId, visit_type: "follow_up",
           }));
         }
-        if (dapsa != null && (hasVal(spaTjc) || hasVal(spaSjc))) {
+        const existingDialogDapsa = (assessments || []).find(
+          a => a.index_type === "dapsa" && (a.date || "").slice(0, 10) === date && a.inputs?.tjc68 != null
+        );
+        if (dapsa != null && (hasVal(spaTjc) || hasVal(spaSjc)) && !existingDialogDapsa) {
           saves.push(assessmentsApi.create({
             patient_id: patient.id, index_type: "dapsa", date,
             inputs: {
