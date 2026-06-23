@@ -32,11 +32,14 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
+
 export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
   const [revoking, setRevoking] = useState(false);
+  const [editedTexts, setEditedTexts] = useState({});
 
   const load = useCallback(async () => {
     try {
@@ -57,10 +60,16 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
     return () => clearInterval(interval);
   }, [load]);
 
-  const handleStatus = async (uploadId, status) => {
+  const handleStatus = async (uploadId, status, originalExtractedText) => {
     setProcessing(p => ({ ...p, [uploadId]: true }));
     try {
-      await examUploadApi.updateUpload(uploadId, { status });
+      const payload = { status };
+      const edited = editedTexts[uploadId];
+      if (status === "accepted" && edited !== undefined && edited !== (originalExtractedText || "")) {
+        payload.extracted_text = edited;
+      }
+      await examUploadApi.updateUpload(uploadId, payload);
+      setEditedTexts(t => { const n = { ...t }; delete n[uploadId]; return n; });
       await load();
       toast.success(status === "accepted" ? "Esame accettato" : "Esame scartato");
     } catch {
@@ -133,9 +142,11 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
             <UploadRow
               key={upload.id}
               upload={upload}
-              onAccept={() => handleStatus(upload.id, "accepted")}
-              onReject={() => handleStatus(upload.id, "rejected")}
+              onAccept={() => handleStatus(upload.id, "accepted", upload.extracted_text)}
+              onReject={() => handleStatus(upload.id, "rejected", upload.extracted_text)}
               processing={!!processing[upload.id]}
+              editedText={editedTexts[upload.id]}
+              onEditText={(t) => setEditedTexts(prev => ({ ...prev, [upload.id]: t }))}
             />
           ))}
         </div>
@@ -167,14 +178,17 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
   );
 }
 
-function UploadRow({ upload, onAccept, onReject, processing }) {
+function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditText }) {
   const status = STATUS_LABELS[upload.status] || STATUS_LABELS.pending_review;
   const isPending = upload.status === "pending_review";
   const fileUrl = examUploadApi.fileUrl(upload.id);
+  const isImage = IMAGE_CONTENT_TYPES.has(upload.content_type);
+  const displayText = editedText !== undefined ? editedText : (upload.extracted_text || "");
+  const hasOcrText = !!(upload.extracted_text || editedText);
 
   return (
-    <div className={`bg-white border rounded-lg px-3 py-2.5 ${isPending ? "border-amber-200" : "border-gray-100"}`}>
-      <div className="flex items-start justify-between gap-2">
+    <div className={`bg-white border rounded-lg overflow-hidden ${isPending ? "border-amber-200" : "border-gray-100"}`}>
+      <div className="flex items-start justify-between gap-2 px-3 py-2.5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-semibold text-gray-700">
@@ -183,6 +197,11 @@ function UploadRow({ upload, onAccept, onReject, processing }) {
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${status.className}`}>
               {status.label}
             </span>
+            {isImage && !hasOcrText && isPending && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                testo in estrazione...
+              </span>
+            )}
           </div>
           <p className="text-[10px] text-gray-500 mt-0.5">
             {upload.original_filename}
@@ -226,6 +245,40 @@ function UploadRow({ upload, onAccept, onReject, processing }) {
           )}
         </div>
       </div>
+
+      {isImage && hasOcrText && (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2 flex gap-3">
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0"
+          >
+            <img
+              src={fileUrl}
+              alt={upload.original_filename}
+              className="w-20 h-20 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
+            />
+          </a>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+              Testo estratto (OCR)
+              {isPending && <span className="ml-1 font-normal normal-case text-gray-400">— modificabile</span>}
+            </p>
+            <textarea
+              value={displayText}
+              onChange={isPending ? (e) => onEditText(e.target.value) : undefined}
+              readOnly={!isPending}
+              rows={4}
+              className={`w-full text-[11px] font-mono border rounded px-2 py-1.5 resize-y leading-relaxed ${
+                isPending
+                  ? "border-gray-200 focus:border-[#0A2540] focus:outline-none bg-white"
+                  : "border-gray-100 bg-gray-50 text-gray-600"
+              }`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

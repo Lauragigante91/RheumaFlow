@@ -2,6 +2,24 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { examUploadApi } from "../lib/api";
 
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
+
+async function runOCR(file, token, uploadId) {
+  try {
+    const { createWorker } = await import("tesseract.js");
+    const worker = await createWorker("ita", 1, { logger: () => {} });
+    const { data: { text } } = await worker.recognize(file);
+    await worker.terminate();
+    const cleaned = (text || "").trim();
+    if (cleaned.length > 0) {
+      await examUploadApi.publicPatchExtractedText(token, uploadId, cleaned);
+    }
+    return "done";
+  } catch {
+    return "failed";
+  }
+}
+
 const EXAM_TYPE_LABELS = {
   lab: "Referti laboratorio",
   rx: "Radiografia",
@@ -26,6 +44,7 @@ export default function ExamUploadPage() {
   const [remaining, setRemaining] = useState(5);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [ocrStatus, setOcrStatus] = useState(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -70,6 +89,7 @@ export default function ExamUploadPage() {
       fd.append("exam_type", examType);
       fd.append("notes", notes);
       fd.append("file", file);
+      const uploadedFile = file;
       const result = await examUploadApi.publicUpload(token, fd);
       setRemaining(result.remaining_uploads);
       setUploadedCount(c => c + 1);
@@ -77,6 +97,11 @@ export default function ExamUploadPage() {
       setNotes("");
       if (fileRef.current) fileRef.current.value = "";
       setSuccessMessage("Esame caricato correttamente. Il medico lo revisionerà prima della visita.");
+
+      if (IMAGE_TYPES.has(uploadedFile.type) && result.upload_id) {
+        setOcrStatus("processing");
+        runOCR(uploadedFile, token, result.upload_id).then(s => setOcrStatus(s));
+      }
     } catch (err) {
       const msg = err.response?.data?.detail || "Errore durante il caricamento. Riprovare.";
       setError(msg);
@@ -152,6 +177,21 @@ export default function ExamUploadPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm text-emerald-700">{successMessage}</p>
+          </div>
+        )}
+
+        {ocrStatus === "processing" && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+            <p className="text-sm text-blue-700">Estraendo testo dalla foto...</p>
+          </div>
+        )}
+        {ocrStatus === "done" && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+            <p className="text-sm text-blue-700">Testo estratto e inviato al medico.</p>
           </div>
         )}
 

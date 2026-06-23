@@ -221,19 +221,46 @@ async def list_exam_uploads(visit_id: str, user: dict = Depends(get_current_user
 
 
 @router.patch("/exam-uploads/{upload_id}")
-async def update_exam_upload_status(
+async def update_exam_upload(
     upload_id: str,
     payload: dict,
     user: dict = Depends(get_current_user),
 ):
-    allowed_statuses = {"accepted", "rejected"}
+    set_fields = {}
+
     new_status = payload.get("status")
-    if new_status not in allowed_statuses:
-        raise HTTPException(status_code=400, detail="Status deve essere 'accepted' o 'rejected'")
+    if new_status is not None:
+        if new_status not in {"accepted", "rejected"}:
+            raise HTTPException(status_code=400, detail="Status deve essere 'accepted' o 'rejected'")
+        set_fields["status"] = new_status
+        set_fields["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+
+    if "extracted_text" in payload:
+        set_fields["extracted_text"] = payload["extracted_text"] or ""
+
+    if not set_fields:
+        raise HTTPException(status_code=400, detail="Nessun campo da aggiornare")
 
     result = await db.exam_uploads.update_one(
         {"id": upload_id, "organization_id": user["organization_id"]},
-        {"$set": {"status": new_status, "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": set_fields},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Upload non trovato")
+    return {"success": True}
+
+
+@router.patch("/exam-upload/{token}/uploads/{upload_id}/text")
+async def public_patch_extracted_text(token: str, upload_id: str, payload: dict):
+    session = await _resolve_session(token)
+    if not session:
+        raise HTTPException(status_code=403, detail="Link scaduto o non valido")
+
+    extracted_text = (payload.get("extracted_text") or "")[:50000]
+
+    result = await db.exam_uploads.update_one(
+        {"id": upload_id, "session_id": session["id"]},
+        {"$set": {"extracted_text": extracted_text}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Upload non trovato")
