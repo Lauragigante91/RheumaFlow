@@ -98,7 +98,7 @@ function expandAbbreviations(text) {
 function parseSides(fragment) {
   const f = fragment.toLowerCase();
   const hasDx = /\b(dx|ds|destr[oa]|d\.\s|dex)\b/.test(f);
-  const hasSn = /\b(sn|sinistr[oa]|sin\.?|s\.\s)\b/.test(f);
+  const hasSn = /\b(sn|sx|sinistr[oa]|sin\.?|s\.\s)\b/.test(f);
   const hasBi = /\b(bilateralmente?|bilat\.?|bilatera\w*|entramb[ei])\b/.test(f);
   if (hasBi || (hasDx && hasSn)) return ["_r", "_l"];
   if (hasDx) return ["_r"];

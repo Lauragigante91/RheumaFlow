@@ -123,6 +123,8 @@ const CASES = [
   { id: 32, focus: "sacroiliaca dx", text: "Dolore sacroiliaca destra.", expected: ["si_r"] },
   { id: 32.1, focus: "sacroileite dx", text: "Sacroileite destra.", expected: ["si_r"] },
   { id: 32.2, focus: "neg sacroileite", text: "Non si rileva sacroileite.", expected: [] },
+  { id: 56.1, focus: "sx alias sinistra", text: "Tumefazione polso sx.", expected: ["wrist_l"] },
+  { id: 56.2, focus: "dx e sx bilat MCF", text: "Tumefazione dolente polso dx + II-III MCF dx e sx", expected: [...both("mcp", [2,3]), "wrist_r"] },
   { id: 33, focus: "MCP bilat", text: "MCP II bilateralmente dolenti.", expected: num("mcp", [2]) },
   { id: 34, focus: "polsi bilat esplicito", text: "Tumefazione bilaterale dei polsi.", expected: both("wrist") },
   { id: 35, focus: "dx e sn", text: "Caviglia destra e sinistra tumefatte.", expected: both("ankle") },
