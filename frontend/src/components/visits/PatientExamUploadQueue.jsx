@@ -184,7 +184,6 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
   const fileUrl = examUploadApi.fileUrl(upload.id);
   const isImage = IMAGE_CONTENT_TYPES.has(upload.content_type);
   const displayText = editedText !== undefined ? editedText : (upload.extracted_text || "");
-  const hasOcrText = !!(upload.extracted_text || editedText);
 
   return (
     <div className={`bg-white border rounded-lg overflow-hidden ${isPending ? "border-amber-200" : "border-gray-100"}`}>
@@ -197,9 +196,9 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${status.className}`}>
               {status.label}
             </span>
-            {isImage && !hasOcrText && isPending && (
+            {isImage && !upload.extracted_text && isPending && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-                testo in estrazione...
+                OCR in corso
               </span>
             )}
           </div>
@@ -246,7 +245,7 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
         </div>
       </div>
 
-      {isImage && hasOcrText && (
+      {isImage && (
         <div className="border-t border-gray-100 px-3 pb-3 pt-2 flex gap-3">
           <a
             href={fileUrl}
