@@ -60,24 +60,34 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
     return () => clearInterval(interval);
   }, [load]);
 
-  const handleStatus = async (uploadId, status, originalExtractedText) => {
+  const handleAccept = async (uploadId, originalExtractedText) => {
     setProcessing(p => ({ ...p, [uploadId]: true }));
     try {
-      const payload = { status };
-      if (status === "rejected") {
-        payload.extracted_text = "";
-      } else {
-        const edited = editedTexts[uploadId];
-        if (edited !== undefined && edited !== (originalExtractedText || "")) {
-          payload.extracted_text = edited;
-        }
+      const payload = { status: "accepted" };
+      const edited = editedTexts[uploadId];
+      if (edited !== undefined && edited !== (originalExtractedText || "")) {
+        payload.extracted_text = edited;
       }
       await examUploadApi.updateUpload(uploadId, payload);
       setEditedTexts(t => { const n = { ...t }; delete n[uploadId]; return n; });
       await load();
-      toast.success(status === "accepted" ? "Esame accettato" : "Esame scartato");
+      toast.success("Esame accettato");
     } catch {
       toast.error("Errore nell'aggiornamento");
+    } finally {
+      setProcessing(p => ({ ...p, [uploadId]: false }));
+    }
+  };
+
+  const handleReject = async (uploadId) => {
+    setProcessing(p => ({ ...p, [uploadId]: true }));
+    try {
+      await examUploadApi.deleteUpload(uploadId);
+      setEditedTexts(t => { const n = { ...t }; delete n[uploadId]; return n; });
+      await load();
+      toast.success("Esame eliminato");
+    } catch {
+      toast.error("Errore nell'eliminazione");
     } finally {
       setProcessing(p => ({ ...p, [uploadId]: false }));
     }
@@ -146,8 +156,8 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
             <UploadRow
               key={upload.id}
               upload={upload}
-              onAccept={() => handleStatus(upload.id, "accepted", upload.extracted_text)}
-              onReject={() => handleStatus(upload.id, "rejected", upload.extracted_text)}
+              onAccept={() => handleAccept(upload.id, upload.extracted_text)}
+              onReject={() => handleReject(upload.id)}
               processing={!!processing[upload.id]}
               editedText={editedTexts[upload.id]}
               onEditText={(t) => setEditedTexts(prev => ({ ...prev, [upload.id]: t }))}

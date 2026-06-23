@@ -267,6 +267,25 @@ async def public_patch_extracted_text(token: str, upload_id: str, payload: dict)
     return {"success": True}
 
 
+@router.delete("/exam-uploads/{upload_id}")
+async def delete_exam_upload(upload_id: str, user: dict = Depends(get_current_user)):
+    doc = await db.exam_uploads.find_one(
+        {"id": upload_id, "organization_id": user["organization_id"]},
+        {"_id": 0, "gridfs_file_id": 1},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Upload non trovato")
+
+    try:
+        fs = _fs()
+        await fs.delete(ObjectId(doc["gridfs_file_id"]))
+    except Exception:
+        pass
+
+    await db.exam_uploads.delete_one({"id": upload_id, "organization_id": user["organization_id"]})
+    return {"success": True}
+
+
 @router.get("/exam-uploads/{upload_id}/file")
 async def serve_exam_upload_file(upload_id: str, user: dict = Depends(get_current_user)):
     doc = await db.exam_uploads.find_one(

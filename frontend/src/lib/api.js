@@ -236,6 +236,8 @@ export const examUploadApi = {
     api.get(`/visits/${visitId}/exam-uploads`).then((r) => r.data),
   updateUpload: (uploadId, data) =>
     api.patch(`/exam-uploads/${uploadId}`, data).then((r) => r.data),
+  deleteUpload: (uploadId) =>
+    api.delete(`/exam-uploads/${uploadId}`).then((r) => r.data),
   fileUrl: (uploadId) => `${API}/exam-uploads/${uploadId}/file`,
   // Public (no auth) — uses raw axios
   publicStatus: (token) =>
