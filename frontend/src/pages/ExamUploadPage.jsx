@@ -28,6 +28,48 @@ async function preprocessImage(file) {
   }
 }
 
+const UI_NOISE_WORDS = new Set([
+  "leggi", "pagine", "modificare", "modulo", "proteggi", "attrezzo", "aggiorna",
+  "acrobat", "adobe", "strumenti", "visualizza", "aiuto", "commenti", "condividi",
+  "stampa", "inserisci", "annulla", "toolbar", "pannello", "finestra",
+  "opzioni", "impostazioni", "preferenze", "seleziona", "clicca",
+]);
+
+const CLINICAL_RE = /(\d+[.,]\d+|\b(?:mg|g|U|mL|mmol|µmol|nmol|pg|ng|IU|iU|dl|dL|mEq|mmHg|UI)\b|[<>]\s*\d|\d\s*-\s*\d|\d{2}\/\d{2}\/\d{4}|1:\d+)/;
+
+function cleanOCRText(raw) {
+  return raw
+    .split("\n")
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return false;
+
+      const alnums = (t.match(/[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]/g) || []).length;
+      if (alnums < 3) return false;
+
+      if (CLINICAL_RE.test(t)) return true;
+
+      const words = t.toLowerCase().split(/\s+/);
+      const noiseCount = words.filter(w => UI_NOISE_WORDS.has(w)).length;
+      if (noiseCount >= 2) return false;
+
+      const ratio = alnums / t.length;
+      if (ratio < 0.5 && t.length > 5) return false;
+
+      const nonSpace = t.replace(/\s/g, "");
+      const special = (nonSpace.match(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]/g) || []).length;
+      if (nonSpace.length > 5 && special / nonSpace.length > 0.25) return false;
+
+      const meaningful = words.filter(w => /[a-zA-Zàèéìòù]{3,}/.test(w));
+      if (meaningful.length === 0) return false;
+
+      return true;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function runOCR(file, token, uploadId) {
   try {
     const processed = await preprocessImage(file);
@@ -35,7 +77,7 @@ async function runOCR(file, token, uploadId) {
     const worker = await createWorker("ita", 1, { logger: () => {} });
     const { data: { text } } = await worker.recognize(processed);
     await worker.terminate();
-    const cleaned = (text || "").trim();
+    const cleaned = cleanOCRText(text || "");
     if (cleaned.length > 0) {
       await examUploadApi.publicPatchExtractedText(token, uploadId, cleaned);
     }
