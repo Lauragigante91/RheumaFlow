@@ -28,7 +28,8 @@ async function preprocessImage(file) {
   }
 }
 
-const CLINICAL_RE = /(\d+[.,]\d+|\b(?:mg|g|U|mL|mmol|µmol|nmol|pg|ng|IU|iU|dl|dL|mEq|mmHg|UI)\b|[<>]\s*\d|\d\s*-\s*\d|\d{2}\/\d{2}\/\d{4}|1:\d+)/;
+// Segnali clinici: le unità richiedono un numero prima o dopo; "dl" isolato NON è segnale
+const CLINICAL_RE = /(\d+[.,]\d+|\d+\s*(?:mg|g|U|mL|mmol|µmol|nmol|pg|ng|IU|iU|mEq|mmHg|UI)[/\s]|[<>]\s*\d|\d\s*[-–]\s*\d|\d{2}\/\d{2}\/\d{4}|1:\d+)/;
 
 const REPORT_START_RE = [
   /Reparto richiedente/i,
@@ -67,6 +68,9 @@ function cleanOCRText(raw) {
       // Linee separatore ripetitive (es. "zzzz..." o "====")
       if (/^(.)\1{4,}$/.test(t.replace(/\s/g, ""))) return false;
       if (/^[=\-_*#~]{3,}$/.test(t)) return false;
+
+      // Linee tutto-maiuscolo brevi senza segnali clinici (artefatti OCR: checkbox, timbri)
+      if (/^[A-ZÀÈÉÌÒÙ\s]{3,30}$/.test(t) && !CLINICAL_RE.test(t)) return false;
 
       // Linee con segnali clinici: sempre mantenute
       if (CLINICAL_RE.test(t)) return true;
