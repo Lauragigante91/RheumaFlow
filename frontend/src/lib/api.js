@@ -226,3 +226,20 @@ export const consultApi = {
   publicGet: (token) =>
     axios.get(`${API}/public/consult/${token}`).then((r) => r.data),
 };
+
+export const examUploadApi = {
+  generateQR: (visitId, purpose) =>
+    api.post(`/visits/${visitId}/generate-exam-upload-qr`, { purpose }).then((r) => r.data),
+  revokeSession: (sessionId) =>
+    api.post(`/exam-upload-sessions/${sessionId}/revoke`).then((r) => r.data),
+  listUploads: (visitId) =>
+    api.get(`/visits/${visitId}/exam-uploads`).then((r) => r.data),
+  updateUpload: (uploadId, data) =>
+    api.patch(`/exam-uploads/${uploadId}`, data).then((r) => r.data),
+  fileUrl: (uploadId) => `${API}/exam-uploads/${uploadId}/file`,
+  // Public (no auth) — uses raw axios
+  publicStatus: (token) =>
+    axios.get(`${API}/exam-upload/${token}/status`).then((r) => r.data),
+  publicUpload: (token, formData) =>
+    axios.post(`${API}/exam-upload/${token}/upload`, formData).then((r) => r.data),
+};

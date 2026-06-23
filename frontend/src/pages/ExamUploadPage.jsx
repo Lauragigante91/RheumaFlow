@@ -1,0 +1,245 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
+import { examUploadApi } from "../lib/api";
+
+const EXAM_TYPE_LABELS = {
+  lab: "Referti laboratorio",
+  rx: "Radiografia",
+  ct: "TAC",
+  us: "Ecografia",
+  specialist_visit: "Visita specialistica",
+  other: "Altro",
+};
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+export default function ExamUploadPage() {
+  const { token } = useParams();
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [examType, setExamType] = useState("lab");
+  const [notes, setNotes] = useState("");
+  const [file, setFile] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const [remaining, setRemaining] = useState(5);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    examUploadApi.publicStatus(token)
+      .then(data => {
+        setStatus(data);
+        if (data.valid) setRemaining(data.remaining_uploads);
+      })
+      .catch(() => setStatus({ valid: false }))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const handleFile = (f) => {
+    setError("");
+    if (!f) return;
+    const allowed = ["application/pdf", "image/jpeg", "image/png"];
+    const ext = f.name.split(".").pop().toLowerCase();
+    if (!allowed.includes(f.type) && !["pdf", "jpg", "jpeg", "png"].includes(ext)) {
+      setError("Tipo file non supportato. Caricare PDF, JPG o PNG.");
+      return;
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      setError("File troppo grande (max 20 MB).");
+      return;
+    }
+    setFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) { setError("Selezionare un file da caricare."); return; }
+    setUploading(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("exam_type", examType);
+      fd.append("notes", notes);
+      fd.append("file", file);
+      const result = await examUploadApi.publicUpload(token, fd);
+      setRemaining(result.remaining_uploads);
+      setUploadedCount(c => c + 1);
+      setFile(null);
+      setNotes("");
+      if (fileRef.current) fileRef.current.value = "";
+      setSuccessMessage("Esame caricato correttamente. Il medico lo revisionerà prima della visita.");
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Errore durante il caricamento. Riprovare.";
+      setError(msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500 text-sm">Verifica link in corso...</p>
+      </div>
+    );
+  }
+
+  if (!status?.valid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.072 16.5C2.302 18.333 3.262 20 4.804 20z" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold text-gray-800 mb-2">Link scaduto o non valido</h1>
+          <p className="text-sm text-gray-500">Questo link non è più attivo. Contattare l'ambulatorio per riceverne uno nuovo.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (remaining === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold text-gray-800 mb-2">Limite raggiunto</h1>
+          <p className="text-sm text-gray-500">Hai caricato il numero massimo di file (5) per questa sessione.</p>
+          {uploadedCount > 0 && (
+            <p className="text-sm text-emerald-600 mt-2">Caricati {uploadedCount} file con successo.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-start justify-center py-10 px-4">
+      <div className="max-w-md w-full">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-8 h-8 rounded-full bg-[#0A2540] flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium text-gray-700">RheumaFlow — Upload esami</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Carica i tuoi esami</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {remaining} upload rimanenti su 5. Il medico revisionerà i file prima di includerli nel referto.
+          </p>
+        </div>
+
+        {successMessage && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 flex items-start gap-2">
+            <svg className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm text-emerald-700">{successMessage}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tipo esame</label>
+            <select
+              value={examType}
+              onChange={e => setExamType(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0A2540]"
+            >
+              {Object.entries(EXAM_TYPE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">File (PDF, JPG, PNG — max 20 MB)</label>
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg px-4 py-6 text-center cursor-pointer transition-colors ${
+                dragOver ? "border-[#0A2540] bg-blue-50" : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {file ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{file.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setFile(null); if (fileRef.current) fileRef.current.value = ""; }}
+                    className="text-xs text-red-500 mt-1 hover:underline"
+                  >
+                    Rimuovi
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-sm text-gray-500">Trascina qui il file oppure <span className="text-[#0A2540] font-medium">sfoglia</span></p>
+                  <p className="text-xs text-gray-400 mt-0.5">PDF, JPG, PNG — max 20 MB</p>
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={e => handleFile(e.target.files[0])}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Note (opzionale)</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value.slice(0, 255))}
+              rows={2}
+              placeholder="es. Esame del 10/06/2026, accettazione 12345"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-[#0A2540]"
+            />
+            <p className="text-right text-[10px] text-gray-400">{notes.length}/255</p>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={uploading || !file}
+            className="w-full bg-[#0A2540] hover:bg-[#051626] disabled:opacity-50 text-white text-sm font-medium rounded-lg py-2.5 transition-colors"
+          >
+            {uploading ? "Caricamento in corso..." : "Carica esame"}
+          </button>
+        </form>
+
+        <p className="text-center text-[10px] text-gray-400 mt-4">
+          Questo link è temporaneo e verrà disattivato al termine della visita.
+        </p>
+      </div>
+    </div>
+  );
+}

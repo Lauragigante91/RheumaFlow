@@ -19,7 +19,9 @@ import SelectableTextArea from "../components/shared/SelectableTextArea";
 import QuickTherapyModal  from "../components/therapy/QuickTherapyModal";
 import GestioneTerapiaModal from "../components/therapy/GestioneTerapiaModal";
 import useConfirmReplace from "../components/shared/useConfirmReplace";
-import { patientsApi, workupVisitsApi, diseaseProfileApi, therapiesApi } from "../lib/api";
+import { patientsApi, workupVisitsApi, diseaseProfileApi, therapiesApi, examUploadApi } from "../lib/api";
+import ExamUploadQRModal from "../components/visits/ExamUploadQRModal";
+import PatientExamUploadQueue from "../components/visits/PatientExamUploadQueue";
 import { isScleroDiagnosis, isSpaDiagnosis } from "../lib/diseaseDetection";
 import PatientProfileStrip from "../components/layout/PatientProfileStrip";
 import RheumatologicStatusStrip from "../components/layout/RheumatologicStatusStrip";
@@ -468,6 +470,8 @@ export default function WorkupVisitPage() {
   const [therapies, setTherapies] = useState([]);
   const [gestioneOpen, setGestioneOpen] = useState(false);
   const [therapyLauncherAction, setTherapyLauncherAction] = useState(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState(0);
   const frozenTherapiesRef = useRef(null);
   const hasAutoImportedExam    = useRef(false);
   // Snapshot of pastVisits taken at page-load — frozen for the duration of the session
@@ -642,6 +646,10 @@ export default function WorkupVisitPage() {
 
   const handleComplete = async () => {
     if (!editingVisit) return;
+    if (pendingUploads > 0) {
+      toast.error(`Revisionare i ${pendingUploads} esami in attesa prima di completare la visita.`);
+      return;
+    }
     if (!window.confirm("Contrassegnare questa visita come completata? Sarà usata come visita precedente per i futuri import.")) return;
     try {
       const updated = await workupVisitsApi.complete(editingVisit.id);
@@ -1255,6 +1263,14 @@ export default function WorkupVisitPage() {
                 </div>
               </div>
 
+              {/* Coda upload paziente */}
+              {editingVisit && (
+                <PatientExamUploadQueue
+                  visitId={editingVisit.id}
+                  onPendingChange={setPendingUploads}
+                />
+              )}
+
               {/* Footer / save */}
               <div className="flex items-center flex-wrap gap-3 pt-1 border-t border-gray-100">
                 <Button
@@ -1295,6 +1311,19 @@ export default function WorkupVisitPage() {
                   <Printer className="w-4 h-4 mr-2" />
                   Elabora referto
                 </Button>
+                {editingVisit && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setQrModalOpen(true)}
+                    className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    QR upload esami
+                  </Button>
+                )}
                 <Link to={`/pazienti/${id}`}>
                   <Button variant="outline">Annulla</Button>
                 </Link>
@@ -1365,6 +1394,13 @@ export default function WorkupVisitPage() {
       />
 
       {confirmDialog}
+
+      {qrModalOpen && editingVisit && (
+        <ExamUploadQRModal
+          visitId={editingVisit.id}
+          onClose={() => setQrModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

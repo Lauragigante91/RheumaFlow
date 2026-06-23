@@ -35,12 +35,14 @@ from routers.profiles import router as _profiles_router
 from routers.export import router as _export_router
 from routers.conditions import router as _conditions_router
 from routers.clinical_events import router as _clinical_events_router
+from routers.exam_upload import router as _exam_upload_router
 
 for _r in (
     _auth_router, _patients_router, _clinical_router,
     _reminders_router, _visits_router, _tokens_router,
     _profiles_router, _export_router,
     _conditions_router, _clinical_events_router,
+    _exam_upload_router,
 ):
     app.include_router(_r, prefix="/api")
 
@@ -91,6 +93,11 @@ async def startup_event():
             [("patient_id", 1), ("canonical_name", 1), ("organization_id", 1)],
             unique=True, name="conditions_upsert_key",
         )
+        await db.exam_upload_sessions.create_index("token_hash", unique=True)
+        await db.exam_upload_sessions.create_index([("visit_id", 1), ("created_at", -1)])
+        await db.exam_upload_sessions.create_index([("expires_at", 1)])
+        await db.exam_uploads.create_index([("session_id", 1)])
+        await db.exam_uploads.create_index([("visit_id", 1), ("status", 1)])
     except Exception as e:
         logger.warning(f"Index creation: {e}")
 

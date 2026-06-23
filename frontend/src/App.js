@@ -19,6 +19,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import PublicPRO from "./pages/PublicPRO";
 import ConsultPage from "./pages/ConsultPage";
+import ExamUploadPage from "./pages/ExamUploadPage";
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -50,6 +51,7 @@ function AppRoutes() {
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
       <Route path="/pro/:token" element={<PublicPRO />} />
       <Route path="/c/:token" element={<ConsultPage />} />
+      <Route path="/exam-upload/:token" element={<ExamUploadPage />} />
       <Route
         path="/*"
         element={

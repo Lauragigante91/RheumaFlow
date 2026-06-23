@@ -247,6 +247,10 @@ async def complete_workup_visit(visit_id: str, user: dict = Depends(get_current_
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Visita workup non trovata")
+    await db.exam_upload_sessions.update_many(
+        {"visit_id": visit_id, "organization_id": user["organization_id"], "revoked_at": None},
+        {"$set": {"revoked_at": datetime.now(timezone.utc).isoformat()}},
+    )
     return await db.workup_visits.find_one({"id": visit_id}, {"_id": 0})
 
 
