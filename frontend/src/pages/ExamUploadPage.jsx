@@ -28,18 +28,35 @@ async function preprocessImage(file) {
   }
 }
 
-const UI_NOISE_WORDS = new Set([
-  "leggi", "pagine", "modificare", "modulo", "proteggi", "attrezzo", "aggiorna",
-  "acrobat", "adobe", "strumenti", "visualizza", "aiuto", "commenti", "condividi",
-  "stampa", "inserisci", "annulla", "toolbar", "pannello", "finestra",
-  "opzioni", "impostazioni", "preferenze", "seleziona", "clicca",
-]);
-
 const CLINICAL_RE = /(\d+[.,]\d+|\b(?:mg|g|U|mL|mmol|µmol|nmol|pg|ng|IU|iU|dl|dL|mEq|mmHg|UI)\b|[<>]\s*\d|\d\s*-\s*\d|\d{2}\/\d{2}\/\d{4}|1:\d+)/;
 
+const REPORT_START_RE = [
+  /Reparto richiedente/i,
+  /Richiesta:\s*\d/i,
+  /Prelievo:\s*\d/i,
+  /Doc\.\s*n\.\s*\d/i,
+  /Esame\s+Esito/i,
+  /FSE\s*[-–]\s*Fascicolo/i,
+  /Accettazione:\s*\d/i,
+  /Laboratorio\s+(Analisi|Referto)/i,
+  /Reparto\s+Richiedente/i,
+  /REFERTO\s+DI\s+LABORATORIO/i,
+];
+
 function cleanOCRText(raw) {
-  return raw
-    .split("\n")
+  const lines = raw.split("\n");
+
+  // Trova il primo segnale affidabile di inizio referto e taglia prima
+  let startIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (REPORT_START_RE.some(re => re.test(lines[i]))) {
+      startIdx = i;
+      break;
+    }
+  }
+  const content = lines.slice(startIdx);
+
+  return content
     .filter(line => {
       const t = line.trim();
       if (!t) return false;
@@ -47,20 +64,22 @@ function cleanOCRText(raw) {
       const alnums = (t.match(/[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]/g) || []).length;
       if (alnums < 3) return false;
 
-      if (CLINICAL_RE.test(t)) return true;
+      // Linee separatore ripetitive (es. "zzzz..." o "====")
+      if (/^(.)\1{4,}$/.test(t.replace(/\s/g, ""))) return false;
+      if (/^[=\-_*#~]{3,}$/.test(t)) return false;
 
-      const words = t.toLowerCase().split(/\s+/);
-      const noiseCount = words.filter(w => UI_NOISE_WORDS.has(w)).length;
-      if (noiseCount >= 2) return false;
+      // Linee con segnali clinici: sempre mantenute
+      if (CLINICAL_RE.test(t)) return true;
 
       const ratio = alnums / t.length;
       if (ratio < 0.5 && t.length > 5) return false;
 
       const nonSpace = t.replace(/\s/g, "");
       const special = (nonSpace.match(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]/g) || []).length;
-      if (nonSpace.length > 5 && special / nonSpace.length > 0.25) return false;
+      if (nonSpace.length > 5 && special / nonSpace.length > 0.28) return false;
 
-      const meaningful = words.filter(w => /[a-zA-Zàèéìòù]{3,}/.test(w));
+      const words = t.toLowerCase().split(/\s+/);
+      const meaningful = words.filter(w => /[a-zA-Zàèéìòù]{4,}/.test(w));
       if (meaningful.length === 0) return false;
 
       return true;
