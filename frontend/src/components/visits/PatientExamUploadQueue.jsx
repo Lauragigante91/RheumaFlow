@@ -64,9 +64,13 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
     setProcessing(p => ({ ...p, [uploadId]: true }));
     try {
       const payload = { status };
-      const edited = editedTexts[uploadId];
-      if (status === "accepted" && edited !== undefined && edited !== (originalExtractedText || "")) {
-        payload.extracted_text = edited;
+      if (status === "rejected") {
+        payload.extracted_text = "";
+      } else {
+        const edited = editedTexts[uploadId];
+        if (edited !== undefined && edited !== (originalExtractedText || "")) {
+          payload.extracted_text = edited;
+        }
       }
       await examUploadApi.updateUpload(uploadId, payload);
       setEditedTexts(t => { const n = { ...t }; delete n[uploadId]; return n; });
