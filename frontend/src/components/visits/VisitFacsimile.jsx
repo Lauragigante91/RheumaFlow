@@ -864,7 +864,64 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
       </SectionBlock>
 
-      <SectionBlock title="6) Allergie">
+      <SectionBlock
+        title="6) Terapia reumatologica in ingresso"
+        badge={conflicts.length > 0 && (
+          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
+            <AlertTriangle className="w-3 h-3" /> {conflicts.length} conflitto{conflicts.length > 1 ? "i" : ""}
+          </span>
+        )}
+      >
+        <RawTextToggle
+          label="Testo originale"
+          text={draft.terapia_reumatologica_testo}
+        />
+        {(() => {
+          const ingressoTherapies = (draft.therapies || []).filter(
+            t => !(t.status === "discontinued" && t._action === "new_episode")
+          );
+          return (
+            <>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                Strutturata
+              </div>
+              {ingressoTherapies.length > 0 ? (
+                <TherapyEditor
+                  therapies={ingressoTherapies}
+                  conflicts={conflicts}
+                  onChange={updated => {
+                    const historical = (draft.therapies || []).filter(
+                      t => t.status === "discontinued" && t._action === "new_episode"
+                    );
+                    upd({ therapies: [...updated, ...historical] });
+                  }}
+                />
+              ) : (
+                <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
+              )}
+            </>
+          );
+        })()}
+      </SectionBlock>
+
+      {(draft.therapies || []).some(t => t.status === "discontinued" && t._action === "new_episode") && (
+        <SectionBlock title="7) Terapia pregressa / esposizioni storiche" defaultOpen={false}>
+          <TherapyEditor
+            therapies={(draft.therapies || []).filter(
+              t => t.status === "discontinued" && t._action === "new_episode"
+            )}
+            conflicts={[]}
+            onChange={updated => {
+              const ingresso = (draft.therapies || []).filter(
+                t => !(t.status === "discontinued" && t._action === "new_episode")
+              );
+              upd({ therapies: [...ingresso, ...updated] });
+            }}
+          />
+        </SectionBlock>
+      )}
+
+      <SectionBlock title="8) Allergie">
         {(draft.intolleranze || []).length > 0 ? (
           <div className="space-y-2">
             <IntolleranzeEditor
@@ -883,7 +940,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         )}
       </SectionBlock>
 
-      <SectionBlock title="7) Raccordo anamnestico reumatologico">
+      <SectionBlock title="9) Raccordo anamnestico reumatologico">
         {vs.raccordo && (
           <div className="mb-3">
             <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Testo originale</div>
@@ -896,11 +953,11 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         />
       </SectionBlock>
 
-      <SectionBlock title="8) Anamnesi intervallare">
+      <SectionBlock title="10) Anamnesi intervallare">
         <TextSection value={vs.anamnesi} onChange={v => updVS({ anamnesi: v })} minH="min-h-[72px]" />
       </SectionBlock>
 
-      <SectionBlock title="9) Esame obiettivo">
+      <SectionBlock title="11) Esame obiettivo">
         <EsameObiettivoEditor
           text={vs.esame_obj || ""}
           jointMap={draft.physical_exam_joint_exam ?? null}
@@ -909,7 +966,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         />
       </SectionBlock>
 
-      <SectionBlock title="10) Clinimetria">
+      <SectionBlock title="12) Clinimetria">
         <AssessmentsEditor
           items={draft.assessments || []}
           onChange={items => upd({ assessments: items })}
@@ -917,7 +974,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </SectionBlock>
 
       <SectionBlock
-        title="11) Esami / imaging esibiti"
+        title="13) Esami / imaging esibiti"
         badge={labReviewCnt > 0 && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
             {labReviewCnt} da verificare
@@ -964,68 +1021,38 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         )}
       </SectionBlock>
 
-      <SectionBlock title="12) Conclusioni">
+      <SectionBlock title="14) Conclusioni">
         <TextSection value={vs.conclusioni} onChange={v => updVS({ conclusioni: v })} minH="min-h-[64px]" />
       </SectionBlock>
 
-      <SectionBlock
-        title="13) Terapia reumatologica"
-        badge={conflicts.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
-            <AlertTriangle className="w-3 h-3" /> {conflicts.length} conflitto{conflicts.length > 1 ? "i" : ""}
-          </span>
+      <SectionBlock title="15) Terapia in uscita">
+        {!(draft.exit_therapies || []).length && (
+          <div className="mb-3">
+            <button
+              onClick={() => {
+                const ingresso = (draft.therapies || [])
+                  .filter(t => !(t.status === "discontinued" && t._action === "new_episode"))
+                  .map(t => ({ ...t }));
+                upd({ exit_therapies: ingresso });
+              }}
+              className="text-xs text-teal-700 border border-teal-300 rounded px-2 py-1 hover:bg-teal-50"
+            >
+              Copia da ingresso e modifica
+            </button>
+          </div>
         )}
-      >
-        <RawTextToggle
-          label="Testo originale"
-          text={draft.terapia_reumatologica_testo}
-        />
-        {(() => {
-          const exitTherapies = (draft.therapies || []).filter(
-            t => !(t.status === "discontinued" && t._action === "new_episode")
-          );
-          return (
-            <>
-              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                Strutturata
-              </div>
-              {exitTherapies.length > 0 ? (
-                <TherapyEditor
-                  therapies={exitTherapies}
-                  conflicts={conflicts}
-                  onChange={updated => {
-                    const historical = (draft.therapies || []).filter(
-                      t => t.status === "discontinued" && t._action === "new_episode"
-                    );
-                    upd({ therapies: [...updated, ...historical] });
-                  }}
-                />
-              ) : (
-                <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
-              )}
-            </>
-          );
-        })()}
+        {(draft.exit_therapies || []).length > 0 ? (
+          <TherapyEditor
+            therapies={draft.exit_therapies}
+            conflicts={[]}
+            onChange={updated => upd({ exit_therapies: updated })}
+          />
+        ) : (
+          <p className="text-xs text-gray-400 italic">Vuota — compilare manualmente o copiare dalla terapia in ingresso.</p>
+        )}
       </SectionBlock>
 
-      {(draft.therapies || []).some(t => t.status === "discontinued" && t._action === "new_episode") && (
-        <SectionBlock title="Terapia pregressa / esposizioni storiche (raccordo)" defaultOpen={false}>
-          <TherapyEditor
-            therapies={(draft.therapies || []).filter(
-              t => t.status === "discontinued" && t._action === "new_episode"
-            )}
-            conflicts={[]}
-            onChange={updated => {
-              const exit = (draft.therapies || []).filter(
-                t => !(t.status === "discontinued" && t._action === "new_episode")
-              );
-              upd({ therapies: [...exit, ...updated] });
-            }}
-          />
-        </SectionBlock>
-      )}
-
-      <SectionBlock title="14) Indicazioni ulteriori">
+      <SectionBlock title="16) Indicazioni ulteriori">
         <TextSection value={vs.indicazioni} onChange={v => updVS({ indicazioni: v })} minH="min-h-[64px]" />
       </SectionBlock>
 
