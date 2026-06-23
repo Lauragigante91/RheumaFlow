@@ -75,6 +75,7 @@ import { suggestForDiagnosis } from "../lib/diagnosisSuggestions";
 import { findPresetText } from "../lib/therapyPresets";
 import { groupSidebarVisits } from "../lib/visitGrouping";
 import ImportVisitPdfModal from "../components/visits/ImportVisitPdfModal";
+import ExamUploadQRModal from "../components/visits/ExamUploadQRModal";
 import ImportMultiPdfModal from "../components/visits/ImportMultiPdfModal";
 import VisitImportButton from "../components/visits/VisitImportButton";
 import ClinicalTimelineManager from "../components/clinical/ClinicalTimelineManager";
@@ -106,6 +107,7 @@ export default function PatientDetail() {
   const [examsInitialTab, setExamsInitialTab] = useState("lab");
   const openExamsTab = (tab) => { setExamsInitialTab(tab); setExamsDialogOpen(true); };
   const [proDialogOpen, setProDialogOpen] = useState(false);
+  const [examQROpen, setExamQROpen] = useState(false);
   const [showAllIndices, setShowAllIndices] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState("all");
   const [showTherapies, setShowTherapies] = useState(true);
@@ -664,6 +666,11 @@ export default function PatientDetail() {
   // §10 Terapia: testo base per la visita corrente.
   // Priorità: (1) testo già salvato per oggi, (2) exit_therapy_text dell'ultima
   // visita confermata precedente, (3) null → PlanSection usa formatActiveTherapies.
+  const currentVisitId = useMemo(() => {
+    const sorted = [...workupVisits].sort((a, b) => (b.visit_date || "").localeCompare(a.visit_date || ""));
+    return sorted[0]?.id || null;
+  }, [workupVisits]);
+
   const planInitialTherapyText = useMemo(() => {
     const fuVisits = workupVisits
       .filter(v => v.visit_type === "follow_up")
@@ -732,6 +739,7 @@ export default function PatientDetail() {
           onStartNew={startNew}
           onSetCompositeMode={setCompositeMode}
           onOpenPRO={() => setProDialogOpen(true)}
+          onOpenExamUploadQR={currentVisitId ? () => setExamQROpen(true) : undefined}
           onLoad={load}
           onImportText={() => setImportTextOpen(true)}
           onImportPdf={() => setImportPdfOpen(true)}
@@ -1417,6 +1425,13 @@ export default function PatientDetail() {
         onOpenChange={setProDialogOpen}
         onConverted={load}
       />
+
+      {examQROpen && currentVisitId && (
+        <ExamUploadQRModal
+          visitId={currentVisitId}
+          onClose={() => setExamQROpen(false)}
+        />
+      )}
 
       {/* New / edit assessment dialog */}
       <Dialog open={newOpen} onOpenChange={(v) => { setNewOpen(v); if (!v) setEditingAssessment(null); }}>

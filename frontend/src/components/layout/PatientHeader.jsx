@@ -153,6 +153,7 @@ export default function PatientHeader({
   onStartNew,
   onSetCompositeMode,
   onOpenPRO,
+  onOpenExamUploadQR,
   onLoad,
   onImportPdf,
   onImportMultiPdf,
@@ -276,14 +277,39 @@ export default function PatientHeader({
               <Files className="w-4 h-4 mr-2" /> Importa PDF multipli
             </Button>
           )}
-          <Button
-            variant="outline"
-            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-            onClick={onOpenPRO}
-            data-testid="pro-qr-btn"
-          >
-            <QrCode className="w-4 h-4 mr-2" /> QR per il paziente
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                data-testid="pro-qr-btn"
+              >
+                <QrCode className="w-4 h-4 mr-2" /> QR per il paziente <ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-[11px] text-gray-400 font-normal">Invia al paziente</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onOpenPRO} className="cursor-pointer">
+                <QrCode className="w-4 h-4 mr-2 text-blue-600" />
+                <div>
+                  <p className="text-sm">PRO — Questionari</p>
+                  <p className="text-[11px] text-gray-400">Patient Reported Outcomes</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onOpenExamUploadQR}
+                className="cursor-pointer"
+                disabled={!onOpenExamUploadQR}
+              >
+                <QrCode className="w-4 h-4 mr-2 text-teal-600" />
+                <div>
+                  <p className="text-sm">Upload esami</p>
+                  <p className="text-[11px] text-gray-400">Carica referti / immagini</p>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
         </div>
       </div>
