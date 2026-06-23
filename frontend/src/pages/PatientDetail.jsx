@@ -739,7 +739,13 @@ export default function PatientDetail() {
           onStartNew={startNew}
           onSetCompositeMode={setCompositeMode}
           onOpenPRO={() => setProDialogOpen(true)}
-          onOpenExamUploadQR={currentVisitId ? () => setExamQROpen(true) : undefined}
+          onOpenExamUploadQR={() => {
+            if (!currentVisitId) {
+              toast.info("Nessuna visita disponibile. Avvia prima una visita per generare il QR di upload.");
+              return;
+            }
+            setExamQROpen(true);
+          }}
           onLoad={load}
           onImportText={() => setImportTextOpen(true)}
           onImportPdf={() => setImportPdfOpen(true)}
