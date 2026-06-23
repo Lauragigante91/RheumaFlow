@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { examUploadApi } from "../lib/api";
+import { extractLabValuesByDate } from "../lib/labValueExtractor";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
 
@@ -93,6 +94,26 @@ function cleanOCRText(raw) {
     .trim();
 }
 
+function buildExtractedValues(cleanedText) {
+  try {
+    const groups = extractLabValuesByDate(cleanedText);
+    return groups.map(g => ({
+      date: g.date,
+      displayDate: g.displayDate,
+      items: (g.items || []).map(item => ({
+        param_key: item.param_key || item.key || null,
+        name: item.name || item.label || "",
+        value: item.value,
+        unit: item.unit || "",
+        ref_range: item.detectedRange || "",
+        panel: item.panel || "",
+      })).filter(i => i.param_key && i.value !== undefined && i.value !== null),
+    })).filter(g => g.items.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 async function runOCR(file, token, uploadId) {
   try {
     const processed = await preprocessImage(file);
@@ -101,8 +122,9 @@ async function runOCR(file, token, uploadId) {
     const { data: { text } } = await worker.recognize(processed);
     await worker.terminate();
     const cleaned = cleanOCRText(text || "");
+    const extractedValues = buildExtractedValues(cleaned);
     if (cleaned.length > 0) {
-      await examUploadApi.publicPatchExtractedText(token, uploadId, cleaned);
+      await examUploadApi.publicPatchExtractedText(token, uploadId, cleaned, extractedValues);
     }
     return "done";
   } catch {

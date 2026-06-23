@@ -802,7 +802,7 @@ export default function PatientDetail() {
           />
 
           {currentVisitId && (
-            <PatientExamUploadQueue visitId={currentVisitId} />
+            <PatientExamUploadQueue visitId={currentVisitId} patientId={id} />
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left font-normal">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { examUploadApi } from "../../lib/api";
+import { examUploadApi, labExamsApi } from "../../lib/api";
 
 const EXAM_TYPE_LABELS = {
   lab: "Laboratorio",
@@ -34,7 +34,99 @@ function formatSize(bytes) {
 
 const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
 
-export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
+function ExtractedLabTable({ groups }) {
+  const [open, setOpen] = useState(true);
+  if (!groups || groups.length === 0) return null;
+  const total = groups.reduce((s, g) => s + g.items.length, 0);
+
+  return (
+    <div className="mt-2 border border-emerald-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-1.5 bg-emerald-50 text-left"
+      >
+        <span className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wider">
+          Valori estratti — {total} parametr{total === 1 ? "o" : "i"} pronto a importare in archivio
+        </span>
+        <svg className={`w-3 h-3 text-emerald-600 transition-transform ${open ? "" : "-rotate-90"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="divide-y divide-emerald-100">
+          {groups.map((g, gi) => (
+            <div key={gi} className="px-3 py-2">
+              {g.displayDate && (
+                <p className="text-[10px] font-semibold text-emerald-700 mb-1">
+                  Prelievo: {g.displayDate}
+                </p>
+              )}
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="text-left font-normal pb-0.5 pr-2">Parametro</th>
+                    <th className="text-right font-normal pb-0.5 pr-2">Valore</th>
+                    <th className="text-left font-normal pb-0.5 pr-2">U.M.</th>
+                    <th className="text-left font-normal pb-0.5">Intervallo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {g.items.map((item, ii) => (
+                    <tr key={ii}>
+                      <td className="py-0.5 pr-2 text-gray-700 font-medium">{item.name}</td>
+                      <td className="py-0.5 pr-2 text-right tabular-nums text-gray-900">{item.value}</td>
+                      <td className="py-0.5 pr-2 text-gray-500">{item.unit}</td>
+                      <td className="py-0.5 text-gray-400">{item.ref_range}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function saveLabValues(patientId, visitId, upload) {
+  const groups = upload.extracted_values;
+  if (!groups || groups.length === 0) return 0;
+  let saved = 0;
+  for (const g of groups) {
+    if (!g.items || g.items.length === 0) continue;
+    const values = {};
+    g.items.forEach(item => {
+      if (item.param_key) {
+        values[item.param_key] = {
+          value: item.value,
+          unit: item.unit || "",
+          ref_range: item.ref_range || "",
+          name: item.name || "",
+        };
+      }
+    });
+    if (Object.keys(values).length === 0) continue;
+    try {
+      await labExamsApi.create({
+        patient_id: patientId,
+        date: g.date || null,
+        panel: "Laboratorio (OCR)",
+        values,
+        visit_id: visitId || null,
+        source_filename: upload.original_filename || null,
+      });
+      saved++;
+    } catch {
+      // continua con i gruppi successivi
+    }
+  }
+  return saved;
+}
+
+export default function PatientExamUploadQueue({ visitId, patientId, onPendingChange }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState({});
@@ -60,18 +152,30 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
     return () => clearInterval(interval);
   }, [load]);
 
-  const handleAccept = async (uploadId, originalExtractedText) => {
+  const handleAccept = async (upload) => {
+    const uploadId = upload.id;
     setProcessing(p => ({ ...p, [uploadId]: true }));
     try {
       const payload = { status: "accepted" };
       const edited = editedTexts[uploadId];
-      if (edited !== undefined && edited !== (originalExtractedText || "")) {
+      if (edited !== undefined && edited !== (upload.extracted_text || "")) {
         payload.extracted_text = edited;
       }
       await examUploadApi.updateUpload(uploadId, payload);
+
+      if (patientId && upload.extracted_values?.length > 0) {
+        const saved = await saveLabValues(patientId, visitId, upload);
+        if (saved > 0) {
+          toast.success(`Esame accettato — ${saved} gruppo/i di valori importato/i in archivio`);
+        } else {
+          toast.success("Esame accettato");
+        }
+      } else {
+        toast.success("Esame accettato");
+      }
+
       setEditedTexts(t => { const n = { ...t }; delete n[uploadId]; return n; });
       await load();
-      toast.success("Esame accettato");
     } catch {
       toast.error("Errore nell'aggiornamento");
     } finally {
@@ -156,7 +260,7 @@ export default function PatientExamUploadQueue({ visitId, onPendingChange }) {
             <UploadRow
               key={upload.id}
               upload={upload}
-              onAccept={() => handleAccept(upload.id, upload.extracted_text)}
+              onAccept={() => handleAccept(upload)}
               onReject={() => handleReject(upload.id)}
               processing={!!processing[upload.id]}
               editedText={editedTexts[upload.id]}
@@ -198,6 +302,7 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
   const fileUrl = examUploadApi.fileUrl(upload.id);
   const isImage = IMAGE_CONTENT_TYPES.has(upload.content_type);
   const displayText = editedText !== undefined ? editedText : (upload.extracted_text || "");
+  const hasExtracted = upload.extracted_values?.length > 0;
 
   return (
     <div className={`bg-white border rounded-lg overflow-hidden ${isPending ? "border-amber-200" : "border-gray-100"}`}>
@@ -213,6 +318,11 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
             {isImage && !upload.extracted_text && isPending && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
                 OCR in corso
+              </span>
+            )}
+            {hasExtracted && isPending && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">
+                valori pronti
               </span>
             )}
           </div>
@@ -245,7 +355,7 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
                 disabled={processing}
                 className="text-[11px] text-emerald-700 border border-emerald-300 rounded px-1.5 py-1 hover:bg-emerald-50 disabled:opacity-50"
               >
-                Accetta
+                {hasExtracted ? "Accetta e importa" : "Accetta"}
               </button>
               <button
                 onClick={onReject}
@@ -274,21 +384,27 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
             />
           </a>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              Testo estratto (OCR)
-              {isPending && <span className="ml-1 font-normal normal-case text-gray-400">— modificabile</span>}
-            </p>
-            <textarea
-              value={displayText}
-              onChange={isPending ? (e) => onEditText(e.target.value) : undefined}
-              readOnly={!isPending}
-              rows={4}
-              className={`w-full text-[11px] font-mono border rounded px-2 py-1.5 resize-y leading-relaxed ${
-                isPending
-                  ? "border-gray-200 focus:border-[#0A2540] focus:outline-none bg-white"
-                  : "border-gray-100 bg-gray-50 text-gray-600"
-              }`}
-            />
+            {hasExtracted ? (
+              <ExtractedLabTable groups={upload.extracted_values} />
+            ) : (
+              <>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Testo estratto (OCR)
+                  {isPending && <span className="ml-1 font-normal normal-case text-gray-400">— modificabile</span>}
+                </p>
+                <textarea
+                  value={displayText}
+                  onChange={isPending ? (e) => onEditText(e.target.value) : undefined}
+                  readOnly={!isPending}
+                  rows={4}
+                  className={`w-full text-[11px] font-mono border rounded px-2 py-1.5 resize-y leading-relaxed ${
+                    isPending
+                      ? "border-gray-200 focus:border-[#0A2540] focus:outline-none bg-white"
+                      : "border-gray-100 bg-gray-50 text-gray-600"
+                  }`}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

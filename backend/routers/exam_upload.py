@@ -257,10 +257,13 @@ async def public_patch_extracted_text(token: str, upload_id: str, payload: dict)
         raise HTTPException(status_code=403, detail="Link scaduto o non valido")
 
     extracted_text = (payload.get("extracted_text") or "")[:50000]
+    extracted_values = payload.get("extracted_values") or []
+    if not isinstance(extracted_values, list):
+        extracted_values = []
 
     result = await db.exam_uploads.update_one(
         {"id": upload_id, "session_id": session["id"]},
-        {"$set": {"extracted_text": extracted_text}},
+        {"$set": {"extracted_text": extracted_text, "extracted_values": extracted_values}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Upload non trovato")

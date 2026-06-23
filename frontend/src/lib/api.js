@@ -244,6 +244,6 @@ export const examUploadApi = {
     axios.get(`${API}/exam-upload/${token}/status`).then((r) => r.data),
   publicUpload: (token, formData) =>
     axios.post(`${API}/exam-upload/${token}/upload`, formData).then((r) => r.data),
-  publicPatchExtractedText: (token, uploadId, extractedText) =>
-    axios.patch(`${API}/exam-upload/${token}/uploads/${uploadId}/text`, { extracted_text: extractedText }).then((r) => r.data),
+  publicPatchExtractedText: (token, uploadId, extractedText, extractedValues) =>
+    axios.patch(`${API}/exam-upload/${token}/uploads/${uploadId}/text`, { extracted_text: extractedText, extracted_values: extractedValues || [] }).then((r) => r.data),
 };
