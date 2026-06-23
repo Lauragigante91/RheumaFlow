@@ -148,9 +148,16 @@ export default function PatientExamUploadQueue({ visitId, patientId, onPendingCh
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
   }, [load]);
+
+  // Polling adattivo: 3s se ci sono pending senza testo OCR ancora (OCR in corso), 30s altrimenti
+  useEffect(() => {
+    const hasOcrPending = (data?.uploads || []).some(
+      u => u.status === "pending_review" && !u.extracted_text
+    );
+    const interval = setInterval(load, hasOcrPending ? 3000 : 30000);
+    return () => clearInterval(interval);
+  }, [load, data]);
 
   const handleAccept = async (upload) => {
     const uploadId = upload.id;
@@ -163,7 +170,8 @@ export default function PatientExamUploadQueue({ visitId, patientId, onPendingCh
       }
       await examUploadApi.updateUpload(uploadId, payload);
 
-      if (patientId && upload.extracted_values?.length > 0) {
+      const evs = Array.isArray(upload.extracted_values) ? upload.extracted_values : [];
+      if (patientId && evs.length > 0) {
         const saved = await saveLabValues(patientId, visitId, upload);
         if (saved > 0) {
           toast.success(`Esame accettato — ${saved} gruppo/i di valori importato/i in archivio`);
@@ -302,7 +310,8 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
   const fileUrl = examUploadApi.fileUrl(upload.id);
   const isImage = IMAGE_CONTENT_TYPES.has(upload.content_type);
   const displayText = editedText !== undefined ? editedText : (upload.extracted_text || "");
-  const hasExtracted = upload.extracted_values?.length > 0;
+  const extractedValues = Array.isArray(upload.extracted_values) ? upload.extracted_values : [];
+  const hasExtracted = extractedValues.length > 0;
 
   return (
     <div className={`bg-white border rounded-lg overflow-hidden ${isPending ? "border-amber-200" : "border-gray-100"}`}>
@@ -385,7 +394,7 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
           </a>
           <div className="flex-1 min-w-0">
             {hasExtracted ? (
-              <ExtractedLabTable groups={upload.extracted_values} />
+              <ExtractedLabTable groups={extractedValues} />
             ) : (
               <>
                 <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">

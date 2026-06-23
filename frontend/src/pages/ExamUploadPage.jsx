@@ -8,22 +8,60 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
 async function preprocessImage(file) {
   try {
     const bitmap = await createImageBitmap(file);
+
+    // Scala a max 2400px sul lato lungo (Tesseract performa meglio su immagini nitide ma non gigantesche)
+    const MAX = 2400;
+    let w = bitmap.width;
+    let h = bitmap.height;
+    if (w > MAX || h > MAX) {
+      const ratio = Math.min(MAX / w, MAX / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+
+    const imgData = ctx.getImageData(0, 0, w, h);
     const d = imgData.data;
-    const contrastFactor = (259 * (77 + 255)) / (255 * (259 - 77));
+
+    // Passo 1: converti in grayscale
     for (let i = 0; i < d.length; i += 4) {
-      let v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      v = Math.min(255, v + 25);
-      v = Math.min(255, Math.max(0, contrastFactor * (v - 128) + 128));
+      const v = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
       d[i] = d[i + 1] = d[i + 2] = v;
     }
+
+    // Passo 2: sogliatura adattiva per blocchi (migliora molto il testo su sfondo non uniforme)
+    const BLOCK = 32;
+    const gray = new Uint8Array(w * h);
+    for (let i = 0; i < d.length; i += 4) gray[i / 4] = d[i];
+
+    for (let by = 0; by < h; by += BLOCK) {
+      for (let bx = 0; bx < w; bx += BLOCK) {
+        let sum = 0, count = 0;
+        for (let y = by; y < Math.min(by + BLOCK, h); y++) {
+          for (let x = bx; x < Math.min(bx + BLOCK, w); x++) {
+            sum += gray[y * w + x];
+            count++;
+          }
+        }
+        const mean = sum / count;
+        const thresh = mean * 0.85; // testo scuro su sfondo chiaro
+        for (let y = by; y < Math.min(by + BLOCK, h); y++) {
+          for (let x = bx; x < Math.min(bx + BLOCK, w); x++) {
+            const idx = (y * w + x) * 4;
+            const v = gray[y * w + x] < thresh ? 0 : 255;
+            d[idx] = d[idx + 1] = d[idx + 2] = v;
+          }
+        }
+      }
+    }
+
     ctx.putImageData(imgData, 0, 0);
-    return await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
+    return await new Promise((res) => canvas.toBlob(res, "image/png"));
   } catch {
     return file;
   }
