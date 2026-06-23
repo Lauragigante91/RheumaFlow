@@ -91,9 +91,6 @@ const FRONT_JOINTS = {
   dip3_r: { x: 164, y: 248, r: 4.5 },
   dip4_r: { x: 151, y: 248, r: 4.5 },
   dip5_r: { x: 140, y: 242, r: 4.5 },
-  // ── Sacroiliac joints (outside 66/68 standard; excluded from TJC/SJC) ────
-  si_l: { x: 91, y: 209, r: 5 },
-  si_r: { x: 109, y: 209, r: 5 },
   // ── Hips (tender-only in SJC66; excluded from swollen count) ─────
   hip_l: { x: 88, y: 220, r: 5 },
   hip_r: { x: 112, y: 220, r: 5 },
