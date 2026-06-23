@@ -76,6 +76,7 @@ import { findPresetText } from "../lib/therapyPresets";
 import { groupSidebarVisits } from "../lib/visitGrouping";
 import ImportVisitPdfModal from "../components/visits/ImportVisitPdfModal";
 import ExamUploadQRModal from "../components/visits/ExamUploadQRModal";
+import PatientExamUploadQueue from "../components/visits/PatientExamUploadQueue";
 import ImportMultiPdfModal from "../components/visits/ImportMultiPdfModal";
 import VisitImportButton from "../components/visits/VisitImportButton";
 import ClinicalTimelineManager from "../components/clinical/ClinicalTimelineManager";
@@ -799,6 +800,10 @@ export default function PatientDetail() {
             toggleReportSection={toggleCockpitSection}
             onWorkupData={(data) => setWorkupReportData(data)}
           />
+
+          {currentVisitId && (
+            <PatientExamUploadQueue visitId={currentVisitId} />
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left font-normal">
 
