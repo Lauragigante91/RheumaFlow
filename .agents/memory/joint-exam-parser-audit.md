@@ -19,7 +19,7 @@ Minor latent: `extractNumbers` doesn't enforce the family's lower bound, so "DIP
 
 **Status:** ALL 9 bug families RESOLVED.
 - Families 1–5: RESOLVED in P0 fix (already merged).
-- Family 6 (sacroiliac): RESOLVED — si_l/si_r in JOINT_DEFS + SWOLLEN_RE + Homunculus.jsx; excluded from TJC/SJC counts; tests #30/31/32 promoted active; 7/7 new cases pass.
+- Family 6 (sacroiliac): RESOLVED — SI joints are NOT in Homunculus (removed si_l/si_r from FRONT_JOINTS). Parser extracts them into a separate `sacroiliac` output map with values "positive"/"negative". Negated SI clauses → "negative" entry. New SacroiliacWidget.jsx renders them in PhysicalExamSection below the Homunculus. Saved as physical_exam_sacroiliac in WorkupVisit. 7 dedicated sacroiliac tests pass; 83 total pass.
 - Families 7 (BUG-G "X e Y" numeric enum), 9 (BUG-I MTF→MTP), plus G2/G5/G7: RESOLVED in Task #43 (IMPLEMENTED, pending merge).
 - Family 8 (laterality spillover): mitigated via NEXT_JOINT_RE window.
 - Zero open audit gaps.
@@ -30,4 +30,4 @@ Minor latent: `extractNumbers` doesn't enforce the family's lower bound, so "DIP
 
 **Why:** these are subtle (regex typo, singular/plural boundary, forward-only carry, non-ASCII word boundary) and easy to rediscover the hard way; the under-count families are clinically the most dangerous.
 
-**Audit harness method (reproducible):** write an `.mjs` importing `parseJointExam`, bundle with `cd frontend && npx esbuild <file> --bundle --platform=node --outfile=/tmp/out.cjs --format=cjs && node /tmp/out.cjs`. Score each case by comparing the parser's joint-key set vs an expected key set; derive laterality errors via base/side diff (`baseOf`=strip `_l`/`_r`). Encode sacroiliac as pseudo-keys (si_l/si_r) to mark them unmappable.
+**Audit harness method (reproducible):** write an `.mjs` importing `parseJointExam`, bundle with `cd frontend && npx esbuild <file> --bundle --platform=node --outfile=/tmp/out.cjs --format=cjs && node /tmp/out.cjs`. Score each case by comparing the parser's joint-key set vs an expected key set; derive laterality errors via base/side diff (`baseOf`=strip `_l`/`_r`). SI is in `sacroiliac` output, not `joints`.

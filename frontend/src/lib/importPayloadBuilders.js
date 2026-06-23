@@ -27,12 +27,18 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
   const wantReqTests = Array.isArray(extracted.requested_tests) &&
     extracted.requested_tests.length > 0;
 
-  let jointExam = extracted.physical_exam_joint_exam;
+  let jointExam   = extracted.physical_exam_joint_exam;
+  let sacroiliacE = extracted.physical_exam_sacroiliac;
+
   if (jointExam === undefined || jointExam === null) {
     const parsedJoints = parseJointExam(vs.esame_obj || "");
-    jointExam = parsedJoints.found ? parsedJoints.joints : null;
+    jointExam   = parsedJoints.found ? parsedJoints.joints    : null;
+    if (sacroiliacE === undefined || sacroiliacE === null) {
+      sacroiliacE = Object.keys(parsedJoints.sacroiliac || {}).length ? parsedJoints.sacroiliac : null;
+    }
   }
-  if (jointExam && Object.keys(jointExam).length === 0) jointExam = null;
+  if (jointExam   && Object.keys(jointExam).length   === 0) jointExam   = null;
+  if (sacroiliacE && Object.keys(sacroiliacE).length === 0) sacroiliacE = null;
 
   return {
     patient_id:                    patientId,
@@ -42,6 +48,7 @@ export function buildWorkupVisitPayload(extracted, patientId, visitType, selecte
     interval_history:              vs.anamnesi    || null,
     physical_exam:                 vs.esame_obj   || null,
     physical_exam_joint_exam:      jointExam,
+    physical_exam_sacroiliac:      sacroiliacE,
     conclusions:                   vs.conclusioni || null,
     referral_note:                 vs.indicazioni || null,
     exit_therapy_text:             vs.terapia_uscita || null,

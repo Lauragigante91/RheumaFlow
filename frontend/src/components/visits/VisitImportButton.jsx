@@ -124,6 +124,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
     return {
       ...ext,
       physical_exam_joint_exam: jointExam.found ? jointExam.joints : {},
+      physical_exam_sacroiliac: Object.keys(jointExam.sacroiliac || {}).length ? jointExam.sacroiliac : {},
       therapies:             stamp(ext.therapies),
       lab_exams:             stamp(ext.lab_exams),
       lab_review_items:      (ext.lab_review_items || []).map((item, i) => ({ ...item, _id: i })),

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Textarea } from "../ui/textarea";
 import { ChevronDown, ChevronUp, Crosshair, Layers, Activity } from "lucide-react";
 import Homunculus, { countTender, countSwollen } from "../imaging/Homunculus";
+import SacroiliacWidget from "../imaging/SacroiliacWidget";
 import EnthesisBodyChart from "../imaging/EnthesisBodyChart";
 import TemplatePickerDialog from "../visits/TemplatePickerDialog";
 import SelectableTextArea from "../shared/SelectableTextArea";
@@ -80,6 +81,16 @@ export function serializePhysicalExam(value) {
     if (tenderKeys.length)  lines.push(`  Dolorabilità: ${tenderKeys.join(", ")}`);
     if (swollenKeys.length) lines.push(`  Tumefazione: ${swollenKeys.join(", ")}`);
     parts.push(lines.join("\n"));
+  }
+
+  const si = value.sacroiliac || {};
+  const siPos = Object.entries(si).filter(([, v]) => v === "positive").map(([k]) => k === "si_l" ? "SX" : "DX");
+  const siNeg = Object.entries(si).filter(([, v]) => v === "negative").map(([k]) => k === "si_l" ? "SX" : "DX");
+  if (siPos.length || siNeg.length) {
+    const siLines = ["Manovre sacroiliache:"];
+    if (siPos.length) siLines.push(`  Positive: ${siPos.join(", ")}`);
+    if (siNeg.length) siLines.push(`  Negative: ${siNeg.join(", ")}`);
+    parts.push(siLines.join("\n"));
   }
 
   // Legacy systems (backward compat — no longer shown in UI)
@@ -168,7 +179,7 @@ function ScoreBtn({ score, max, current, onClick, color = "blue" }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 function emptyValue() {
-  return { free_text: "", joint_exam: {}, systems: {}, mrss: {}, pasi: {}, lei: {} };
+  return { free_text: "", joint_exam: {}, sacroiliac: {}, systems: {}, mrss: {}, pasi: {}, lei: {} };
 }
 
 const LEI_SITE_LABELS = {
@@ -196,11 +207,12 @@ export default function PhysicalExamSection({
   onClinimetrySaved = null,
 }) {
   const val = (value && typeof value === "object" && !Array.isArray(value)) ? value : emptyValue();
-  const freeText = val.free_text ?? "";
-  const jointMap = val.joint_exam ?? {};
-  const mrss     = val.mrss      ?? {};
-  const pasi     = val.pasi      ?? {};
-  const lei      = val.lei       ?? {};
+  const freeText   = val.free_text   ?? "";
+  const jointMap   = val.joint_exam  ?? {};
+  const sacroiliac = val.sacroiliac  ?? {};
+  const mrss       = val.mrss        ?? {};
+  const pasi       = val.pasi        ?? {};
+  const lei        = val.lei         ?? {};
 
   const [homunculusOpen, setHomunculusOpen] = useState(false);
   const [leiOpen,        setLeiOpen]        = useState(false);
@@ -299,6 +311,10 @@ export default function PhysicalExamSection({
                   )}
                 </div>
               </div>
+              <SacroiliacWidget
+                value={sacroiliac}
+                onChange={(v) => patch({ sacroiliac: v })}
+              />
             </div>
           )}
         </div>

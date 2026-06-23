@@ -180,6 +180,7 @@ export default function TodayVisitSection({
   const [intervalHistory, setIntervalHistory] = useState("");
   const [physicalExam,    setPhysicalExam]    = useState("");
   const [examJoints,      setExamJoints]      = useState({});
+  const [examSacroiliac,  setExamSacroiliac]  = useState({});
   const [examSystems,     setExamSystems]     = useState({});
   const [examMrss,        setExamMrss]        = useState({});
   const [examPasi,        setExamPasi]        = useState({});
@@ -293,8 +294,9 @@ export default function TodayVisitSection({
       if (d.raccordoText) { setRaccordoText(d.raccordoText); raccordoFromDraft.current = true; }
       if (d.intervalHistory) { setIntervalHistory(d.intervalHistory); hasInitIntervalHistory.current = true; }
       if (d.physicalExam)    { setPhysicalExam(d.physicalExam);       hasInitExam.current = true; }
-      if (d.examJoints && Object.keys(d.examJoints).length > 0)   setExamJoints(d.examJoints);
-      if (d.examLei    && Object.keys(d.examLei).length > 0)       setExamLei(d.examLei);
+      if (d.examJoints      && Object.keys(d.examJoints).length > 0)      setExamJoints(d.examJoints);
+      if (d.examSacroiliac  && Object.keys(d.examSacroiliac).length > 0)  setExamSacroiliac(d.examSacroiliac);
+      if (d.examLei         && Object.keys(d.examLei).length > 0)         setExamLei(d.examLei);
       if (d.examSystems && Object.keys(d.examSystems).length > 0)  setExamSystems(d.examSystems);
       if (d.examMrss   && Object.keys(d.examMrss).length > 0)      setExamMrss(d.examMrss);
       if (d.examPasi   && Object.keys(d.examPasi).length > 0)      setExamPasi(d.examPasi);
@@ -431,7 +433,7 @@ export default function TodayVisitSection({
       try {
         sessionStorage.setItem(draftKey, JSON.stringify({
           raccordoText, intervalHistory, physicalExam,
-          examJoints, examLei, examSystems, examMrss, examPasi,
+          examJoints, examSacroiliac, examLei, examSystems, examMrss, examPasi,
           labsImaging, note, symptoms: [...symptoms],
           tjc, sjc, gh, ega, pcr, ves,
           spaBack, spaStiff, spaPeriph, spaPga, spaPcr, spaTjc, spaSjc,
@@ -443,7 +445,7 @@ export default function TodayVisitSection({
     }, 600);
     return () => clearTimeout(_draftTimer.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [raccordoText, intervalHistory, physicalExam, examJoints, examLei, examSystems,
+  }, [raccordoText, intervalHistory, physicalExam, examJoints, examSacroiliac, examLei, examSystems,
       examMrss, examPasi, labsImaging, note, symptoms,
       tjc, sjc, gh, ega, pcr, ves,
       spaBack, spaStiff, spaPeriph, spaPga, spaPcr, spaTjc, spaSjc,
@@ -483,8 +485,9 @@ export default function TodayVisitSection({
     if (syncData.peripheralPain   != null) setSpaPeriph((prev) => prev === "" ? String(syncData.peripheralPain)   : prev);
     if (syncData.pga              != null) setSpaPga(   (prev) => prev === "" ? String(syncData.pga)              : prev);
     if (syncData.pcr  != null) setSpaPcr(String(syncData.pcr));
-    if (syncData.joint_exam != null) setExamJoints(syncData.joint_exam);
-    if (syncData.lei        != null) setExamLei(syncData.lei);
+    if (syncData.joint_exam  != null) setExamJoints(syncData.joint_exam);
+    if (syncData.sacroiliac  != null) setExamSacroiliac(syncData.sacroiliac);
+    if (syncData.lei         != null) setExamLei(syncData.lei);
     if (syncData.raccordoText    != null) setRaccordoText(prev => prev || syncData.raccordoText);
     if (syncData.intervalHistory != null) setIntervalHistory(prev => prev || syncData.intervalHistory);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -684,6 +687,7 @@ export default function TodayVisitSection({
     const examSerialized = serializePhysicalExam({
       free_text:  physicalExam,
       joint_exam: examJoints,
+      sacroiliac: examSacroiliac,
       systems:    examSystems,
       mrss:       examMrss,
       pasi:       examPasi,
@@ -751,8 +755,8 @@ export default function TodayVisitSection({
         v => v.visit_type === "follow_up" && (v.visit_date || "").slice(0, 10) === date
       );
       const examSerialized = serializePhysicalExam({
-        free_text: physicalExam, joint_exam: examJoints, systems: examSystems,
-        mrss: examMrss, pasi: examPasi, lei: examLei,
+        free_text: physicalExam, joint_exam: examJoints, sacroiliac: examSacroiliac,
+        systems: examSystems, mrss: examMrss, pasi: examPasi, lei: examLei,
       });
       const narrativePayload = {
         patient_id:                    patient.id,
@@ -761,11 +765,12 @@ export default function TodayVisitSection({
         rheumatologic_history_summary: raccordoText.trim()    || null,
         interval_history:              intervalHistory.trim() || null,
         physical_exam:                 examSerialized.trim()  || null,
-        physical_exam_joint_exam:      Object.keys(examJoints).length  ? examJoints  : null,
-        physical_exam_systems:         Object.keys(examSystems).length ? examSystems : null,
-        physical_exam_mrss:            Object.keys(examMrss).length    ? examMrss    : null,
-        physical_exam_pasi:            Object.keys(examPasi).length    ? examPasi    : null,
-        physical_exam_lei:             Object.keys(examLei).length     ? examLei     : null,
+        physical_exam_joint_exam:      Object.keys(examJoints).length      ? examJoints      : null,
+        physical_exam_sacroiliac:      Object.keys(examSacroiliac).length  ? examSacroiliac  : null,
+        physical_exam_systems:         Object.keys(examSystems).length     ? examSystems     : null,
+        physical_exam_mrss:            Object.keys(examMrss).length        ? examMrss        : null,
+        physical_exam_pasi:            Object.keys(examPasi).length        ? examPasi        : null,
+        physical_exam_lei:             Object.keys(examLei).length         ? examLei         : null,
         labs_imaging:                  labsImaging.trim()    || null,
         conclusions:                   note.trim()           || null,
         exit_therapy_text:             (typeof exitTherapyText === "string" ? exitTherapyText : "").trim() || null,
@@ -1076,10 +1081,11 @@ export default function TodayVisitSection({
           onToggleReport={toggleReportSection}
         >
           <PhysicalExamSection
-            value={{ free_text: physicalExam, joint_exam: examJoints, systems: examSystems, mrss: examMrss, pasi: examPasi, lei: examLei }}
-            onChange={({ free_text, joint_exam, systems, mrss, pasi, lei }) => {
+            value={{ free_text: physicalExam, joint_exam: examJoints, sacroiliac: examSacroiliac, systems: examSystems, mrss: examMrss, pasi: examPasi, lei: examLei }}
+            onChange={({ free_text, joint_exam, sacroiliac, systems, mrss, pasi, lei }) => {
               setPhysicalExam(free_text);
               setExamJoints(joint_exam);
+              setExamSacroiliac(sacroiliac || {});
               setExamSystems(systems);
               setExamMrss(mrss || {});
               setExamPasi(pasi || {});

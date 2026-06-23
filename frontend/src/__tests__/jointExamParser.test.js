@@ -118,11 +118,11 @@ const CASES = [
   { id: 27, focus: "spalla dx", text: "Dolorabilità spalla destra.", expected: ["shoulder_r"] },
   { id: 28, focus: "gomito destro (m)", text: "Gomito destro con sinovite.", expected: ["elbow_r"] },
   { id: 29, focus: "gomiti plurale", text: "Gomiti dolenti bilateralmente.", expected: both("elbow") },
-  { id: 30, focus: "sacroiliache", text: "Dolorabilità delle sacroiliache.", expected: ["si_l", "si_r"] },
-  { id: 31, focus: "sacroileite bilat", text: "Sacroileite bilaterale.", expected: ["si_l", "si_r"] },
-  { id: 32, focus: "sacroiliaca dx", text: "Dolore sacroiliaca destra.", expected: ["si_r"] },
-  { id: 32.1, focus: "sacroileite dx", text: "Sacroileite destra.", expected: ["si_r"] },
-  { id: 32.2, focus: "neg sacroileite", text: "Non si rileva sacroileite.", expected: [] },
+  { id: 30, focus: "sacroiliache (→ sacroiliac, non joints)", text: "Dolorabilità delle sacroiliache.", expected: [] },
+  { id: 31, focus: "sacroileite bilat (→ sacroiliac)", text: "Sacroileite bilaterale.", expected: [] },
+  { id: 32, focus: "sacroiliaca dx (→ sacroiliac)", text: "Dolore sacroiliaca destra.", expected: [] },
+  { id: 32.1, focus: "sacroileite dx (→ sacroiliac)", text: "Sacroileite destra.", expected: [] },
+  { id: 32.2, focus: "neg sacroileite (→ sacroiliac negative)", text: "Non si rileva sacroileite.", expected: [] },
   { id: 56.1, focus: "sx alias sinistra", text: "Tumefazione polso sx.", expected: ["wrist_l"] },
   { id: 56.2, focus: "dx e sx bilat MCF", text: "Tumefazione dolente polso dx + II-III MCF dx e sx", expected: [...both("mcp", [2,3]), "wrist_r"] },
   { id: 33, focus: "MCP bilat", text: "MCP II bilateralmente dolenti.", expected: num("mcp", [2]) },
@@ -179,6 +179,52 @@ describe("jointExamParser — nessun falso positivo nel corpus", () => {
       }
     }
     expect(fpAll).toEqual([]);
+  });
+});
+
+describe("jointExamParser — sacroiliac output separato", () => {
+  test("sacroiliache bilat → sacroiliac positive, joints vuoto", () => {
+    const r = parseJointExam("Dolorabilità delle sacroiliache.");
+    expect(r.joints).toEqual({});
+    expect(r.sacroiliac).toEqual({ si_l: "positive", si_r: "positive" });
+  });
+
+  test("sacroileite bilaterale → sacroiliac positive, joints vuoto", () => {
+    const r = parseJointExam("Sacroileite bilaterale.");
+    expect(r.joints).toEqual({});
+    expect(r.sacroiliac).toEqual({ si_l: "positive", si_r: "positive" });
+  });
+
+  test("sacroiliaca destra → si_r positive, si_l assente", () => {
+    const r = parseJointExam("Dolore sacroiliaca destra.");
+    expect(r.joints).toEqual({});
+    expect(r.sacroiliac).toEqual({ si_r: "positive" });
+  });
+
+  test("sacroileite sinistra → si_l positive", () => {
+    const r = parseJointExam("Sacroileite sinistra.");
+    expect(r.joints).toEqual({});
+    expect(r.sacroiliac).toEqual({ si_l: "positive" });
+  });
+
+  test("negazione esplicita → sacroiliac negative per entrambi i lati", () => {
+    const r = parseJointExam("Non si rileva sacroileite.");
+    expect(r.joints).toEqual({});
+    expect(r.sacroiliac).toEqual({ si_l: "negative", si_r: "negative" });
+  });
+
+  test("SI non interferiscono con TJC/SJC", () => {
+    const r = parseJointExam("Sacroileite bilaterale; polso destro tumefatto.");
+    expect(r.sacroiliac).toEqual({ si_l: "positive", si_r: "positive" });
+    expect(r.joints).toEqual({ wrist_r: "swollen" });
+    expect(r.tjc).toBe(0);
+    expect(r.sjc).toBe(1);
+  });
+
+  test("found=true anche con solo sacroiliac", () => {
+    const r = parseJointExam("Sacroileite destra.");
+    expect(r.found).toBe(true);
+    expect(r.joints).toEqual({});
   });
 });
 

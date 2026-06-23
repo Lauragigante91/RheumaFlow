@@ -121,9 +121,9 @@ const JOINT_DEFS = [
   // subtalar merged into midtarsal (standard 66/68 counts 1 Tarsus/Midfoot per foot)
   { re: /\bsottastragal\w+|subtalar\b/i,                       base: "midtarsal" },
   { re: /\bmediotars\w+|midtarsal\b|tarso\b/i,                 base: "midtarsal" },
-  // Sacroiliac joints — outside 66/68 standard count; excluded from TJC/SJC
-  { re: /\bsacroiliaca?\b/i,  base: "si", plural: /\bsacroiliache\b/i  },
-  { re: /\bsacroileit[ei]\b/i, base: "si", plural: /\bsacroileiti\b/i  },
+  // Sacroiliac joints — extracted into sacroiliac output map, NOT into joints/TJC/SJC
+  { re: /\bsacroiliaca?\b/i,   base: "si", plural: /\bsacroiliache\b/i  },
+  { re: /\bsacroileit[ei]\b/i, base: "si", plural: /\bsacroileiti\b/i   },
 ];
 
 // Numbered joint families (MCP, PIP, DIP, MTP)
@@ -369,21 +369,43 @@ export function parseJointExam(text) {
     else if (alsoTender || isTender)  markTender(joints);
   }
 
-  const found = Object.keys(result).length > 0;
+  // ── Sacroiliac post-processing ───────────────────────────────────────────────
+  // SI (si_l, si_r) are NOT peripheral joints — they are extracted into a
+  // separate sacroiliac map with values "positive" / "negative".
+  const sacroiliac = {};
+
+  for (const key of ["si_l", "si_r"]) {
+    if (result[key]) {
+      sacroiliac[key] = "positive";
+      delete result[key];
+    }
+  }
+
+  // Scan for explicit negated SI mentions → "negative"
+  const SI_TERM_RE = /\bsacroiliac[ae]?\b|\bsacroileit[ei]\b|\bsacroileiti\b/i;
+  for (const clause of splitClauses(cleanText)) {
+    if (!SI_TERM_RE.test(clause)) continue;
+    if (NEG_RE.test(clause)) {
+      const sides = parseSides(clause) ?? ["_l", "_r"];
+      for (const s of sides) {
+        const key = "si" + s;
+        if (!sacroiliac[key]) sacroiliac[key] = "negative";
+      }
+    }
+  }
+
+  const found = Object.keys(result).length > 0 || Object.keys(sacroiliac).length > 0;
 
   // TJC68 / SJC66 — full 66/68-joint count
   // TJC68: all joints (including hips, assessed for tenderness only)
   // SJC66: all joints EXCEPT hips (hips not formally assessed for swelling)
-  // SI joints (si_l, si_r) are outside the 66/68 standard — excluded from both counts
   const HIP_KEYS = new Set(["hip_l", "hip_r"]);
-  const SI_KEYS  = new Set(["si_l",  "si_r"]);
 
   let tjc = 0, sjc = 0;
   for (const [key, val] of Object.entries(result)) {
-    if (SI_KEYS.has(key)) continue;
     if (val === "tender" || val === "both") tjc++;
     if ((val === "swollen" || val === "both") && !HIP_KEYS.has(key)) sjc++;
   }
 
-  return { joints: result, tjc, sjc, found, rawSegments };
+  return { joints: result, sacroiliac, tjc, sjc, found, rawSegments };
 }

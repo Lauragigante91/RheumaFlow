@@ -51,6 +51,7 @@ class WorkupVisitBase(BaseModel):
     physical_exam_mrss: Optional[dict] = None            # 2 · MRSS (sclerosi sistemica)
     physical_exam_pasi: Optional[dict] = None            # 2 · PASI (psoriasi)
     physical_exam_lei: Optional[dict] = None             # 2 · LEI (entesiti)
+    physical_exam_sacroiliac: Optional[dict] = None      # 2 · Manovre sacroiliache (si_l/si_r: positive|negative)
     labs_imaging: Optional[str] = None                   # 3 · Esami / imaging in visione
     clinimetria_notes: Optional[str] = None              # 4 · Clinimetria (opzionale)
     diagnostic_hypotheses: Optional[str] = None          # 5 · Assessment: ipotesi diagnostiche
