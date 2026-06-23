@@ -68,25 +68,6 @@ function DiagnosiSelect({ value, onChange }) {
   );
 }
 
-function RawTextToggle({ label, text }) {
-  const [open, setOpen] = useState(false);
-  if (!text) return null;
-  return (
-    <div className="border border-gray-200 rounded-md mb-3 overflow-hidden">
-      <button type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
-        {open ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
-      </button>
-      {open && (
-        <div className="px-3 py-2 bg-white">
-          <pre className="text-[11px] text-gray-600 whitespace-pre-wrap font-mono leading-relaxed">{text.trim()}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function TherapyItemRow({ therapy, onChange, onSkip, conflicts }) {
   const [editing, setEditing] = useState(false);
@@ -872,34 +853,23 @@ export default function VisitFacsimile({ draft, onUpdate }) {
           </span>
         )}
       >
-        <RawTextToggle
-          label="Testo originale"
-          text={draft.terapia_reumatologica_testo}
-        />
         {(() => {
           const ingressoTherapies = (draft.therapies || []).filter(
             t => !(t.status === "discontinued" && t._action === "new_episode")
           );
-          return (
-            <>
-              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                Strutturata
-              </div>
-              {ingressoTherapies.length > 0 ? (
-                <TherapyEditor
-                  therapies={ingressoTherapies}
-                  conflicts={conflicts}
-                  onChange={updated => {
-                    const historical = (draft.therapies || []).filter(
-                      t => t.status === "discontinued" && t._action === "new_episode"
-                    );
-                    upd({ therapies: [...updated, ...historical] });
-                  }}
-                />
-              ) : (
-                <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
-              )}
-            </>
+          return ingressoTherapies.length > 0 ? (
+            <TherapyEditor
+              therapies={ingressoTherapies}
+              conflicts={conflicts}
+              onChange={updated => {
+                const historical = (draft.therapies || []).filter(
+                  t => t.status === "discontinued" && t._action === "new_episode"
+                );
+                upd({ therapies: [...updated, ...historical] });
+              }}
+            />
+          ) : (
+            <p className="text-xs text-gray-400 italic">Nessuna indicazione terapeutica estratta.</p>
           );
         })()}
       </SectionBlock>
@@ -1026,29 +996,12 @@ export default function VisitFacsimile({ draft, onUpdate }) {
       </SectionBlock>
 
       <SectionBlock title="15) Terapia in uscita">
-        {!(draft.exit_therapies || []).length && (
-          <div className="mb-3">
-            <button
-              onClick={() => {
-                const ingresso = (draft.therapies || [])
-                  .filter(t => !(t.status === "discontinued" && t._action === "new_episode"))
-                  .map(t => ({ ...t }));
-                upd({ exit_therapies: ingresso });
-              }}
-              className="text-xs text-teal-700 border border-teal-300 rounded px-2 py-1 hover:bg-teal-50"
-            >
-              Copia da ingresso e modifica
-            </button>
+        {draft.terapia_reumatologica_testo ? (
+          <div className="text-xs text-gray-700 whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded px-3 py-2 leading-relaxed">
+            {draft.terapia_reumatologica_testo}
           </div>
-        )}
-        {(draft.exit_therapies || []).length > 0 ? (
-          <TherapyEditor
-            therapies={draft.exit_therapies}
-            conflicts={[]}
-            onChange={updated => upd({ exit_therapies: updated })}
-          />
         ) : (
-          <p className="text-xs text-gray-400 italic">Vuota — compilare manualmente o copiare dalla terapia in ingresso.</p>
+          <p className="text-xs text-gray-400 italic">Testo terapia in uscita non rilevato nel documento.</p>
         )}
       </SectionBlock>
 
