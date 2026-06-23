@@ -4,11 +4,36 @@ import { examUploadApi } from "../lib/api";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
 
+async function preprocessImage(file) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    const contrastFactor = (259 * (77 + 255)) / (255 * (259 - 77));
+    for (let i = 0; i < d.length; i += 4) {
+      let v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      v = Math.min(255, v + 25);
+      v = Math.min(255, Math.max(0, contrastFactor * (v - 128) + 128));
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
+  } catch {
+    return file;
+  }
+}
+
 async function runOCR(file, token, uploadId) {
   try {
+    const processed = await preprocessImage(file);
     const { createWorker } = await import("tesseract.js");
     const worker = await createWorker("ita", 1, { logger: () => {} });
-    const { data: { text } } = await worker.recognize(file);
+    const { data: { text } } = await worker.recognize(processed);
     await worker.terminate();
     const cleaned = (text || "").trim();
     if (cleaned.length > 0) {
@@ -249,6 +274,11 @@ export default function ExamUploadPage() {
               className="hidden"
               onChange={e => handleFile(e.target.files[0])}
             />
+            {file && IMAGE_TYPES.has(file.type) && (
+              <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug">
+                Suggerimento: per un testo estratto migliore, usa Adobe Scan o Google Drive (icona fotocamera) per scansionare il referto — creano PDF leggibili automaticamente.
+              </p>
+            )}
           </div>
 
           <div>
