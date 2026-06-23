@@ -41,10 +41,10 @@ function parseNum(s) {
 //   • Single token                                        → single value   (III       → [3])
 function extractNumbers(text, maxN = 5) {
   const t = text.trimStart();
-  // Match a chain: "II-III-IV", "2,3,4", "II, III, IV", "II-IV" etc.
-  const chainM = t.match(/^((?:[IVX]+|\d)(?:\s*[-–,+]\s*(?:[IVX]+|\d))+)/i);
+  // Match a chain: "II-III-IV", "2,3,4", "II, III, IV", "II-IV", "II e III" etc.
+  const chainM = t.match(/^((?:[IVX]+|\d)(?:\s*[-–,+]\s*(?:[IVX]+|\d)|\s+e\s+(?:[IVX]+|\d))+)/i);
   if (chainM) {
-    const tokens = chainM[1].split(/\s*[-–,+]\s*/).map(s => parseNum(s.trim())).filter(n => n && n >= 1 && n <= maxN);
+    const tokens = chainM[1].split(/\s*[-–,+]\s*|\s+e\s+/).map(s => parseNum(s.trim())).filter(n => n && n >= 1 && n <= maxN);
     if (tokens.length >= 2) {
       if (tokens.length === 2) {
         // Two endpoints — expand as range
@@ -89,7 +89,9 @@ function expandAbbreviations(text) {
       "$2 $1"
     )
     // ── MCF → MCP (unified internal alias) ──
-    .replace(/\bMCF\b/gi, "MCP");
+    .replace(/\bMCF\b/gi, "MCP")
+    // ── MTF → MTP (metatarso-falangea abbreviation variant) ──
+    .replace(/\bMTF\b/gi, "MTP");
 }
 
 // ── Laterality resolver ───────────────────────────────────────────────────────
@@ -113,7 +115,7 @@ const JOINT_DEFS = [
   { re: /\bspall[ae]\b/i,                                      base: "shoulder", plural: /\bspalle\b/i },
   { re: /\bgomit[oi]\b/i,                                      base: "elbow",    plural: /\bgomiti\b/i },
   { re: /\bpols[oi]\b/i,                                       base: "wrist",    plural: /\bpolsi\b/i  },
-  { re: /\banch[ae]\b/i,                                       base: "hip",      plural: /\banche\b/i  },
+  { re: /\b(?:anca|anch[ae])(?!\s+(?:all[aeo]?|agli?|de(?:ll[ae]?|gli?|i|l\b)))\b/i, base: "hip", plural: /\banche(?!\s+(?:all[aeo]?|agli?|de(?:ll[ae]?|gli?|i|l\b)))\b/i },
   { re: /\bginocchi[ao]?\b/i,                                  base: "knee",     plural: /\bginocchia\b/i },
   { re: /\bcavigli[ae]\b/i,                                    base: "ankle",    plural: /\bcaviglie\b/i  },
   // subtalar merged into midtarsal (standard 66/68 counts 1 Tarsus/Midfoot per foot)
@@ -143,7 +145,7 @@ const NUMBERED_DEFS = [
   { re: /\bIFP\s+piede\b/i,                                           prefix: "toe_pip", range: [1, 5] },
 ];
 
-const NEXT_JOINT_RE = /\b(?:acromioclavicol\w+|sternoclavicol\w+|tmj|atm|temporomandibolar\w+|spall[ae]|gomit[oi]|pols[oi]|anch[ae]|ginocchi[ao]|cavigli[ae]|sottastragal\w+|subtalar|mediotars\w+|midtarsal|tarso|sacroiliaca?|sacroiliache|sacroileit\w+|MCP|MCF|PIP|IFP|DIP|MTP|MTF|meta[ck]arpofalang\w+|interfalang\w+|metatarsofalang\w+)\b/i;
+const NEXT_JOINT_RE = /\b(?:acromioclavicol\w+|sternoclavicol\w+|tmj|atm|temporomandibolar\w+|spall[ae]|gomit[oi]|pols[oi]|anca|anch[ae]|ginocchi[ao]|cavigli[ae]|sottastragal\w+|subtalar|mediotars\w+|midtarsal|tarso|sacroiliaca?|sacroiliache|sacroileit\w+|MCP|MCF|PIP|IFP|DIP|MTP|MTF|meta[ck]arpofalang\w+|interfalang\w+|metatarsofalang\w+)\b/i;
 
 // ── Parse a joint list segment → Set of Homunculus keys ──────────────────────
 function resolveJoints(segment, fallbackSides) {

@@ -70,6 +70,11 @@ const PATTERNS = [
 
   // Generic VAS
   { re: new RegExp("(?:VAS|EVA)\\s+(?:dolore|pain|globale|global)?" + NUM, "i"), index_type: "haq", label: "VAS", ambiguous: true },
+
+  // Joint counts (TJC/SJC) — integer only; used as override/fallback on the
+  // computed counts from the joint-exam map (parseJointExam).
+  { re: new RegExp("\\bTJC\\b\\s*(\\d+)", "i"), index_type: "tjc", label: "TJC" },
+  { re: new RegExp("\\bSJC\\b\\s*(\\d+)", "i"), index_type: "sjc", label: "SJC" },
 ];
 
 // ── LOCAL_PATTERNS — compound / abbreviation patterns ────────────────────────

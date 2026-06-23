@@ -284,3 +284,31 @@ describe("Edge cases", () => {
     expect(findItem(items, "das28_crp")?.score).toBe(3.9);
   });
 });
+
+// ─── TJC / SJC espliciti (G7) ─────────────────────────────────────────────────
+describe("TJC e SJC espliciti", () => {
+  test("TJC e SJC separati", () => {
+    const { items } = parseClinimetryFromText("TJC 4, SJC 2.");
+    expect(findItem(items, "tjc")?.score).toBe(4);
+    expect(findItem(items, "sjc")?.score).toBe(2);
+  });
+
+  test("TJC e SJC inline con DAS28", () => {
+    const { items } = parseClinimetryFromText("TJC 6, SJC 4. DAS28-CRP 4.2.");
+    expect(findItem(items, "tjc")?.score).toBe(6);
+    expect(findItem(items, "sjc")?.score).toBe(4);
+    expect(findItem(items, "das28_crp")?.score).toBe(4.2);
+  });
+
+  test("TJC senza SJC", () => {
+    const { items } = parseClinimetryFromText("Articolazioni dolenti TJC 8.");
+    expect(findItem(items, "tjc")?.score).toBe(8);
+    expect(findItem(items, "sjc")).toBeNull();
+  });
+
+  test("TJC e SJC non marcati ambiguous", () => {
+    const { items } = parseClinimetryFromText("TJC 4, SJC 2.");
+    expect(findItem(items, "tjc")?.ambiguous).toBe(false);
+    expect(findItem(items, "sjc")?.ambiguous).toBe(false);
+  });
+});
