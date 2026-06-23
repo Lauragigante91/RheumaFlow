@@ -32,7 +32,6 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/jpg"]);
 
 function ExtractedLabTable({ groups }) {
   const [open, setOpen] = useState(true);
@@ -308,7 +307,6 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
   const status = STATUS_LABELS[upload.status] || STATUS_LABELS.pending_review;
   const isPending = upload.status === "pending_review";
   const fileUrl = examUploadApi.fileUrl(upload.id);
-  const isImage = IMAGE_CONTENT_TYPES.has(upload.content_type);
   const displayText = editedText !== undefined ? editedText : (upload.extracted_text || "");
   const extractedValues = Array.isArray(upload.extracted_values) ? upload.extracted_values : [];
   const hasExtracted = extractedValues.length > 0;
@@ -324,9 +322,9 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${status.className}`}>
               {status.label}
             </span>
-            {isImage && !upload.extracted_text && isPending && (
+            {!upload.extracted_text && isPending && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-                OCR in corso
+                lettura in corso
               </span>
             )}
             {hasExtracted && isPending && (
@@ -378,43 +376,29 @@ function UploadRow({ upload, onAccept, onReject, processing, editedText, onEditT
         </div>
       </div>
 
-      {isImage && (
-        <div className="border-t border-gray-100 px-3 pb-3 pt-2 flex gap-3">
-          <a
-            href={fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0"
-          >
-            <img
-              src={fileUrl}
-              alt={upload.original_filename}
-              className="w-20 h-20 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
-            />
-          </a>
-          <div className="flex-1 min-w-0">
-            {hasExtracted ? (
-              <ExtractedLabTable groups={extractedValues} />
-            ) : (
-              <>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                  Testo estratto (OCR)
-                  {isPending && <span className="ml-1 font-normal normal-case text-gray-400">— modificabile</span>}
-                </p>
-                <textarea
-                  value={displayText}
-                  onChange={isPending ? (e) => onEditText(e.target.value) : undefined}
-                  readOnly={!isPending}
-                  rows={4}
-                  className={`w-full text-[11px] font-mono border rounded px-2 py-1.5 resize-y leading-relaxed ${
-                    isPending
-                      ? "border-gray-200 focus:border-[#0A2540] focus:outline-none bg-white"
-                      : "border-gray-100 bg-gray-50 text-gray-600"
-                  }`}
-                />
-              </>
-            )}
-          </div>
+      {(displayText || hasExtracted) && (
+        <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+          {hasExtracted ? (
+            <ExtractedLabTable groups={extractedValues} />
+          ) : (
+            <>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Testo estratto (PDF)
+                {isPending && <span className="ml-1 font-normal normal-case text-gray-400">— modificabile</span>}
+              </p>
+              <textarea
+                value={displayText}
+                onChange={isPending ? (e) => onEditText(e.target.value) : undefined}
+                readOnly={!isPending}
+                rows={4}
+                className={`w-full text-[11px] font-mono border rounded px-2 py-1.5 resize-y leading-relaxed ${
+                  isPending
+                    ? "border-gray-200 focus:border-[#0A2540] focus:outline-none bg-white"
+                    : "border-gray-100 bg-gray-50 text-gray-600"
+                }`}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

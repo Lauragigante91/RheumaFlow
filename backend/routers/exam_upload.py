@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024
 MAX_FILES_PER_SESSION = 5
-ALLOWED_MIMETYPES = {"application/pdf", "image/jpeg", "image/png"}
-ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+ALLOWED_MIMETYPES = {"application/pdf"}
+ALLOWED_EXTENSIONS = {".pdf"}
 TTL_MAP = {
     "same_day": timedelta(hours=4),
     "pre_visit": timedelta(days=7),
@@ -133,7 +133,7 @@ async def exam_upload_file(
     content_type = file.content_type or ""
     ext = os.path.splitext(file.filename or "")[1].lower()
     if content_type not in ALLOWED_MIMETYPES and ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Tipo file non supportato. Caricare PDF, JPG o PNG.")
+        raise HTTPException(status_code=400, detail="Tipo file non supportato. Caricare solo PDF.")
 
     data = await file.read()
     if len(data) > MAX_FILE_SIZE:
