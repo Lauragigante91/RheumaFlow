@@ -32,6 +32,11 @@ export const LONGITUDINAL_FIELDS = [
   { key: "terapia_domiciliare",  label: "Terapia domiciliare",       mode: "replace" },
 ];
 
+const PV_KEY_MAP = {
+  "comorbidita_apr": "apr",
+  "allergie_testo":  "allergie",
+};
+
 export const LONGIT_STATUS = {
   INVARIATO:  "invariato",
   NUOVO_DATO: "nuovo_dato",
@@ -238,12 +243,17 @@ function longitudinalFieldStatus(key, mode, previous, current) {
   return overlapRatio >= 0.4 ? LONGIT_STATUS.NUOVO_DATO : LONGIT_STATUS.CONFLITTO;
 }
 
-export function diffLongitudinalFields(draft, existingPatient) {
+export function diffLongitudinalFields(draft, existingPatient, primaVisita = null) {
   if (!existingPatient) return [];
+  const pvData = primaVisita?.data || {};
   const result = [];
   for (const { key, label, mode } of LONGITUDINAL_FIELDS) {
     const current  = extractDraftLongitudinalField(draft, key);
-    const previous = existingPatient[key] || null;
+    const pvKey    = PV_KEY_MAP[key] || key;
+    const previous = existingPatient[key] || pvData[pvKey] || null;
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[Reconciler][longitudinal]", key, "previous:", previous, "| patient root:", existingPatient[key] ?? null, "| prima_visita.data." + pvKey + ":", pvData[pvKey] ?? null);
+    }
     const status   = longitudinalFieldStatus(key, mode, previous, current);
     if (!status) continue;
     const _skip = status === LONGIT_STATUS.NUOVO_DATO
@@ -698,7 +708,7 @@ export function reconcileDrafts(drafts, existingData) {
     }
 
     if (existingData.patient) {
-      out._longitudinal = diffLongitudinalFields(draft, existingData.patient);
+      out._longitudinal = diffLongitudinalFields(draft, existingData.patient, existingData.prima_visita || null);
     }
 
     return out;
