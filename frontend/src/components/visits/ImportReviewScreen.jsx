@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { Check, Loader2, X, AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
+import {
+  Check, Loader2, X, AlertTriangle, Calendar,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowRight,
+  Plus, Pencil, Trash2, Clock, RotateCcw,
+} from "lucide-react";
 import { Button } from "../ui/button";
 import VisitFacsimile from "./VisitFacsimile";
 import { STATUS_META, LONGIT_STATUS, LONGIT_STATUS_META } from "../../lib/visitReconciler";
@@ -9,6 +13,14 @@ function fmtIso(iso) {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+
+function fmtEventDate(v) {
+  if (!v) return null;
+  const parts = (v || "").split("-");
+  if (parts.length === 3) return fmtIso(v);
+  if (parts.length === 2) return `${parts[1].padStart(2,"0")}/${parts[0]}`;
+  return parts[0];
 }
 
 function VisitSidebarItem({ item, active, confirmed, onClick }) {
@@ -248,6 +260,251 @@ function BatchFieldConflictsPanel({ conflicts, overrides, onFieldOverride }) {
   );
 }
 
+const EVENT_TYPE_LABELS = {
+  disease_onset:       "Esordio malattia",
+  diagnosis:           "Diagnosi",
+  disease_status:      "Stato di malattia",
+  remission:           "Remissione",
+  flare:               "Riacutizzazione",
+  therapy_start:       "Inizio terapia",
+  therapy_stop:        "Sospensione",
+  therapy_change:      "Modifica terapia",
+  historical_exposure: "Esposizione pregressa",
+  pre_existing:        "Terapia preesist.",
+  hospitalization:     "Ricovero",
+  manifestation:       "Manifestazione",
+  complication:        "Complicanza",
+  procedure:           "Procedura",
+};
+
+const EVENT_TYPE_OPTIONS = [
+  "disease_onset","diagnosis","disease_status","remission","flare",
+  "therapy_start","therapy_stop","therapy_change","historical_exposure",
+  "hospitalization","manifestation","complication","procedure",
+];
+
+function EventEditForm({ event, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    event_type: event.event_type || "disease_onset",
+    date_value: event.date_value || "",
+    drug_name:  event.drug_name || event.drug_canonical || "",
+    notes:      event.notes || "",
+  });
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  return (
+    <div className="p-1.5 bg-blue-50 rounded border border-blue-200 mb-1 space-y-1">
+      <select value={form.event_type} onChange={set("event_type")}
+        className="w-full text-[9px] border border-gray-300 rounded px-1 py-0.5 bg-white">
+        {EVENT_TYPE_OPTIONS.map(t => (
+          <option key={t} value={t}>{EVENT_TYPE_LABELS[t] || t}</option>
+        ))}
+      </select>
+      <input type="text" placeholder="Data (es. 2023-06)" value={form.date_value}
+        onChange={set("date_value")}
+        className="w-full text-[9px] border border-gray-300 rounded px-1 py-0.5" />
+      <input type="text" placeholder="Farmaco (opzionale)" value={form.drug_name}
+        onChange={set("drug_name")}
+        className="w-full text-[9px] border border-gray-300 rounded px-1 py-0.5" />
+      <textarea placeholder="Note" value={form.notes} onChange={set("notes")} rows={2}
+        className="w-full text-[9px] border border-gray-300 rounded px-1 py-0.5 resize-none" />
+      <div className="flex gap-1">
+        <button type="button" onClick={() => onSave(form)}
+          className="flex-1 text-[9px] bg-blue-500 text-white rounded py-0.5 hover:bg-blue-600 font-medium">
+          Salva
+        </button>
+        <button type="button" onClick={onCancel}
+          className="flex-1 text-[9px] bg-white border border-gray-300 text-gray-600 rounded py-0.5 hover:bg-gray-50">
+          Annulla
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProposedEventRow({ event, onEdit, onRemove }) {
+  const label = EVENT_TYPE_LABELS[event.event_type] || event.event_type;
+  const date  = fmtEventDate(event.date_value);
+  const drug  = event.drug_name || event.drug_canonical;
+  return (
+    <div className="group py-1 border-l-2 border-emerald-300 pl-1.5 mb-0.5">
+      <div className="text-[10px] font-semibold text-emerald-800 leading-snug">{label}</div>
+      {drug && <div className="text-[9px] text-gray-600 leading-tight truncate">{drug}</div>}
+      {date && <div className="text-[9px] text-gray-400">{date}</div>}
+      {event.notes && (
+        <div className="text-[9px] text-gray-500 leading-snug line-clamp-2">{event.notes}</div>
+      )}
+      <div className="flex gap-2 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button type="button" onClick={onEdit}
+          className="text-[9px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-0.5">
+          <Pencil className="w-2.5 h-2.5" />modifica
+        </button>
+        <button type="button" onClick={onRemove}
+          className="text-[9px] text-red-400 hover:text-red-600 font-medium flex items-center gap-0.5">
+          <Trash2 className="w-2.5 h-2.5" />rimuovi
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StoricoEventRow({ event }) {
+  const label = EVENT_TYPE_LABELS[event.event_type] || event.event_type;
+  const date  = fmtEventDate(event.date_value);
+  const drug  = event.drug_name || event.drug_canonical;
+  return (
+    <div className="py-1 border-l-2 border-gray-200 pl-1.5 mb-0.5 opacity-55">
+      <div className="text-[10px] font-medium text-gray-500 leading-snug">{label}</div>
+      {drug && <div className="text-[9px] text-gray-400 leading-tight truncate">{drug}</div>}
+      {date && <div className="text-[9px] text-gray-400">{date}</div>}
+    </div>
+  );
+}
+
+function ClinicalTimelineColumn({ current, onUpdateDraft }) {
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [addingNew,  setAddingNew]  = useState(false);
+
+  const raccordoEvents = current.draft?.raccordo_events || [];
+  const indexed   = raccordoEvents.map((e, i) => ({ ...e, _idx: i }));
+  const storici   = indexed.filter(e => e._status === "duplicate");
+  const proposti  = indexed.filter(e => !e._skip && e._status !== "duplicate");
+  const rimossi   = indexed.filter(e => e._skip  && e._status !== "duplicate");
+
+  const newTherapies  = (current.draft?.therapies   || []).filter(t => !t._skip && t._status !== "duplicate").length;
+  const newComorbidita= (current.draft?.comorbidita  || []).filter(c => !c._skip).length;
+  const newAssessments= (current.draft?.assessments  || []).filter(a => !a._skip && a._status !== "duplicate").length;
+
+  const handleRemove  = (idx) => {
+    const updated = raccordoEvents.map((e, i) => i === idx ? { ...e, _skip: true }  : e);
+    onUpdateDraft({ ...current.draft, raccordo_events: updated });
+  };
+  const handleRestore = (idx) => {
+    const updated = raccordoEvents.map((e, i) => i === idx ? { ...e, _skip: false } : e);
+    onUpdateDraft({ ...current.draft, raccordo_events: updated });
+  };
+  const handleEditSave = (idx, form) => {
+    const updated = raccordoEvents.map((e, i) => i === idx ? { ...e, ...form } : e);
+    onUpdateDraft({ ...current.draft, raccordo_events: updated });
+    setEditingIdx(null);
+  };
+  const handleAddNew = (form) => {
+    const ev = {
+      event_type:  form.event_type,
+      date_value:  form.date_value  || null,
+      drug_name:   form.drug_name   || null,
+      notes:       form.notes       || null,
+      inferred_by: "manual",
+      _status:     "new",
+      _skip:       false,
+    };
+    onUpdateDraft({ ...current.draft, raccordo_events: [...raccordoEvents, ev] });
+    setAddingNew(false);
+  };
+
+  const summaryBadges = [
+    newTherapies   > 0 && `${newTherapies} terapia/e`,
+    newComorbidita > 0 && `${newComorbidita} comorbidità`,
+    newAssessments > 0 && `${newAssessments} score`,
+  ].filter(Boolean);
+
+  return (
+    <div className="flex flex-col h-full min-h-0 bg-gray-50">
+      <div className="px-2 py-2 border-b border-gray-200 bg-white flex-shrink-0">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Timeline clinica</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="px-2 pt-2">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 mb-1">
+            Da questa visita
+          </div>
+
+          {summaryBadges.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {summaryBadges.map(b => (
+                <span key={b} className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1 py-0.5 font-medium">
+                  {b}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {proposti.length === 0 && summaryBadges.length === 0 && (
+            <div className="text-[9px] text-gray-400 italic py-1">Nessun evento estratto</div>
+          )}
+
+          {proposti.map(ev => (
+            editingIdx === ev._idx
+              ? <EventEditForm
+                  key={ev._idx}
+                  event={ev}
+                  onSave={(form) => handleEditSave(ev._idx, form)}
+                  onCancel={() => setEditingIdx(null)}
+                />
+              : <ProposedEventRow
+                  key={ev._idx}
+                  event={ev}
+                  onEdit={() => setEditingIdx(ev._idx)}
+                  onRemove={() => handleRemove(ev._idx)}
+                />
+          ))}
+
+          {rimossi.length > 0 && (
+            <div className="mt-1 pt-1 border-t border-dashed border-gray-200">
+              <div className="text-[9px] text-gray-400 mb-0.5">Rimossi ({rimossi.length})</div>
+              {rimossi.map(ev => (
+                <div key={ev._idx} className="flex items-center justify-between py-0.5 opacity-40">
+                  <span className="text-[9px] line-through text-gray-400 truncate">
+                    {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
+                  </span>
+                  <button type="button" onClick={() => handleRestore(ev._idx)}
+                    className="flex-shrink-0 ml-1 text-[9px] text-blue-400 hover:text-blue-600 flex items-center gap-0.5">
+                    <RotateCcw className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-2 my-2 border-t border-dashed border-gray-300" />
+
+        <div className="px-2 pb-16">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+            Storico
+          </div>
+          {storici.length === 0 && (
+            <div className="text-[9px] text-gray-300 italic py-1">
+              Nessun evento in archivio trovato in questa lettera
+            </div>
+          )}
+          {storici.map(ev => (
+            <StoricoEventRow key={ev._idx} event={ev} />
+          ))}
+        </div>
+      </div>
+
+      <div className="px-2 py-2 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        {addingNew ? (
+          <EventEditForm
+            event={{ event_type: "disease_onset" }}
+            onSave={handleAddNew}
+            onCancel={() => setAddingNew(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingNew(true)}
+            className="w-full flex items-center justify-center gap-1 text-[9px] text-gray-400 hover:text-gray-600 border border-dashed border-gray-300 rounded py-1.5 hover:border-gray-400 transition-colors bg-white"
+          >
+            <Plus className="w-3 h-3" /> evento manuale
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ImportReviewScreen({
   visitResults,
   onUpdate,
@@ -262,8 +519,9 @@ export default function ImportReviewScreen({
   onLongitudinalToggle,
 }) {
   const isMulti = visitResults.length > 1;
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const [currentIdx,    setCurrentIdx]    = useState(0);
   const [confirmingIdx, setConfirmingIdx] = useState(null);
+  const [timelineOpen,  setTimelineOpen]  = useState(false);
 
   const sortedOrder = [...visitResults]
     .map((v, i) => ({ v, i }))
@@ -277,7 +535,7 @@ export default function ImportReviewScreen({
   const current = visitResults[currentIdx];
   if (!current) return null;
 
-  const allConfirmed = visitResults.every(v => !!v._confirmed);
+  const allConfirmed   = visitResults.every(v => !!v._confirmed);
   const confirmedCount = visitResults.filter(v => !!v._confirmed).length;
   const pendingCount   = visitResults.length - confirmedCount;
   const warnFreeCount  = visitResults.filter(v => !v._confirmed && !hasWarning(v)).length;
@@ -298,9 +556,7 @@ export default function ImportReviewScreen({
   };
 
   const handleConfirmAll = async () => {
-    try {
-      await onConfirmAll();
-    } catch (_) {}
+    try { await onConfirmAll(); } catch (_) {}
   };
 
   const updateCurrentDraft = (draft) => {
@@ -332,6 +588,17 @@ export default function ImportReviewScreen({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTimelineOpen(v => !v)}
+            className={`xl:hidden flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded border ${
+              timelineOpen
+                ? "border-[#0A2540] bg-[#0A2540] text-white"
+                : "border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" /> Timeline
+          </button>
           {isMulti ? (
             <>
               <Button
@@ -391,7 +658,7 @@ export default function ImportReviewScreen({
         />
       )}
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
         {isMulti && (
           <div className="w-52 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col">
             <div className="px-3 py-2 border-b border-gray-200">
@@ -450,7 +717,7 @@ export default function ImportReviewScreen({
             </div>
           </div>
 
-          <div className="flex-1 min-w-0 overflow-y-auto bg-white flex flex-col">
+          <div className="flex-1 min-w-0 overflow-y-auto bg-white flex flex-col border-r border-gray-200">
             <div className="px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Dati strutturati</span>
             </div>
@@ -466,6 +733,31 @@ export default function ImportReviewScreen({
             </div>
           </div>
         </div>
+
+        <div className="hidden xl:flex flex-col w-36 flex-shrink-0 border-l border-gray-200 min-h-0">
+          <ClinicalTimelineColumn
+            current={current}
+            onUpdateDraft={updateCurrentDraft}
+          />
+        </div>
+
+        {timelineOpen && (
+          <div className="xl:hidden absolute right-0 top-0 bottom-0 w-64 bg-white shadow-2xl border-l border-gray-200 z-20 flex flex-col">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 bg-gray-50">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Timeline</span>
+              <button type="button" onClick={() => setTimelineOpen(false)}
+                className="text-gray-400 hover:text-gray-700">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ClinicalTimelineColumn
+                current={current}
+                onUpdateDraft={updateCurrentDraft}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
