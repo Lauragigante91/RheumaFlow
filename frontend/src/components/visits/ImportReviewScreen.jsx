@@ -180,8 +180,8 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
   const nonInvariato = longitudinal.filter(f => f.status !== LONGIT_STATUS.INVARIATO);
   if (nonInvariato.length === 0) return null;
 
-  const acceptedCount = nonInvariato.filter(f => !f._skip).length;
-  const ignoredCount  = nonInvariato.filter(f =>  f._skip).length;
+  const acceptedCount = nonInvariato.filter(f => f._skip === false).length;
+  const ignoredCount  = nonInvariato.filter(f => f._skip === true).length;
 
   return (
     <div className="border-b border-gray-200 bg-white flex-shrink-0">
@@ -218,12 +218,14 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
             const skipped = f._skip;
             return (
               <div key={f.key} className={`rounded-lg border transition-all ${
-                skipped
+                skipped === true
                   ? "border-gray-200 opacity-60"
-                  : `${clr.border} ring-1 ring-inset`
+                  : skipped === null
+                    ? `${clr.border} ring-1 ring-inset`
+                    : clr.border
               }`}>
-                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${skipped ? "bg-gray-50" : clr.bg}`}>
-                  <span className={`text-[9px] font-bold uppercase tracking-wider ${skipped ? "text-gray-400" : clr.text}`}>
+                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${skipped === true ? "bg-gray-50" : clr.bg}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${skipped === true ? "text-gray-400" : clr.text}`}>
                     {f.label}
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded border ml-1 ${clr.badge}`}>
@@ -234,9 +236,9 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
                     <button
                       type="button"
                       onClick={() => onToggle(f.key, false)}
-                      disabled={!skipped}
+                      disabled={skipped === false}
                       className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
-                        !skipped
+                        skipped === false
                           ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold cursor-default"
                           : "border-gray-200 bg-white text-gray-500 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer"
                       }`}
@@ -246,9 +248,9 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
                     <button
                       type="button"
                       onClick={() => onToggle(f.key, true)}
-                      disabled={skipped}
+                      disabled={skipped === true}
                       className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
-                        skipped
+                        skipped === true
                           ? "border-gray-300 bg-gray-100 text-gray-500 font-semibold cursor-default"
                           : "border-gray-200 bg-white text-gray-400 hover:border-gray-400 cursor-pointer"
                       }`}

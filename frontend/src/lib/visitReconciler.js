@@ -246,9 +246,11 @@ export function diffLongitudinalFields(draft, existingPatient) {
     const previous = existingPatient[key] || null;
     const status   = longitudinalFieldStatus(key, mode, previous, current);
     if (!status) continue;
-    const _skip = status === LONGIT_STATUS.INVARIATO ||
-                  status === LONGIT_STATUS.CONFLITTO  ||
-                  status === LONGIT_STATUS.MODIFICA;
+    const _skip = status === LONGIT_STATUS.NUOVO_DATO
+      ? null
+      : !!(status === LONGIT_STATUS.INVARIATO ||
+           status === LONGIT_STATUS.CONFLITTO  ||
+           status === LONGIT_STATUS.MODIFICA);
     result.push({ key, label, mode, previous, current, status, _skip });
   }
   return result;
