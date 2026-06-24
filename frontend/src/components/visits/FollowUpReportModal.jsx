@@ -16,6 +16,13 @@ function patientLabel(p) {
   return [p.cognome, p.nome].filter(Boolean).join(" ") || p.codice_paziente || "Paziente";
 }
 
+function patientInitials(p) {
+  if (!p) return "Paz.";
+  const parts = [p.cognome, p.nome].filter(Boolean);
+  if (parts.length === 0) return p.codice_paziente || "Paz.";
+  return parts.map(s => (s[0] || "").toUpperCase() + ".").join(" ");
+}
+
 function calcAge(p) {
   if (p?.data_nascita) {
     const dob = new Date(p.data_nascita);
@@ -168,6 +175,7 @@ export default function FollowUpReportModal({
   const [selectedEsamiIds,    setSelectedEsamiIds]    = useState(new Set());
   const [esamiPregressiText,  setEsamiPregressiText]  = useState("");
   const [showEsamiPicker,     setShowEsamiPicker]     = useState(false);
+  const [pseudoAnon,          setPseudoAnon]          = useState(true);
 
   useEffect(() => {
     if (!open || !patient?.id) return;
@@ -301,7 +309,7 @@ export default function FollowUpReportModal({
 
   const allActive = [...activeCockpit, ...activeSections, ...activePlanSections];
 
-  const pLabel    = patientLabel(patient);
+  const pLabel    = pseudoAnon ? patientInitials(patient) : patientLabel(patient);
   const dateLabel = fmtDate(date);
   const diagLabel = patient?.diagnosi ? ` · ${patient.diagnosi}` : "";
   const wfLabel   = workflow?.label   ? ` · ${workflow.label}`  : "";
@@ -394,12 +402,23 @@ ${activePlanSections.map(s => `<div class="section">
               {pLabel} · Visita del {dateLabel}{diagLabel}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none" title="Sostituisce nome e cognome con le iniziali nel testo esportato">
+              <input
+                type="checkbox"
+                checked={pseudoAnon}
+                onChange={e => setPseudoAnon(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-[#0A2540]"
+              />
+              <span className="text-[11px] text-gray-500">Pseudoanonimizzato</span>
+            </label>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* ── Hint sezioni ── */}

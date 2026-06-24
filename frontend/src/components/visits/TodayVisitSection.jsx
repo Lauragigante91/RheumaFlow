@@ -231,7 +231,10 @@ export default function TodayVisitSection({
   const [symptoms, setSymptoms]       = useState(new Set());
   const [note, setNote]               = useState("");
   const [saving, setSaving]           = useState(false);
-  const [reportSections, setReportSections] = useState(new Set());
+  const [reportSections, setReportSections] = useState(new Set([
+    "raccordo", "esami_pregressi", "interval_history",
+    "physical_exam", "labs_imaging", "clinimetria", "assessment",
+  ]));
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
   const toggleReportSection = (key) => {
