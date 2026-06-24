@@ -908,8 +908,9 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
 
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
     const patchPatch = patientsApi.patch.mock.calls[0][1];
-    expect(patchPatch.anamnesi_fisiologica).toBe("Ex fumatore, sospeso 2023");
-    expect(patchPatch.anamnesi_fisiologica).not.toContain("Non fumatore");
+    expect(patchPatch.anamnesi_fisiologica).toContain("Ex fumatore, sospeso 2023");
+    expect(patchPatch.anamnesi_fisiologica).toContain("Non fumatore");
+    expect(patchPatch.anamnesi_fisiologica).toContain("Ex fumatore");
     expect(patchPatch.terapia_domiciliare).toBe("MTX 15mg + ADA");
   });
 
@@ -940,7 +941,10 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     await applyDraftBatch(toApply, patient, {});
 
     expect(patientsApi.update).not.toHaveBeenCalled();
-    expect(patientsApi.patch).not.toHaveBeenCalled();
+    expect(patientsApi.patch).toHaveBeenCalledTimes(1);
+    const skipPatch = patientsApi.patch.mock.calls[0][1];
+    expect(skipPatch.anamnesi_fisiologica).toContain("Ex fumatore, sospeso 2023");
+    expect(skipPatch.terapia_domiciliare).toBeUndefined();
     expect(workupVisitsApi.create).toHaveBeenCalledTimes(3);
   });
 
@@ -978,8 +982,9 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
 
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
     const patchPatch = patientsApi.patch.mock.calls[0][1];
-    expect(patchPatch.comorbidita_apr).toBe("Ipertensione");
-    expect(patchPatch.allergie_testo).toBe("Penicillina (orticaria)");
+    expect(patchPatch.comorbidita_apr).toContain("Ipertensione");
+    expect(patchPatch.comorbidita_apr).toContain("Diabete");
+    expect(patchPatch.allergie_testo).toContain("Penicillina (orticaria)");
   });
 
   it("checklist completezza per-visita: ogni visita conserva raccordo/anamnesi/EO/clinimetrie/esami/indicazioni e le storiche non vengono impoverite", async () => {
@@ -1036,7 +1041,10 @@ describe("applyDraftBatch — multi-import: per-visita N volte + stato longitudi
     expect(patientsApi.update.mock.calls[0][1].diagnosi).not.toContain("\n");
     expect(patientsApi.patch).toHaveBeenCalledTimes(1);
     expect(patientsApi.patch.mock.calls[0][1].terapia_domiciliare).toMatch(/^Terapia \d{4}-\d{2}-\d{2}$/);
-    expect(patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica).toMatch(/^Anam \d{4}-\d{2}-\d{2}$/);
+    const anamnesiMerged = patientsApi.patch.mock.calls[0][1].anamnesi_fisiologica;
+    expect(anamnesiMerged).toContain("Anam 2022-02-01");
+    expect(anamnesiMerged).toContain("Anam 2023-05-10");
+    expect(anamnesiMerged).toContain("Anam 2024-09-30");
   });
 });
 

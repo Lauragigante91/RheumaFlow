@@ -174,7 +174,28 @@ function buildTherapyStartEvent(t, visitDate, sourceFilename) {
   };
 }
 
-export function mergeFreeTextConservative(existingText, incomingText) {
+// Ritorna il nome canonico (lowercase) del farmaco trovato nella riga,
+// o null se nessun alias di DRUG_ALIAS_MAP corrisponde.
+// Usato da mergeFreeTextConservative in modalità drugAware per rilevare
+// un cambio di dose sullo stesso farmaco e sostituire la riga precedente.
+function _extractDrugCanonical(line) {
+  const lower = line.toLowerCase();
+  for (const [alias, info] of Object.entries(DRUG_ALIAS_MAP)) {
+    if (alias.length < 3) continue;
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`\\b${escaped}\\b`, "i").test(lower)) {
+      return (info.canonical || "").toLowerCase();
+    }
+  }
+  return null;
+}
+
+// Opzione drugAware: usare SOLO per terapia_domiciliare. Quando true, prima
+// di aggiungere una riga in arrivo controlla se una riga esistente contiene
+// lo stesso farmaco canonico; in tal caso la sostituisce (dose più recente)
+// invece di accumularla. Le righe senza corrispondenza farmaco seguono la
+// logica standard (aggiunta se firma token-set non vista).
+export function mergeFreeTextConservative(existingText, incomingText, { drugAware = false } = {}) {
   const signature = (s) => {
     const norm = (s || "")
       .toString()
@@ -195,6 +216,20 @@ export function mergeFreeTextConservative(existingText, incomingText) {
   for (const line of splitLines(incomingText)) {
     const sig = signature(line);
     if (!sig || seen.has(sig)) continue;
+    if (drugAware) {
+      const incomingDrug = _extractDrugCanonical(line);
+      if (incomingDrug) {
+        const existingIdx = out.findIndex(
+          (el) => _extractDrugCanonical(el) === incomingDrug
+        );
+        if (existingIdx !== -1) {
+          seen.delete(signature(out[existingIdx]));
+          out[existingIdx] = line;
+          seen.add(sig);
+          continue;
+        }
+      }
+    }
     seen.add(sig);
     out.push(line);
   }
@@ -452,9 +487,9 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
     try {
       const pg = extracted.profilo_generale;
       const patch = {};
-      const mergeField = (field, incoming) => {
+      const mergeField = (field, incoming, opts = {}) => {
         if (!incoming) return;
-        const merged = mergeFreeTextConservative(patient[field], incoming);
+        const merged = mergeFreeTextConservative(patient[field], incoming, opts);
         if (merged && merged !== (patient[field] || "")) patch[field] = merged;
       };
       if (!shouldSkipLongitudinalField(extracted, "anamnesi_fisiologica"))
@@ -462,7 +497,7 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
       if (!shouldSkipLongitudinalField(extracted, "anamnesi_familiare"))
         mergeField("anamnesi_familiare", pg.anamnesi_familiare);
       if (!shouldSkipLongitudinalField(extracted, "terapia_domiciliare"))
-        mergeField("terapia_domiciliare", pg.terapia_domiciliare);
+        mergeField("terapia_domiciliare", pg.terapia_domiciliare, { drugAware: true });
       const _hasComorbItems = (extracted.comorbidita || []).filter(x => !x._skip).length > 0;
       const _hasIntollItems = (extracted.intolleranze || []).filter(x => !x._skip).length > 0;
       if (pg.comorbidita_apr && !_hasComorbItems && !shouldSkipLongitudinalField(extracted, "comorbidita_apr"))
@@ -715,10 +750,31 @@ export function computeLongitudinalState(draftsAsc = []) {
   return result;
 }
 
+// Campi con mode:"append" — in multi-import devono essere uniti (merge)
+// tra tutti i draft, non selezionare un solo candidato con selectBestCandidate.
+const _APPEND_FIELDS = new Set([
+  "allergie_testo",
+  "anamnesi_familiare",
+  "anamnesi_fisiologica",
+  "comorbidita_apr",
+]);
+
 export async function applyLongitudinalState(draftsAsc, patient, overrides = {}) {
   const errors = [];
   let updates = 0;
   const state = computeLongitudinalState(draftsAsc);
+
+  // Raccoglie tutti i valori per ogni campo attraverso i draft (per la merge append).
+  const perFieldAllValues = {};
+  for (const { draft, selected } of draftsAsc) {
+    const s = extractDraftState(draft, selected || {});
+    Object.entries(s).forEach(([k, v]) => {
+      if (!v) return;
+      if (!perFieldAllValues[k]) perFieldAllValues[k] = [];
+      perFieldAllValues[k].push(v);
+    });
+  }
+
   const updatePatch = {};
   const patchPatch = {};
   const _shouldWrite = (existingVal, incoming) => {
@@ -747,10 +803,23 @@ export async function applyLongitudinalState(draftsAsc, patient, overrides = {})
     } else {
       let incoming;
       if (RECENCY_FIELDS.has(k)) {
+        // Campi "replace": usa il testo della lettera con data più recente.
         for (let i = draftsAsc.length - 1; i >= 0; i--) {
           const s = extractDraftState(draftsAsc[i].draft, draftsAsc[i].selected || {});
           const v = s[k];
           if (v && v.trim()) { incoming = v; break; }
+        }
+      } else if (_APPEND_FIELDS.has(k)) {
+        // Campi "append": fonde progressivamente tutti i candidati dei draft
+        // invece di selezionarne uno solo. Garantisce che le informazioni
+        // provenienti da lettere diverse vengano tutte preservate.
+        const candidates = perFieldAllValues[k] || [];
+        if (candidates.length > 0) {
+          const merged = candidates.reduce(
+            (acc, text) => mergeFreeTextConservative(acc, text),
+            patient[k] || ""
+          );
+          if (merged && merged !== (patient[k] || "")) incoming = merged;
         }
       } else {
         incoming = state[k]?.selected?.value;
