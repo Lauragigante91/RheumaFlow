@@ -122,7 +122,7 @@ const LONGIT_COLOR = {
 
 function sentenceSplit(text) {
   if (!text) return [];
-  return text.split(/(?<=[.;])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  return text.replace(/([.;])\s+/g, "$1\n").split(/\n+/).map(s => s.trim()).filter(Boolean);
 }
 
 function buildDiff(prev, curr) {
@@ -220,7 +220,7 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
               <div key={f.key} className={`rounded-lg border transition-all ${
                 skipped
                   ? "border-gray-200 opacity-60"
-                  : `${clr.border} ring-1 ring-inset ${clr.border}`
+                  : `${clr.border} ring-1 ring-inset`
               }`}>
                 <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${skipped ? "bg-gray-50" : clr.bg}`}>
                   <span className={`text-[9px] font-bold uppercase tracking-wider ${skipped ? "text-gray-400" : clr.text}`}>
@@ -233,7 +233,7 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
                   <div className="ml-auto flex gap-1">
                     <button
                       type="button"
-                      onClick={() => !skipped || onToggle(f.key, false)}
+                      onClick={() => onToggle(f.key, false)}
                       disabled={!skipped}
                       className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
                         !skipped
@@ -245,7 +245,7 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => skipped || onToggle(f.key, true)}
+                      onClick={() => onToggle(f.key, true)}
                       disabled={skipped}
                       className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
                         skipped
