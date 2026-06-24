@@ -13,6 +13,10 @@ function fmtIso(iso) {
   return `${d}/${m}/${y}`;
 }
 
+function getLongit(draft, key) {
+  return (draft?._longitudinal || []).find(f => f.key === key && f.status !== "invariato");
+}
+
 const VISIT_TYPE_OPTIONS = [
   { value: "follow_up",    label: "Follow-up" },
   { value: "workup",       label: "Workup / valutazione" },
@@ -710,19 +714,45 @@ function EsameObiettivoEditor({ text, jointMap, onTextChange, onJointChange }) {
   );
 }
 
-function SectionBlock({ title, badge, children, defaultOpen = true }) {
+function SectionBlock({ title, badge, longitEntry, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isAccepted = longitEntry != null && !longitEntry._skip;
+  const isIgnored  = longitEntry != null &&  longitEntry._skip;
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className={`rounded-lg overflow-hidden border transition-all ${
+      isAccepted ? "border-emerald-300 ring-1 ring-emerald-100" :
+      isIgnored  ? "border-gray-200"                            :
+      "border-gray-200"
+    }`}>
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
-        <span className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#0A2540]">{title}</span>
+        className={`w-full flex items-center justify-between px-3 py-2 transition-colors text-left ${
+          isAccepted ? "bg-emerald-50 hover:bg-emerald-100" :
+          isIgnored  ? "bg-gray-50 hover:bg-gray-100"       :
+          "bg-gray-50 hover:bg-gray-100"
+        }`}>
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className={`text-xs font-bold uppercase tracking-wider ${isIgnored ? "text-gray-400" : "text-[#0A2540]"}`}>
+            {title}
+          </span>
           {badge}
+          {isAccepted && (
+            <span className="text-[9px] bg-emerald-100 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5 font-medium">
+              da aggiungere
+            </span>
+          )}
+          {isIgnored && (
+            <span className="text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 font-medium">
+              ignorato
+            </span>
+          )}
         </span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
       </button>
-      {open && <div className="px-3 py-3">{children}</div>}
+      {open && (
+        <div className={`px-3 py-3 ${isIgnored ? "opacity-50 pointer-events-none select-none" : ""}`}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -810,19 +840,19 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         </div>
       </div>
 
-      <SectionBlock title="1) Diagnosi">
+      <SectionBlock title="1) Diagnosi" longitEntry={getLongit(draft, "diagnosi")}>
         <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
       </SectionBlock>
 
-      <SectionBlock title="2) Anamnesi fisiologica">
+      <SectionBlock title="2) Anamnesi fisiologica" longitEntry={getLongit(draft, "anamnesi_fisiologica")}>
         <TextSection value={pg.anamnesi_fisiologica} onChange={v => updPG({ anamnesi_fisiologica: v })} />
       </SectionBlock>
 
-      <SectionBlock title="3) Anamnesi familiare">
+      <SectionBlock title="3) Anamnesi familiare" longitEntry={getLongit(draft, "anamnesi_familiare")}>
         <TextSection value={pg.anamnesi_familiare} onChange={v => updPG({ anamnesi_familiare: v })} />
       </SectionBlock>
 
-      <SectionBlock title="4) Comorbilità / APR">
+      <SectionBlock title="4) Comorbilità / APR" longitEntry={getLongit(draft, "comorbidita_apr")}>
         {(draft.comorbidita || []).length > 0 ? (
           <div className="space-y-2">
             <ComorbidityEditor
@@ -841,7 +871,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         )}
       </SectionBlock>
 
-      <SectionBlock title="5) Terapia domiciliare (ingresso visita)">
+      <SectionBlock title="5) Terapia domiciliare (ingresso visita)" longitEntry={getLongit(draft, "terapia_domiciliare")}>
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
       </SectionBlock>
 
@@ -891,7 +921,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         </SectionBlock>
       )}
 
-      <SectionBlock title="8) Allergie">
+      <SectionBlock title="8) Allergie" longitEntry={getLongit(draft, "allergie_testo")}>
         {(draft.intolleranze || []).length > 0 ? (
           <div className="space-y-2">
             <IntolleranzeEditor

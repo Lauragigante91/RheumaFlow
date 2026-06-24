@@ -120,11 +120,68 @@ const LONGIT_COLOR = {
   amber: { bg: "bg-amber-50",  border: "border-amber-200", text: "text-amber-700", badge: "bg-amber-50 text-amber-700 border-amber-200" },
 };
 
+function sentenceSplit(text) {
+  if (!text) return [];
+  return text.split(/(?<=[.;])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+}
+
+function buildDiff(prev, curr) {
+  const a = sentenceSplit(prev || "");
+  const b = sentenceSplit(curr || "");
+  if (!a.length && !b.length) return [];
+  if (!a.length) return b.map(s => ({ t: "a", s }));
+  if (!b.length) return a.map(s => ({ t: "r", s }));
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const segs = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { segs.unshift({ t: "s", s: a[i-1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { segs.unshift({ t: "a", s: b[j-1] }); j--; }
+    else { segs.unshift({ t: "r", s: a[i-1] }); i--; }
+  }
+  return segs;
+}
+
+function DiffView({ previous, current, status }) {
+  if (status === LONGIT_STATUS.NUOVO_DATO || !previous) {
+    return (
+      <p className="text-[11px] leading-relaxed font-sans whitespace-pre-wrap break-words bg-emerald-50 rounded px-2 py-1 text-emerald-800">
+        {current || "—"}
+      </p>
+    );
+  }
+  if (!current) {
+    return (
+      <p className="text-[11px] leading-relaxed font-sans bg-red-50 rounded px-2 py-1 text-red-700 line-through">
+        {previous}
+      </p>
+    );
+  }
+  const segs = buildDiff(previous, current);
+  return (
+    <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
+      {segs.map((seg, idx) => {
+        if (seg.t === "s") return <span key={idx}>{seg.s}{" "}</span>;
+        if (seg.t === "a") return <span key={idx} className="bg-emerald-100 text-emerald-800 rounded px-0.5">{seg.s}{" "}</span>;
+        if (seg.t === "r") return <span key={idx} className="bg-red-100 text-red-700 line-through rounded px-0.5">{seg.s}{" "}</span>;
+        return null;
+      })}
+    </p>
+  );
+}
+
 function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
   const [open, setOpen] = useState(true);
   if (!Array.isArray(longitudinal) || longitudinal.length === 0) return null;
   const nonInvariato = longitudinal.filter(f => f.status !== LONGIT_STATUS.INVARIATO);
   if (nonInvariato.length === 0) return null;
+
+  const acceptedCount = nonInvariato.filter(f => !f._skip).length;
+  const ignoredCount  = nonInvariato.filter(f =>  f._skip).length;
 
   return (
     <div className="border-b border-gray-200 bg-white flex-shrink-0">
@@ -135,8 +192,20 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
       >
         <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
         <span className="text-xs font-semibold text-gray-700">
-          Confronto longitudinale — {nonInvariato.length} campo{nonInvariato.length !== 1 ? "i" : ""} da verificare
+          Campi profilo — {nonInvariato.length} campo{nonInvariato.length !== 1 ? "i" : ""} da verificare
         </span>
+        <div className="flex gap-1 ml-1">
+          {acceptedCount > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-medium">
+              {acceptedCount} accettati
+            </span>
+          )}
+          {ignoredCount > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 border border-gray-200 rounded font-medium">
+              {ignoredCount} ignorati
+            </span>
+          )}
+        </div>
         {open
           ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 ml-auto" />
           : <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-auto" />}
@@ -144,49 +213,52 @@ function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
       {open && (
         <div className="px-4 pb-3 space-y-2">
           {nonInvariato.map(f => {
-            const meta  = LONGIT_STATUS_META[f.status] || {};
-            const clr   = LONGIT_COLOR[meta.color] || LONGIT_COLOR.gray;
+            const meta    = LONGIT_STATUS_META[f.status] || {};
+            const clr     = LONGIT_COLOR[meta.color] || LONGIT_COLOR.gray;
             const skipped = f._skip;
             return (
-              <div key={f.key} className={`rounded-lg border ${clr.border} ${skipped ? "opacity-50" : ""}`}>
-                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${clr.bg}`}>
-                  <span className={`text-[9px] font-bold uppercase tracking-wider ${clr.text}`}>{f.label}</span>
+              <div key={f.key} className={`rounded-lg border transition-all ${
+                skipped
+                  ? "border-gray-200 opacity-60"
+                  : `${clr.border} ring-1 ring-inset ${clr.border}`
+              }`}>
+                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${skipped ? "bg-gray-50" : clr.bg}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${skipped ? "text-gray-400" : clr.text}`}>
+                    {f.label}
+                  </span>
                   <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded border ml-1 ${clr.badge}`}>
                     <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.dot, display: "inline-block", flexShrink: 0 }} />
                     {meta.label}
                   </span>
                   <div className="ml-auto flex gap-1">
-                    {f.status !== LONGIT_STATUS.INVARIATO && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onToggle(f.key, true)}
-                          className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${skipped ? "border-gray-300 bg-gray-100 text-gray-700 font-semibold" : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"}`}
-                        >
-                          Ignora
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onToggle(f.key, false)}
-                          className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${!skipped ? "border-teal-400 bg-teal-50 text-teal-700 font-semibold" : "border-gray-200 bg-white text-gray-500 hover:border-teal-200"}`}
-                        >
-                          {f.status === LONGIT_STATUS.NUOVO_DATO ? "Aggiungi" : "Conferma"}
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => !skipped || onToggle(f.key, false)}
+                      disabled={!skipped}
+                      className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
+                        !skipped
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold cursor-default"
+                          : "border-gray-200 bg-white text-gray-500 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer"
+                      }`}
+                    >
+                      {f.status === LONGIT_STATUS.NUOVO_DATO ? "Aggiungi" : "Conferma"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => skipped || onToggle(f.key, true)}
+                      disabled={skipped}
+                      className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
+                        skipped
+                          ? "border-gray-300 bg-gray-100 text-gray-500 font-semibold cursor-default"
+                          : "border-gray-200 bg-white text-gray-400 hover:border-gray-400 cursor-pointer"
+                      }`}
+                    >
+                      Ignora
+                    </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-0 divide-x divide-gray-200">
-                  <div className="px-3 py-2">
-                    <div className="text-[9px] text-gray-400 mb-1 font-semibold uppercase tracking-wider">Precedente</div>
-                    <pre className="text-[11px] text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">
-                      {f.previous || <span className="italic text-gray-300">nessun dato</span>}
-                    </pre>
-                  </div>
-                  <div className="px-3 py-2">
-                    <div className="text-[9px] text-gray-400 mb-1 font-semibold uppercase tracking-wider">Estratto</div>
-                    <pre className="text-[11px] text-gray-800 whitespace-pre-wrap font-sans leading-relaxed">{f.current}</pre>
-                  </div>
+                <div className="px-3 py-2.5">
+                  <DiffView previous={f.previous} current={f.current} status={f.status} />
                 </div>
               </div>
             );
@@ -727,6 +799,7 @@ export default function ImportReviewScreen({
             />
             <div className="px-4 py-4">
               <VisitFacsimile
+                key={currentIdx}
                 draft={current.draft}
                 onUpdate={updateCurrentDraft}
               />
