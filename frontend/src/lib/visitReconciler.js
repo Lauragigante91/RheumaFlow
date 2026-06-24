@@ -256,11 +256,7 @@ export function diffLongitudinalFields(draft, existingPatient, primaVisita = nul
     }
     const status   = longitudinalFieldStatus(key, mode, previous, current);
     if (!status) continue;
-    const _skip = status === LONGIT_STATUS.NUOVO_DATO
-      ? null
-      : !!(status === LONGIT_STATUS.INVARIATO ||
-           status === LONGIT_STATUS.CONFLITTO  ||
-           status === LONGIT_STATUS.MODIFICA);
+    const _skip = status === LONGIT_STATUS.INVARIATO ? true : null;
     result.push({ key, label, mode, previous, current, status, _skip });
   }
   return result;
@@ -293,7 +289,7 @@ function buildEventSet(events) {
 
 // ── Core reconciliation ───────────────────────────────────────────────────────
 
-export function reconcileDrafts(drafts, existingData) {
+export function reconcileDrafts(drafts, existingData, primaVisita = null) {
   const {
     therapies:          existingTherapies    = [],
     assessments:        existingAssessments  = [],
@@ -708,7 +704,8 @@ export function reconcileDrafts(drafts, existingData) {
     }
 
     if (existingData.patient) {
-      out._longitudinal = diffLongitudinalFields(draft, existingData.patient, existingData.prima_visita || null);
+      const isFirstVisit = draftIdx === 0 && existingTherapies.length === 0;
+      out._longitudinal = diffLongitudinalFields(draft, existingData.patient, isFirstVisit ? null : primaVisita);
     }
 
     return out;

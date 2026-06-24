@@ -173,7 +173,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       let existingData = { therapies: [], assessments: [], lab_exams: [], instrumental_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {
         try {
-          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes, pvRes] = await Promise.allSettled([
+          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
             therapiesApi.listByPatient(patient.id),
             assessmentsApi.listByPatient(patient.id),
             labExamsApi.listByPatient(patient.id),
@@ -183,7 +183,6 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             diseaseProfileApi.get(patient.id, "sle").catch(() => null),
             scleroProfileApi.get(patient.id).catch(() => null),
             clinicalEventsApi.list(patient.id),
-            diseaseProfileApi.get(patient.id, "prima_visita").catch(() => null),
           ]);
           existingData = {
             therapies:          thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
@@ -198,11 +197,13 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             sclero_profile:   scleroRes.status === "fulfilled" ? scleroRes.value : null,
             clinical_events:  ceRes.status    === "fulfilled" ? (ceRes.value    || []) : [],
             patient:          patient || null,
-            prima_visita:     pvRes.status === "fulfilled" ? pvRes.value : null,
           };
         } catch (_) {}
       }
-      const [reconciledDraft] = reconcileDrafts([draft], existingData);
+      const primaVisitaProfile = patient?.id
+        ? await diseaseProfileApi.get(patient.id, "prima_visita").catch(() => null)
+        : null;
+      const [reconciledDraft] = reconcileDrafts([draft], existingData, primaVisitaProfile);
       draft = reconciledDraft;
 
       const stats = draftSummaryStats(draft);
@@ -264,7 +265,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
       let existingData = { therapies: [], assessments: [], lab_exams: [], instrumental_exams: [], disease_profiles: {}, sclero_profile: null, clinical_events: [] };
       if (patient?.id) {
         try {
-          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes, pvRes] = await Promise.allSettled([
+          const [thRes, assRes, labRes, instrRes, raRes, spaRes, sleRes, scleroRes, ceRes] = await Promise.allSettled([
             therapiesApi.listByPatient(patient.id),
             assessmentsApi.listByPatient(patient.id),
             labExamsApi.listByPatient(patient.id),
@@ -274,7 +275,6 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             diseaseProfileApi.get(patient.id, "sle").catch(() => null),
             scleroProfileApi.get(patient.id).catch(() => null),
             clinicalEventsApi.list(patient.id),
-            diseaseProfileApi.get(patient.id, "prima_visita").catch(() => null),
           ]);
           existingData = {
             therapies:          thRes.status    === "fulfilled" ? (thRes.value    || []) : [],
@@ -289,13 +289,15 @@ export default function VisitImportButton({ patient, onImported, open: externalO
             sclero_profile:  scleroRes.status === "fulfilled" ? scleroRes.value : null,
             clinical_events: ceRes.status === "fulfilled" ? (ceRes.value || []) : [],
             patient:         patient || null,
-            prima_visita:    pvRes.status === "fulfilled" ? pvRes.value : null,
           };
         } catch (_) {}
       }
 
+      const primaVisitaProfile = patient?.id
+        ? await diseaseProfileApi.get(patient.id, "prima_visita").catch(() => null)
+        : null;
       const rawDrafts        = rawResults.map(r => r.draft);
-      const reconciledDrafts = reconcileDrafts(rawDrafts, existingData);
+      const reconciledDrafts = reconcileDrafts(rawDrafts, existingData, primaVisitaProfile);
 
       setFieldOverrides({});
 
