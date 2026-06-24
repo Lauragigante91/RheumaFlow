@@ -270,10 +270,16 @@ export default function PatientDetail() {
     if (!todayRa && !todaySpa) return;
     const inp = todayRa?.inputs || {};
     const spaInp = todaySpa?.inputs || {};
+    // gh = PtGA 0-100mm usata nel DAS28.
+    // CompositeAssessmentDialog salva il campo come "pga" (scala 0-10 VAS),
+    // quindi la conversione pga×10 è necessaria per ottenere gh in mm.
+    const ghRaw = inp.gh != null ? inp.gh
+      : inp.pga != null ? inp.pga * 10
+      : null;
     const next = {
       tjc:              inp.tjc  ?? inp.tjc28  ?? (todayRa?.tender_joints?.length ?? null),
       sjc:              inp.sjc  ?? inp.sjc28  ?? (todayRa?.swollen_joints?.length ?? null),
-      gh:               inp.gh   ?? null,
+      gh:               ghRaw,
       ega:              inp.ega  ?? null,
       pcr:              inp.crp  ?? inp.pcr    ?? null,
       ves:              inp.esr  ?? inp.ves    ?? null,

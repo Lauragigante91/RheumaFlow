@@ -663,7 +663,9 @@ export default function TodayVisitSection({
     const inp = last.inputs || {};
     if (inp.tjc  != null) setTjc(String(inp.tjc));
     if (inp.sjc  != null) setSjc(String(inp.sjc));
-    if (inp.gh   != null) setGh(String(inp.gh));
+    // gh = PtGA 0-100mm. Il Form AR salva "pga" (0-10 VAS), non "gh" → conversione.
+    const ghVal = inp.gh != null ? inp.gh : inp.pga != null ? inp.pga * 10 : null;
+    if (ghVal != null) setGh(String(ghVal));
     if (inp.ega  != null) setEga(String(inp.ega));
     if (inp.crp  != null) setPcr(String(inp.crp));
     if (inp.esr  != null) setVes(String(inp.esr));

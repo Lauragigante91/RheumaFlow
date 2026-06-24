@@ -191,33 +191,16 @@ export default function FollowUpReportModal({
   function buildClinimetriaText() {
     const lines = [];
 
-    if (das28crp != null) lines.push(`DAS28-PCR: ${das28crp}  →  ${interpretDAS28(das28crp)}`);
-    if (das28esr != null) lines.push(`DAS28-VES: ${das28esr}  →  ${interpretDAS28(das28esr)}`);
+    // AR — indici compositi (ordine: CDAI → SDAI → DAS28-PCR → DAS28-VES)
     if (cdai     != null) lines.push(`CDAI: ${cdai}  →  ${interpretCDAI(cdai)}`);
     if (sdai     != null) lines.push(`SDAI: ${sdai}  →  ${interpretSDAI(sdai)}`);
-    const raInputs = [];
-    if (tjc !== "" && tjc != null) raInputs.push(`TJC: ${tjc}`);
-    if (sjc !== "" && sjc != null) raInputs.push(`SJC: ${sjc}`);
-    if (gh  !== "" && gh  != null) raInputs.push(`VAS-GH: ${gh}`);
-    if (ega !== "" && ega != null) raInputs.push(`EGA: ${ega}`);
-    if (pcr !== "" && pcr != null) raInputs.push(`PCR: ${pcr} mg/L`);
-    if (ves !== "" && ves != null) raInputs.push(`VES: ${ves} mm/h`);
-    if (raInputs.length) lines.push("Input AR: " + raInputs.join(" · "));
+    if (das28crp != null) lines.push(`DAS28-PCR: ${das28crp}  →  ${interpretDAS28(das28crp)}`);
+    if (das28esr != null) lines.push(`DAS28-VES: ${das28esr}  →  ${interpretDAS28(das28esr)}`);
 
+    // SpA — indici compositi
     const showAxial = !spaProfileKnown || spaHasAxial;
     if (asdas != null && showAxial) lines.push(`ASDAS-CRP: ${asdas}  →  ${interpretASDAS(asdas)}`);
     if (dapsa != null) lines.push(`DAPSA: ${dapsa}  →  ${interpretDAPSA(dapsa)}`);
-    const spaInputs = [];
-    if (showAxial && spaBack  !== "" && spaBack  != null) spaInputs.push(`Lombalgia: ${spaBack}`);
-    if (showAxial && spaStiff !== "" && spaStiff != null) spaInputs.push(`Rigidità: ${spaStiff}`);
-    if (spaPeriph    !== "" && spaPeriph    != null) spaInputs.push(`Dolore periferico: ${spaPeriph}`);
-    if (spaPga       !== "" && spaPga       != null) spaInputs.push(`PGA: ${spaPga}`);
-    if (spaPcr       !== "" && spaPcr       != null) spaInputs.push(`PCR: ${spaPcr} mg/L`);
-    if (spaTjc       !== "" && spaTjc       != null) spaInputs.push(`TJC: ${spaTjc}`);
-    if (spaSjc       !== "" && spaSjc       != null) spaInputs.push(`SJC: ${spaSjc}`);
-    if (spaDactylitis !== "" && spaDactylitis != null) spaInputs.push(`Dattiliti: ${spaDactylitis}`);
-    if (spaEnthesitis !== "" && spaEnthesitis != null) spaInputs.push(`Entesiti: ${spaEnthesitis}`);
-    if (spaInputs.length) lines.push("Input SpA: " + spaInputs.join(" · "));
 
     if (pmrEsr     !== "" && pmrEsr     != null) lines.push(`VES: ${pmrEsr} mm/h`);
     if (pmrPcr     !== "" && pmrPcr     != null) lines.push(`PCR: ${pmrPcr} mg/L`);
