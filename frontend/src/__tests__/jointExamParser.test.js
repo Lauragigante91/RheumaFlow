@@ -320,3 +320,70 @@ describe("jointExamParser — reperti OA strutturali/acustici non assegnano stat
     });
   });
 });
+
+describe("jointExamParser — negazione articolare (P4)", () => {
+  test("'non limitazioni funzionali a spalle ed anche' → nessuno stato", () => {
+    const r = parseJointExam("non limitazioni funzionali a spalle ed anche");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'non dolore alle ginocchia' → nessuno stato", () => {
+    const r = parseJointExam("non dolore alle ginocchia");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'non artralgie alle ginocchia' → nessuno stato", () => {
+    const r = parseJointExam("non artralgie alle ginocchia");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'assenza di tumefazione alle caviglie' → nessuno stato", () => {
+    const r = parseJointExam("assenza di tumefazione alle caviglie");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'senza artrite ai polsi' → nessuno stato", () => {
+    const r = parseJointExam("senza artrite ai polsi");
+    expect(r.joints).toEqual({});
+  });
+
+  test("'negativa per sinovite alle mani' → nessuno stato", () => {
+    const r = parseJointExam("negativa per sinovite alle mani");
+    expect(r.joints).toEqual({});
+  });
+
+  test("'articolazioni libere' → nessuno stato", () => {
+    const r = parseJointExam("articolazioni libere");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'spalle ed anche indenni' → nessuno stato", () => {
+    const r = parseJointExam("spalle ed anche indenni");
+    expect(r.joints).toEqual({});
+  });
+
+  test("mix: negazione + reperto attivo — solo il positivo viene registrato", () => {
+    const r = parseJointExam(
+      "non limitazioni funzionali a spalle ed anche, dolorabilità al polso dx"
+    );
+    expect(r.joints).toEqual({ wrist_r: "tender" });
+  });
+
+  test("mix: non dolore + reperto attivo su altra articolazione", () => {
+    const r = parseJointExam("non dolore alle ginocchia; polso sinistro tumefatto");
+    expect(r.joints).toEqual({ wrist_l: "swollen" });
+  });
+
+  test("'ginocchio sinistro tumefatto' → swollen (invariato)", () => {
+    expect(parseJointExam("ginocchio sinistro tumefatto").joints).toEqual({ knee_l: "swollen" });
+  });
+
+  test("'spalla destra dolente' → tender (invariato)", () => {
+    expect(parseJointExam("spalla destra dolente").joints).toEqual({ shoulder_r: "tender" });
+  });
+});

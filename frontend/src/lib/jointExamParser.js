@@ -202,7 +202,22 @@ function resolveJoints(segment, fallbackSides) {
 // ── Marker regexes ────────────────────────────────────────────────────────────
 const TENDER_RE  = /\b(dolorabilità|dolent[ei]|dolore|dolorant[ei]|dolorosa\s+palpazione|positività\s+(?:algica|dolorosa)|FTP)(?![\wàèéìòù])/i;
 const SWOLLEN_RE = /\b(tumefazion[ei]|tumefatt[oai]|tumefatte?|sinovite|sacroileit[ei]|artrit[ei]|(?:ipertrofia|versamento)\s+(?:sinoviale|articolare)?|gonfiore\s+(?:articolare)?)\b/i;
-const NEG_RE     = /\b(non\s+(?:si\s+rileva|si\s+rilevano|present[ei]|evidenz\w+|dolent[ei]|dolorant[ei]|dolorabilit\w*|tumefatt\w+|tumefazion\w+|sinovit\w+|artrit\w+)|assenz[ae]\s+di|senza\s+(?:artrit\w+|sinovit\w+|tumefazion\w+|dolorabilità)|negativo|negativa)\b/i;
+
+// NEG_RE — negazione clinica di un reperto (usata a livello clausola e sub-parte).
+// Copre sia la forma "non <termine>" (clinico o funzionale) sia i modificatori
+// autonomi che indicano normalità articolare: libere, indenni, integre, nella norma, conservate.
+const NEG_RE = /\b(non\s+(?:si\s+rileva|si\s+rilevano|present[ei]|evidenz\w+|dolent[ei]|dolorant[ei]|dolorabilit\w*|tumefatt\w+|tumefazion\w+|sinovit\w+|artrit\w+|dolore\b|artralgi\w+|limitazion\w+|segni\s+di\b|rilievi\w*)|assenz[ae]\s+di|senza\s+(?:artrit\w+|sinovit\w+|tumefazion\w+|dolorabilità|dolore\b|artralgi\w+)|negativ[oa]\b|libere?\b|indenn[ei]\b|integr[aei]\b|nella\s+norma\b|conservat[aei]\b|esentan?\s+da\b|nessun[ao]?\s+(?:dolore|artralgi\w+|tumefazion\w+|sinovit\w+|artrit\w+|rilievo))\b/i;
+
+// JOINT_NEG_CONTEXT_RE — versione ampia, usata solo per sopprimere il
+// carry-backward quando una sub-parte contiene joints ma nessun marker
+// clinico di status e ha un modificatore negativo nel testo.
+const JOINT_NEG_CONTEXT_RE = /\b(?:non|nessun[ao]?|assenz[ae]\s+di|senza|negativ[oa]|libere?\b|indenn[ei]\b|integr[aei]\b|nella\s+norma\b|conservat[aei]\b|esentan?\s+da)\b/i;
+
+// NEG_TRAILER_RE — controlla la coda della parte PRECEDENTE per rilevare
+// se un modificatore negativo precede direttamente il keyword di status corrente
+// (es: "non " + "dolore alle ginocchia" dopo lo split su dolore).
+const NEG_TRAILER_RE = /\b(?:non|nessun[ao]?|assenz[ae]\s+di\s*|senza\s*|negativ[oa]\s*(?:per\s*)?)\s*$/i;
+
 // Segni di artrosi (OA) — scrosci = crepitio articolare → artrosi, NON artrite.
 // Una articolazione descritta solo con scrosci NON va conteggiata come dolente/tumefatta
 // e NON deve ricevere status carry-forward da articolazioni precedenti.
@@ -283,7 +298,10 @@ export function parseJointExam(text) {
     let m;
     while ((m = lb.re.exec(cleanText)) !== null) {
       const seg = m[1].trim();
-      if (NEG_RE.test(m[0])) continue;
+      // Controlla la negazione sia nel testo matchato sia nei ~25 caratteri
+      // che precedono il match (es. "non " + "dolore alle ginocchia").
+      const prePad = cleanText.slice(Math.max(0, m.index - 25), m.index);
+      if (NEG_RE.test(m[0]) || NEG_TRAILER_RE.test(prePad)) continue;
       rawSegments[lb.type].push(seg);
       const keys = resolveJoints(seg, null);
       if (lb.type === "tender") markTender(keys);
@@ -313,13 +331,21 @@ export function parseJointExam(text) {
     // Split the clause on tender/swollen keywords to get sub-segments
     const parts = clause.split(/(?=\b(?:dolorabilità|dolent[ei]|dolore|tumefazion[ei]|tumefatt[oai]\w*|sinovite|artrit[ei])(?![\wàèéìòù]))/i);
 
-    const infos = parts.map((part) => ({
-      part,
-      isNeg: NEG_RE.test(part),
-      isTender: TENDER_RE.test(part),
-      isSwollen: SWOLLEN_RE.test(part),
-      joints: resolveJoints(part, clauseSides),
-    }));
+    const infos = parts.map((part, idx) => {
+      // Fix A: se il modificatore negativo si trova nella PARTE PRECEDENTE
+      // (es: "non " + "dolore alle ginocchia" dopo lo split su dolore),
+      // il NEG_TRAILER_RE rileva il "non" in coda alla parte precedente
+      // e marca questa parte come negata.
+      const prevTrail = idx > 0 ? parts[idx - 1].slice(-50) : "";
+      const negFromPrev = NEG_TRAILER_RE.test(prevTrail);
+      return {
+        part,
+        isNeg: NEG_RE.test(part) || negFromPrev,
+        isTender: TENDER_RE.test(part),
+        isSwollen: SWOLLEN_RE.test(part),
+        joints: resolveJoints(part, clauseSides),
+      };
+    });
 
     // Carry-forward: a sub-part with status but no joints passes its status onward
     let pendingTender  = false;
@@ -352,7 +378,17 @@ export function parseJointExam(text) {
       // lo status dai sub-segmenti successivi solo-status (nessuna joint), inclusi
       // più stati concatenati, es. "spalla sinistra dolente", "MCP II-V dolenti",
       // "ginocchio sinistra dolente e tumefatto".
+      //
+      // Fix B: se la sub-parte contiene un modificatore negativo (anche senza
+      // keyword clinico — es. "non limitazioni funzionali a spalle ed anche"),
+      // si sopprime il carry-backward e si azzera il pending, così il reperto
+      // positivo nel sub-segmento successivo non si propaga a ritroso su queste
+      // articolazioni.
       if (!effectiveTender && !effectiveSwollen) {
+        if (JOINT_NEG_CONTEXT_RE.test(info.part)) {
+          pendingTender = pendingSwollen = false;
+          continue;
+        }
         for (let j = i + 1; j < infos.length; j++) {
           const nxt = infos[j];
           if (nxt.isNeg || nxt.joints.size || (!nxt.isTender && !nxt.isSwollen)) break;
