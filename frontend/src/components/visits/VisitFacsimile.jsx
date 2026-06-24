@@ -13,8 +13,81 @@ function fmtIso(iso) {
   return `${d}/${m}/${y}`;
 }
 
-function getLongit(draft, key) {
-  return (draft?._longitudinal || []).find(f => f.key === key && f.status !== "invariato");
+function getLongit(longitudinal, key) {
+  return (longitudinal || []).find(f => f.key === key && f.status !== "invariato");
+}
+
+function sentenceSplit(text) {
+  if (!text) return [];
+  return text.replace(/([.;])\s+/g, "$1\n").split(/\n+/).map(s => s.trim()).filter(Boolean);
+}
+
+function buildDiff(prev, curr) {
+  const a = sentenceSplit(prev || "");
+  const b = sentenceSplit(curr || "");
+  if (!a.length && !b.length) return [];
+  if (!a.length) return b.map(s => ({ t: "a", s }));
+  if (!b.length) return a.map(s => ({ t: "r", s }));
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const segs = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { segs.unshift({ t: "s", s: a[i-1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { segs.unshift({ t: "a", s: b[j-1] }); j--; }
+    else { segs.unshift({ t: "r", s: a[i-1] }); i--; }
+  }
+  return segs;
+}
+
+function DiffView({ previous, current }) {
+  if (!previous) {
+    return (
+      <p className="text-[11px] leading-relaxed font-sans whitespace-pre-wrap break-words bg-emerald-50 rounded px-2 py-1 text-emerald-800">
+        {current || "—"}
+      </p>
+    );
+  }
+  if (!current) {
+    return (
+      <p className="text-[11px] leading-relaxed font-sans bg-red-50 rounded px-2 py-1 text-red-700 line-through">
+        {previous}
+      </p>
+    );
+  }
+  const segs = buildDiff(previous, current);
+  return (
+    <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
+      {segs.map((seg, idx) => {
+        if (seg.t === "s") return <span key={idx}>{seg.s}{" "}</span>;
+        if (seg.t === "a") return <span key={idx} className="bg-emerald-100 text-emerald-800 rounded px-0.5">{seg.s}{" "}</span>;
+        if (seg.t === "r") return <span key={idx} className="bg-red-100 text-red-700 line-through rounded px-0.5">{seg.s}{" "}</span>;
+        return null;
+      })}
+    </p>
+  );
+}
+
+function LongitudinalInlineBlock({ entry, onToggle }) {
+  if (!entry) return null;
+  const active = entry._skip !== true;
+  return (
+    <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
+      <DiffView previous={entry.previous} current={entry.current} />
+      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+        <input
+          type="checkbox"
+          checked={active}
+          onChange={e => onToggle(entry.key, !e.target.checked)}
+          className="accent-teal-600 w-3.5 h-3.5 flex-shrink-0"
+        />
+        <span className="text-[10px] text-gray-500">Importa nel profilo paziente</span>
+      </label>
+    </div>
+  );
 }
 
 const VISIT_TYPE_OPTIONS = [
@@ -757,7 +830,7 @@ function SectionBlock({ title, badge, longitEntry, children, defaultOpen = true 
   );
 }
 
-export default function VisitFacsimile({ draft, onUpdate }) {
+export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongitudinalToggle }) {
   if (!draft) return null;
 
   const today       = new Date().toISOString().slice(0, 10);
@@ -840,19 +913,28 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         </div>
       </div>
 
-      <SectionBlock title="1) Diagnosi" longitEntry={getLongit(draft, "diagnosi")}>
+      <SectionBlock title="1) Diagnosi" longitEntry={getLongit(longitudinal, "diagnosi")}>
         <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
+        {getLongit(longitudinal, "diagnosi") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")} onToggle={onLongitudinalToggle} />
+        )}
       </SectionBlock>
 
-      <SectionBlock title="2) Anamnesi fisiologica" longitEntry={getLongit(draft, "anamnesi_fisiologica")}>
+      <SectionBlock title="2) Anamnesi fisiologica" longitEntry={getLongit(longitudinal, "anamnesi_fisiologica")}>
         <TextSection value={pg.anamnesi_fisiologica} onChange={v => updPG({ anamnesi_fisiologica: v })} />
+        {getLongit(longitudinal, "anamnesi_fisiologica") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_fisiologica")} onToggle={onLongitudinalToggle} />
+        )}
       </SectionBlock>
 
-      <SectionBlock title="3) Anamnesi familiare" longitEntry={getLongit(draft, "anamnesi_familiare")}>
+      <SectionBlock title="3) Anamnesi familiare" longitEntry={getLongit(longitudinal, "anamnesi_familiare")}>
         <TextSection value={pg.anamnesi_familiare} onChange={v => updPG({ anamnesi_familiare: v })} />
+        {getLongit(longitudinal, "anamnesi_familiare") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_familiare")} onToggle={onLongitudinalToggle} />
+        )}
       </SectionBlock>
 
-      <SectionBlock title="4) Comorbilità / APR" longitEntry={getLongit(draft, "comorbidita_apr")}>
+      <SectionBlock title="4) Comorbilità / APR" longitEntry={getLongit(longitudinal, "comorbidita_apr")}>
         {(draft.comorbidita || []).length > 0 ? (
           <div className="space-y-2">
             <ComorbidityEditor
@@ -869,10 +951,16 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         ) : (
           <TextSection value={pg.comorbidita_apr} onChange={v => updPG({ comorbidita_apr: v })} />
         )}
+        {getLongit(longitudinal, "comorbidita_apr") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "comorbidita_apr")} onToggle={onLongitudinalToggle} />
+        )}
       </SectionBlock>
 
-      <SectionBlock title="5) Terapia domiciliare (ingresso visita)" longitEntry={getLongit(draft, "terapia_domiciliare")}>
+      <SectionBlock title="5) Terapia domiciliare (ingresso visita)" longitEntry={getLongit(longitudinal, "terapia_domiciliare")}>
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
+        {getLongit(longitudinal, "terapia_domiciliare") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")} onToggle={onLongitudinalToggle} />
+        )}
       </SectionBlock>
 
       <SectionBlock
@@ -921,7 +1009,7 @@ export default function VisitFacsimile({ draft, onUpdate }) {
         </SectionBlock>
       )}
 
-      <SectionBlock title="8) Allergie" longitEntry={getLongit(draft, "allergie_testo")}>
+      <SectionBlock title="8) Allergie" longitEntry={getLongit(longitudinal, "allergie_testo")}>
         {(draft.intolleranze || []).length > 0 ? (
           <div className="space-y-2">
             <IntolleranzeEditor
@@ -937,6 +1025,9 @@ export default function VisitFacsimile({ draft, onUpdate }) {
           </div>
         ) : (
           <TextSection value={pg.allergie} onChange={v => updPG({ allergie: v })} />
+        )}
+        {getLongit(longitudinal, "allergie_testo") && (
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "allergie_testo")} onToggle={onLongitudinalToggle} />
         )}
       </SectionBlock>
 

@@ -174,103 +174,6 @@ function DiffView({ previous, current, status }) {
   );
 }
 
-function LongitudinalFieldsPanel({ longitudinal, onToggle }) {
-  const [open, setOpen] = useState(true);
-  if (!Array.isArray(longitudinal) || longitudinal.length === 0) return null;
-  const nonInvariato = longitudinal.filter(f => f.status !== LONGIT_STATUS.INVARIATO);
-  if (nonInvariato.length === 0) return null;
-
-  const acceptedCount = nonInvariato.filter(f => f._skip === false).length;
-  const ignoredCount  = nonInvariato.filter(f => f._skip === true).length;
-
-  return (
-    <div className="border-b border-gray-200 bg-white flex-shrink-0">
-      <button
-        type="button"
-        className="flex items-center gap-2 w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
-        onClick={() => setOpen(v => !v)}
-      >
-        <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-        <span className="text-xs font-semibold text-gray-700">
-          Campi profilo — {nonInvariato.length} campo{nonInvariato.length !== 1 ? "i" : ""} da verificare
-        </span>
-        <div className="flex gap-1 ml-1">
-          {acceptedCount > 0 && (
-            <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-medium">
-              {acceptedCount} accettati
-            </span>
-          )}
-          {ignoredCount > 0 && (
-            <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 border border-gray-200 rounded font-medium">
-              {ignoredCount} ignorati
-            </span>
-          )}
-        </div>
-        {open
-          ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 ml-auto" />
-          : <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-auto" />}
-      </button>
-      {open && (
-        <div className="px-4 pb-3 space-y-2">
-          {nonInvariato.map(f => {
-            const meta    = LONGIT_STATUS_META[f.status] || {};
-            const clr     = LONGIT_COLOR[meta.color] || LONGIT_COLOR.gray;
-            const skipped = f._skip;
-            return (
-              <div key={f.key} className={`rounded-lg border transition-all ${
-                skipped === true
-                  ? "border-gray-200 opacity-60"
-                  : skipped === null
-                    ? `${clr.border} ring-1 ring-inset`
-                    : clr.border
-              }`}>
-                <div className={`px-3 py-2 rounded-t-lg flex items-center gap-2 ${skipped === true ? "bg-gray-50" : clr.bg}`}>
-                  <span className={`text-[9px] font-bold uppercase tracking-wider ${skipped === true ? "text-gray-400" : clr.text}`}>
-                    {f.label}
-                  </span>
-                  <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded border ml-1 ${clr.badge}`}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: meta.dot, display: "inline-block", flexShrink: 0 }} />
-                    {meta.label}
-                  </span>
-                  <div className="ml-auto flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onToggle(f.key, false)}
-                      disabled={skipped === false}
-                      className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
-                        skipped === false
-                          ? "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold cursor-default"
-                          : "border-gray-200 bg-white text-gray-500 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer"
-                      }`}
-                    >
-                      {f.status === LONGIT_STATUS.NUOVO_DATO ? "Aggiungi" : "Conferma"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onToggle(f.key, true)}
-                      disabled={skipped === true}
-                      className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${
-                        skipped === true
-                          ? "border-gray-300 bg-gray-100 text-gray-500 font-semibold cursor-default"
-                          : "border-gray-200 bg-white text-gray-400 hover:border-gray-400 cursor-pointer"
-                      }`}
-                    >
-                      Ignora
-                    </button>
-                  </div>
-                </div>
-                <div className="px-3 py-2.5">
-                  <DiffView previous={f.previous} current={f.current} status={f.status} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function BatchFieldConflictsPanel({ conflicts, overrides, onFieldOverride }) {
   const [open, setOpen] = useState(true);
   if (!conflicts || conflicts.length === 0) return null;
@@ -795,15 +698,13 @@ export default function ImportReviewScreen({
             <div className="px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0 sticky top-0 z-10">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Dati strutturati</span>
             </div>
-            <LongitudinalFieldsPanel
-              longitudinal={current.draft?._longitudinal}
-              onToggle={(fieldKey, skip) => onLongitudinalToggle?.(currentIdx, fieldKey, skip)}
-            />
             <div className="px-4 py-4">
               <VisitFacsimile
                 key={currentIdx}
                 draft={current.draft}
                 onUpdate={updateCurrentDraft}
+                longitudinal={current.draft?._longitudinal}
+                onLongitudinalToggle={(fieldKey, skip) => onLongitudinalToggle?.(currentIdx, fieldKey, skip)}
               />
             </div>
           </div>
