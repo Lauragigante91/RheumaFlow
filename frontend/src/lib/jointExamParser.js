@@ -216,6 +216,24 @@ function splitClauses(text) {
     .filter(Boolean);
 }
 
+// ── Strip OA structural findings ──────────────────────────────────────────────
+// Acoustic/palpatory OA signs and chronic structural findings that must NOT
+// be assigned any active joint status on the homunculus map.
+//
+// Stripped patterns:
+//   • scrosci, crepitii, crepitio, sfregamento, rumori articolari
+//   • rizoartrosi (CMC1 OA)
+//   • noduli di Heberden (IPD), noduli di Bouchard (IPP)
+function stripOAFindings(text) {
+  return text
+    // scrosci / scroscio / crepitii / crepitio + optional joint context
+    .replace(/\b(?:scrosc[io]\w*|crepiti[io]\w*|sfregament[oi]\w*|rumori\s+articolari\w*)\b(?:\s+(?:a[il]?|su[il]?|alle?|de[il]|dei|degli|della|delle)\s+[\w\s,àèéìòù]{1,40})?/gi, " ")
+    // rizoartrosi (± bilaterale / CMC1 / CMC-1 specifier)
+    .replace(/\brizoartrosi\w*(?:\s+(?:bilaterale?|cmc\s*[-–]?\s*1|1°\s+dito\w*))?/gi, " ")
+    // noduli di Heberden / Bouchard (± "alle IPD", "alle IPP", plurals)
+    .replace(/\bnoduli?\s+(?:di\s+)?(?:heberden|bouchard)\w*(?:\s+(?:a[il]?|su[il]?|alle?|de[il]|dei|degli|della|delle)\s+[\w\s,àèéìòù]{1,30})?/gi, " ");
+}
+
 // ── Strip dermatological / skin-manifestation phrases ─────────────────────────
 // These mention body-part names but are NOT joint-examination findings.
 // Removing them before parsing prevents false-positive joint hits.
@@ -241,8 +259,11 @@ export function parseJointExam(text) {
   // Step 1: expand clinical abbreviations (dolor/tumor/ds/sn/MCF + number reordering)
   const expanded = expandAbbreviations(text);
 
-  // Step 2: remove dermatological phrases so skin findings don't produce false joint hits
-  const cleanText = stripDermContext(expanded);
+  // Step 2a: remove OA structural/acoustic findings (scrosci, rizoartrosi, noduli Heberden/Bouchard)
+  const noOA = stripOAFindings(expanded);
+
+  // Step 2b: remove dermatological phrases so skin findings don't produce false joint hits
+  const cleanText = stripDermContext(noOA);
 
   // Result accumulator: key → "tender" | "swollen" | "both"
   const result = {};

@@ -124,7 +124,7 @@ const CASES = [
   { id: 32.1, focus: "sacroileite dx (→ sacroiliac)", text: "Sacroileite destra.", expected: [] },
   { id: 32.2, focus: "neg sacroileite (→ sacroiliac negative)", text: "Non si rileva sacroileite.", expected: [] },
   { id: 56.1, focus: "sx alias sinistra", text: "Tumefazione polso sx.", expected: ["wrist_l"] },
-  { id: 56.2, focus: "dx e sx bilat MCF", text: "Tumefazione dolente polso dx + II-III MCF dx e sx", expected: [...both("mcp", [2,3]), "wrist_r"] },
+  { id: 56.2, focus: "dx e sx bilat MCF", text: "Tumefazione dolente polso dx + II-III MCF dx e sx", expected: [...num("mcp", [2, 3]), "wrist_r"] },
   { id: 33, focus: "MCP bilat", text: "MCP II bilateralmente dolenti.", expected: num("mcp", [2]) },
   { id: 34, focus: "polsi bilat esplicito", text: "Tumefazione bilaterale dei polsi.", expected: both("wrist") },
   { id: 35, focus: "dx e sn", text: "Caviglia destra e sinistra tumefatte.", expected: both("ankle") },
@@ -253,5 +253,70 @@ describe("jointExamParser — P2 import homunculus per-visita", () => {
     const r = parseJointExam("Non sinoviti, non tumefazioni articolari.");
     expect(r.found).toBe(false);
     expect(r.joints).toEqual({});
+  });
+});
+
+describe("jointExamParser — reperti OA strutturali/acustici non assegnano stato", () => {
+  test("'scrosci alle ginocchia' → nessuna articolazione", () => {
+    const r = parseJointExam("scrosci alle ginocchia");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'crepitii al ginocchio destro' → nessuna articolazione", () => {
+    const r = parseJointExam("crepitii al ginocchio destro");
+    expect(r.joints).toEqual({});
+  });
+
+  test("'sfregamento alle spalle' → nessuna articolazione", () => {
+    const r = parseJointExam("sfregamento alle spalle");
+    expect(r.joints).toEqual({});
+  });
+
+  test("'rumori articolari ai polsi' → nessuna articolazione", () => {
+    const r = parseJointExam("rumori articolari ai polsi");
+    expect(r.joints).toEqual({});
+  });
+
+  test("'rizoartrosi bilaterale' → nessuna articolazione", () => {
+    const r = parseJointExam("rizoartrosi bilaterale");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'noduli di Heberden alle mani con rizoartrosi' → nessuna articolazione", () => {
+    const r = parseJointExam("noduli di Heberden alle mani con rizoartrosi");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'noduli di Bouchard alle IPP' → nessuna articolazione", () => {
+    const r = parseJointExam("noduli di Bouchard alle IPP");
+    expect(r.joints).toEqual({});
+    expect(r.found).toBe(false);
+  });
+
+  test("'noduli Heberden e Bouchard' (senza 'di') → nessuna articolazione", () => {
+    const r = parseJointExam("noduli Heberden e noduli Bouchard");
+    expect(r.joints).toEqual({});
+  });
+
+  test("reperti OA misti a reperto attivo — solo attivo viene registrato", () => {
+    const r = parseJointExam("scrosci alle ginocchia; polso dx dolente; noduli di Heberden alle mani");
+    expect(r.joints).toEqual({ wrist_r: "tender" });
+  });
+
+  test("'ginocchio tumefatto e dolente' → stato corretto (invariato)", () => {
+    expect(parseJointExam("ginocchio tumefatto e dolente").joints).toEqual({
+      knee_l: "both",
+      knee_r: "both",
+    });
+  });
+
+  test("'spalla dolente alla palpazione' → tender (invariato)", () => {
+    expect(parseJointExam("spalla dolente alla palpazione").joints).toEqual({
+      shoulder_l: "tender",
+      shoulder_r: "tender",
+    });
   });
 });
