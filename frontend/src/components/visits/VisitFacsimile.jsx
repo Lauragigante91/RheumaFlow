@@ -71,11 +71,95 @@ function DiffView({ previous, current }) {
   );
 }
 
+function InteractiveDiffTerapia({ previous, current, onEdit }) {
+  const segs = useMemo(() => buildDiff(previous || "", current || ""), [previous, current]);
+  const [tokenStates, setTokenStates] = useState({});
+
+  function computeText(states) {
+    return segs
+      .filter((seg, idx) => {
+        if (seg.t === "s") return true;
+        if (seg.t === "r") return states[idx] !== "dismissed";
+        if (seg.t === "a") return states[idx] === "confirmed";
+        return false;
+      })
+      .map(seg => seg.s)
+      .join(" ");
+  }
+
+  const interactiveSegs = segs.filter(s => s.t === "r" || s.t === "a");
+  const pendingCount = interactiveSegs.filter((_, i) => {
+    const idx = segs.indexOf(interactiveSegs[i]);
+    return !tokenStates[idx];
+  }).length;
+  const allReviewed = interactiveSegs.length > 0 &&
+    interactiveSegs.every((seg, i) => {
+      const idx = segs.indexOf(interactiveSegs[i]);
+      return !!tokenStates[idx];
+    });
+
+  function handleClick(idx, seg) {
+    const newStates = { ...tokenStates };
+    if (seg.t === "r") newStates[idx] = "dismissed";
+    if (seg.t === "a") newStates[idx] = "confirmed";
+    setTokenStates(newStates);
+    if (onEdit) onEdit(computeText(newStates));
+  }
+
+  if (!previous) {
+    return (
+      <p className="text-[11px] leading-relaxed font-sans whitespace-pre-wrap break-words bg-emerald-50 rounded px-2 py-1 text-emerald-800">
+        {current || "—"}
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
+        {segs.map((seg, idx) => {
+          const state = tokenStates[idx];
+          if (seg.t === "s") return <span key={idx}>{seg.s}{" "}</span>;
+          if (seg.t === "r") {
+            if (state === "dismissed") return null;
+            return (
+              <span key={idx}
+                onClick={() => handleClick(idx, seg)}
+                className="bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
+              >{seg.s}{" "}</span>
+            );
+          }
+          if (seg.t === "a") {
+            if (state === "confirmed") {
+              return <span key={idx}>{seg.s}{" "}</span>;
+            }
+            return (
+              <span key={idx}
+                onClick={() => handleClick(idx, seg)}
+                className="bg-emerald-100 text-emerald-800 rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
+              >{seg.s}{" "}</span>
+            );
+          }
+          return null;
+        })}
+      </p>
+      {interactiveSegs.length > 0 && (
+        <p className={`mt-1 text-[10px] ${allReviewed ? "text-teal-600 font-medium" : "text-amber-600"}`}>
+          {allReviewed
+            ? "Terapia revisionata"
+            : `${pendingCount} ${pendingCount === 1 ? "modifica" : "modifiche"} da revisionare`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
-  const active     = entry._skip !== true;
-  const isDiagnosi = entry.key === "diagnosi";
+  const active       = entry._skip !== true;
+  const isDiagnosi   = entry.key === "diagnosi";
+  const isTerapia    = entry.key === "terapia_domiciliare";
   return (
     <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
       {editing && isDiagnosi ? (
@@ -90,6 +174,12 @@ function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
             onChange={v => { if (onEdit) onEdit(v); setEditing(false); }}
           />
         </div>
+      ) : isTerapia ? (
+        <InteractiveDiffTerapia
+          previous={entry.previous}
+          current={entry.current}
+          onEdit={onEdit}
+        />
       ) : (
         <div className="flex items-start gap-1.5">
           <div className="flex-1 min-w-0">
@@ -987,7 +1077,8 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
       <SectionBlock title="5) Terapia domiciliare (ingresso visita)" longitEntry={getLongit(longitudinal, "terapia_domiciliare")}>
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
         {getLongit(longitudinal, "terapia_domiciliare") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")} onToggle={onLongitudinalToggle}
+            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("terapia_domiciliare", v) : undefined} />
         )}
       </SectionBlock>
 
