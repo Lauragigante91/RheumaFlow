@@ -78,42 +78,42 @@ function DiffView({ previous, current, splitFn }) {
 
 function InteractiveDiffField({ previous, current, onEdit, splitFn, joinSep = " " }) {
   const segs = useMemo(() => buildDiff(previous || "", current || "", splitFn), [previous, current, splitFn]);
-  const [selectedAdded,    setSelectedAdded]    = useState(new Set());
-  const [confirmedRemoved, setConfirmedRemoved] = useState(new Set());
+  const [confirmedRemovals, setConfirmedRemovals] = useState(new Set());
+  const [acceptedAdditions, setAcceptedAdditions] = useState(new Set());
 
-  function buildResultText(added, removed) {
+  function buildResultText(removals, additions) {
     return segs
       .filter((seg, i) =>
         seg.t === "s" ||
-        (seg.t === "r" && !removed.has(i)) ||
-        (seg.t === "a" && added.has(i))
+        (seg.t === "r" && !removals.has(i)) ||
+        (seg.t === "a" && additions.has(i))
       )
       .map(seg => seg.s)
       .join(joinSep);
   }
 
-  function handleToggleAdded(idx) {
-    setSelectedAdded(prev => {
+  function handleClickRemoved(idx) {
+    setConfirmedRemovals(prev => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else next.add(idx);
-      if (onEdit) onEdit(buildResultText(next, confirmedRemoved));
+      next.add(idx);
+      if (onEdit) onEdit(buildResultText(next, acceptedAdditions));
       return next;
     });
   }
 
-  function handleToggleRemoved(idx) {
-    setConfirmedRemoved(prev => {
+  function handleToggleAdded(idx) {
+    setAcceptedAdditions(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx); else next.add(idx);
-      if (onEdit) onEdit(buildResultText(selectedAdded, next));
+      if (onEdit) onEdit(buildResultText(confirmedRemovals, next));
       return next;
     });
   }
 
   const hasInteractive = segs.some(s => s.t === "r" || s.t === "a");
   const pendingTotal =
-    segs.filter((s, idx) => s.t === "r" && !confirmedRemoved.has(idx)).length +
-    segs.filter((s, idx) => s.t === "a" && !selectedAdded.has(idx)).length;
+    segs.filter((s, idx) => s.t === "r" && !confirmedRemovals.has(idx)).length +
+    segs.filter((s, idx) => s.t === "a" && !acceptedAdditions.has(idx)).length;
 
   return (
     <div>
@@ -121,25 +121,23 @@ function InteractiveDiffField({ previous, current, onEdit, splitFn, joinSep = " 
         {segs.map((seg, idx) => {
           if (seg.t === "s") return <span key={idx} className="pointer-events-none">{seg.s}{" "}</span>;
           if (seg.t === "r") {
-            const confirmed = confirmedRemoved.has(idx);
+            if (confirmedRemovals.has(idx)) return null;
             return (
               <span key={idx}
-                onClick={() => handleToggleRemoved(idx)}
-                className={confirmed
-                  ? "bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer"
-                  : "bg-red-50 text-red-400 line-through rounded px-0.5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"}
-              >{confirmed ? "\u2713 " : ""}{seg.s}{" "}</span>
+                onClick={() => handleClickRemoved(idx)}
+                className="bg-red-50 text-red-500 line-through rounded px-0.5 cursor-pointer border border-dashed border-red-400 hover:bg-red-100 transition-colors"
+              >{seg.s}{" "}</span>
             );
           }
           if (seg.t === "a") {
-            const sel = selectedAdded.has(idx);
+            const accepted = acceptedAdditions.has(idx);
             return (
               <span key={idx}
                 onClick={() => handleToggleAdded(idx)}
-                className={sel
-                  ? "bg-emerald-200 text-emerald-900 rounded px-0.5 cursor-pointer"
+                className={accepted
+                  ? "text-gray-900 bg-emerald-50 rounded px-0.5 cursor-pointer"
                   : "border border-dashed border-emerald-500 text-emerald-700 rounded px-0.5 cursor-pointer hover:bg-emerald-50 transition-colors"}
-              >{sel ? "\u2713 " : ""}{seg.s}{" "}</span>
+              >{seg.s}{" "}</span>
             );
           }
           return null;
@@ -182,42 +180,42 @@ function buildItemDiff(prev, curr) {
 
 function InteractiveItemDiffField({ previous, current, onEdit }) {
   const segs = useMemo(() => buildItemDiff(previous || "", current || ""), [previous, current]);
-  const [selectedAdded,    setSelectedAdded]    = useState(new Set());
-  const [confirmedRemoved, setConfirmedRemoved] = useState(new Set());
+  const [confirmedRemovals, setConfirmedRemovals] = useState(new Set());
+  const [acceptedAdditions, setAcceptedAdditions] = useState(new Set());
 
-  function buildResultText(added, removed) {
+  function buildResultText(removals, additions) {
     return segs
       .filter((seg, i) =>
         seg.t === "s" ||
-        (seg.t === "r" && !removed.has(i)) ||
-        (seg.t === "a" && added.has(i))
+        (seg.t === "r" && !removals.has(i)) ||
+        (seg.t === "a" && additions.has(i))
       )
       .map(seg => seg.s)
       .join(", ");
   }
 
-  function handleToggleAdded(idx) {
-    setSelectedAdded(prev => {
+  function handleClickRemoved(idx) {
+    setConfirmedRemovals(prev => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else next.add(idx);
-      if (onEdit) onEdit(buildResultText(next, confirmedRemoved));
+      next.add(idx);
+      if (onEdit) onEdit(buildResultText(next, acceptedAdditions));
       return next;
     });
   }
 
-  function handleToggleRemoved(idx) {
-    setConfirmedRemoved(prev => {
+  function handleToggleAdded(idx) {
+    setAcceptedAdditions(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx); else next.add(idx);
-      if (onEdit) onEdit(buildResultText(selectedAdded, next));
+      if (onEdit) onEdit(buildResultText(confirmedRemovals, next));
       return next;
     });
   }
 
   const hasInteractive = segs.some(s => s.t === "r" || s.t === "a");
   const pendingTotal =
-    segs.filter((s, idx) => s.t === "r" && !confirmedRemoved.has(idx)).length +
-    segs.filter((s, idx) => s.t === "a" && !selectedAdded.has(idx)).length;
+    segs.filter((s, idx) => s.t === "r" && !confirmedRemovals.has(idx)).length +
+    segs.filter((s, idx) => s.t === "a" && !acceptedAdditions.has(idx)).length;
 
   return (
     <div>
@@ -225,25 +223,23 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
         {segs.map((seg, idx) => {
           if (seg.t === "s") return null;
           if (seg.t === "r") {
-            const confirmed = confirmedRemoved.has(idx);
+            if (confirmedRemovals.has(idx)) return null;
             return (
               <span key={idx}
-                onClick={() => handleToggleRemoved(idx)}
-                className={confirmed
-                  ? "bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer"
-                  : "bg-red-50 text-red-400 line-through rounded px-0.5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"}
-              >{confirmed ? "\u2713 " : ""}{seg.s}</span>
+                onClick={() => handleClickRemoved(idx)}
+                className="bg-red-50 text-red-500 line-through rounded px-0.5 cursor-pointer border border-dashed border-red-400 hover:bg-red-100 transition-colors"
+              >{seg.s}</span>
             );
           }
           if (seg.t === "a") {
-            const sel = selectedAdded.has(idx);
+            const accepted = acceptedAdditions.has(idx);
             return (
               <span key={idx}
                 onClick={() => handleToggleAdded(idx)}
-                className={sel
-                  ? "bg-emerald-200 text-emerald-900 rounded px-0.5 cursor-pointer"
+                className={accepted
+                  ? "text-gray-900 bg-emerald-50 rounded px-0.5 cursor-pointer"
                   : "border border-dashed border-emerald-500 text-emerald-700 rounded px-0.5 cursor-pointer hover:bg-emerald-50 transition-colors"}
-              >{sel ? "\u2713 " : ""}{seg.s}</span>
+              >{seg.s}</span>
             );
           }
           return null;
