@@ -71,7 +71,7 @@ function DiffView({ previous, current }) {
   );
 }
 
-function InteractiveDiffTerapia({ previous, current, onEdit }) {
+function InteractiveDiffField({ previous, current, onEdit }) {
   const segs = useMemo(() => buildDiff(previous || "", current || ""), [previous, current]);
   const [tokenStates, setTokenStates] = useState({});
 
@@ -146,7 +146,7 @@ function InteractiveDiffTerapia({ previous, current, onEdit }) {
       {interactiveSegs.length > 0 && (
         <p className={`mt-1 text-[10px] ${allReviewed ? "text-teal-600 font-medium" : "text-amber-600"}`}>
           {allReviewed
-            ? "Terapia revisionata"
+            ? "Revisionato"
             : `${pendingCount} ${pendingCount === 1 ? "modifica" : "modifiche"} da revisionare`}
         </p>
       )}
@@ -157,9 +157,9 @@ function InteractiveDiffTerapia({ previous, current, onEdit }) {
 function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
-  const active       = entry._skip !== true;
-  const isDiagnosi   = entry.key === "diagnosi";
-  const isTerapia    = entry.key === "terapia_domiciliare";
+  const active           = entry._skip !== true;
+  const isDiagnosi       = entry.key === "diagnosi";
+  const isInteractiveField = ["terapia_domiciliare", "comorbidita_apr", "anamnesi_fisiologica"].includes(entry.key);
   return (
     <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
       {editing && isDiagnosi ? (
@@ -174,8 +174,8 @@ function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
             onChange={v => { if (onEdit) onEdit(v); setEditing(false); }}
           />
         </div>
-      ) : isTerapia ? (
-        <InteractiveDiffTerapia
+      ) : isInteractiveField ? (
+        <InteractiveDiffField
           previous={entry.previous}
           current={entry.current}
           onEdit={onEdit}
@@ -1041,7 +1041,8 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
       <SectionBlock title="2) Anamnesi fisiologica" longitEntry={getLongit(longitudinal, "anamnesi_fisiologica")}>
         <TextSection value={pg.anamnesi_fisiologica} onChange={v => updPG({ anamnesi_fisiologica: v })} />
         {getLongit(longitudinal, "anamnesi_fisiologica") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_fisiologica")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_fisiologica")} onToggle={onLongitudinalToggle}
+            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("anamnesi_fisiologica", v) : undefined} />
         )}
       </SectionBlock>
 
@@ -1070,7 +1071,8 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
           <TextSection value={pg.comorbidita_apr} onChange={v => updPG({ comorbidita_apr: v })} />
         )}
         {getLongit(longitudinal, "comorbidita_apr") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "comorbidita_apr")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "comorbidita_apr")} onToggle={onLongitudinalToggle}
+            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("comorbidita_apr", v) : undefined} />
         )}
       </SectionBlock>
 
