@@ -208,16 +208,6 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
     if (onEdit) onEdit(computeText(newStates));
   }
 
-  if (!previous) {
-    return (
-      <div className="text-[11px] leading-relaxed font-sans bg-emerald-50 rounded px-2 py-1 text-emerald-800 flex flex-wrap gap-x-1.5 gap-y-0.5">
-        {(current || "—").split(/[,;]/).map(s => s.trim()).filter(Boolean).map((item, i) => (
-          <span key={i}>{item}</span>
-        ))}
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
