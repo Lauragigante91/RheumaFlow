@@ -62,6 +62,7 @@ class PatientBase(BaseModel):
     comorbidita_apr: Optional[str] = None
     terapia_domiciliare: Optional[str] = None
     allergie_testo: Optional[str] = None
+    diagnosi_confermata: Optional[bool] = None
 
 
 class Patient(PatientBase):
@@ -93,6 +94,7 @@ class PatientUpdate(BaseModel):
     comorbidita_apr: Optional[str] = None
     terapia_domiciliare: Optional[str] = None
     allergie_testo: Optional[str] = None
+    diagnosi_confermata: Optional[bool] = None
 
 
 class AssessmentBase(BaseModel):

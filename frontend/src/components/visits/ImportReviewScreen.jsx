@@ -494,6 +494,7 @@ export default function ImportReviewScreen({
   fieldOverrides,
   onFieldOverride,
   onLongitudinalToggle,
+  onLongitudinalEdit,
 }) {
   const isMulti = visitResults.length > 1;
   const [currentIdx,    setCurrentIdx]    = useState(0);
@@ -705,6 +706,7 @@ export default function ImportReviewScreen({
                 onUpdate={updateCurrentDraft}
                 longitudinal={current.draft?._longitudinal}
                 onLongitudinalToggle={(fieldKey, skip) => onLongitudinalToggle?.(currentIdx, fieldKey, skip)}
+                onLongitudinalEdit={(fieldKey, newValue) => onLongitudinalEdit?.(currentIdx, fieldKey, newValue)}
               />
             </div>
           </div>

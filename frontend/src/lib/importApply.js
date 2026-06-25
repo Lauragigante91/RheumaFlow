@@ -260,12 +260,12 @@ export async function applyOneDraft(extracted, patient, selected, visitType, sou
         if (pp[k] && pp[k] !== patient[k]) patch[k] = pp[k];
       });
       if (pp.diagnosi && !shouldSkipLongitudinalField(extracted, "diagnosi")) {
-        // Preserva label brevi e pulite; mappa solo frammenti narrativi lunghi.
         const toMerge = isCleanDiagnosis(pp.diagnosi) ? pp.diagnosi : mapDiagnosisToControlled(pp.diagnosi);
         if (toMerge) {
           const mergedDx = mergeFreeTextConservative(patient.diagnosi, toMerge);
           if (mergedDx && mergedDx !== (patient.diagnosi || "")) patch.diagnosi = mergedDx;
         }
+        patch.diagnosi_confermata = true;
       }
       if (Object.keys(patch).length > 0) {
         await patientsApi.update(patient.id, patch);

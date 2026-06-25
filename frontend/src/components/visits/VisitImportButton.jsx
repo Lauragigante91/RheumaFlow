@@ -469,6 +469,23 @@ export default function VisitImportButton({ patient, onImported, open: externalO
                   return { ...v, draft: { ...v.draft, _longitudinal: longitudinal } };
                 }));
               }}
+              onLongitudinalEdit={(visitIdx, fieldKey, newValue) => {
+                setMultiExtracted(prev => prev.map((v, i) => {
+                  if (i !== visitIdx) return v;
+                  const longitudinal = (v.draft?._longitudinal || []).map(f =>
+                    f.key === fieldKey ? { ...f, current: newValue } : f
+                  );
+                  let newDraft = { ...v.draft, _longitudinal: longitudinal };
+                  if (fieldKey === "diagnosi") {
+                    newDraft = {
+                      ...newDraft,
+                      profilo_generale: { ...(v.draft?.profilo_generale || {}), diagnosi: newValue },
+                      patient: { ...(v.draft?.patient || {}), diagnosi: newValue },
+                    };
+                  }
+                  return { ...v, draft: newDraft };
+                }));
+              }}
             />
           ) : (
             <>

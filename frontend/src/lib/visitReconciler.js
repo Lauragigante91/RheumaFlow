@@ -254,6 +254,10 @@ export function diffLongitudinalFields(draft, existingPatient, primaVisita = nul
     if (process.env.NODE_ENV !== "production") {
       console.log("[Reconciler][longitudinal]", key, "previous:", previous, "| patient root:", existingPatient[key] ?? null, "| prima_visita.data." + pvKey + ":", pvData[pvKey] ?? null);
     }
+    if (key === "diagnosi" && existingPatient.diagnosi_confermata === true && current) {
+      result.push({ key, label, mode, previous, current, status: LONGIT_STATUS.INVARIATO, _skip: true });
+      continue;
+    }
     const status   = longitudinalFieldStatus(key, mode, previous, current);
     if (!status) continue;
     const _skip = status === LONGIT_STATUS.INVARIATO ? true : null;

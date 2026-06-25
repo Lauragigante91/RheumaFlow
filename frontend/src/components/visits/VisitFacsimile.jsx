@@ -71,12 +71,39 @@ function DiffView({ previous, current }) {
   );
 }
 
-function LongitudinalInlineBlock({ entry, onToggle }) {
+function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
+  const [editing, setEditing] = useState(false);
   if (!entry) return null;
-  const active = entry._skip !== true;
+  const active     = entry._skip !== true;
+  const isDiagnosi = entry.key === "diagnosi";
   return (
     <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
-      <DiffView previous={entry.previous} current={entry.current} />
+      {editing && isDiagnosi ? (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] text-gray-500 font-medium">Seleziona diagnosi corretta:</span>
+            <button type="button" onClick={() => setEditing(false)}
+              className="text-[10px] text-gray-400 hover:text-gray-600">Annulla</button>
+          </div>
+          <DiagnosiSelect
+            value={entry.current || ""}
+            onChange={v => { if (onEdit) onEdit(v); setEditing(false); }}
+          />
+        </div>
+      ) : (
+        <div className="flex items-start gap-1.5">
+          <div className="flex-1 min-w-0">
+            <DiffView previous={entry.previous} current={entry.current} />
+          </div>
+          {isDiagnosi && onEdit && (
+            <button type="button" onClick={() => setEditing(true)}
+              className="flex-shrink-0 p-0.5 text-gray-400 hover:text-teal-600 transition-colors"
+              title="Modifica diagnosi">
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
       <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
         <input
           type="checkbox"
@@ -830,7 +857,7 @@ function SectionBlock({ title, badge, longitEntry, children, defaultOpen = true 
   );
 }
 
-export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongitudinalToggle }) {
+export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongitudinalToggle, onLongitudinalEdit }) {
   if (!draft) return null;
 
   const today       = new Date().toISOString().slice(0, 10);
@@ -916,7 +943,8 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
       <SectionBlock title="1) Diagnosi" longitEntry={getLongit(longitudinal, "diagnosi")}>
         <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
         {getLongit(longitudinal, "diagnosi") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")} onToggle={onLongitudinalToggle}
+            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("diagnosi", v) : undefined} />
         )}
       </SectionBlock>
 
