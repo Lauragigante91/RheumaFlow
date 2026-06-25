@@ -78,32 +78,59 @@ function DiffView({ previous, current, splitFn }) {
 
 function InteractiveDiffField({ previous, current, onEdit, splitFn, joinSep = " " }) {
   const segs = useMemo(() => buildDiff(previous || "", current || "", splitFn), [previous, current, splitFn]);
-  const [selectedAdded, setSelectedAdded] = useState(new Set());
+  const [selectedAdded,    setSelectedAdded]    = useState(new Set());
+  const [confirmedRemoved, setConfirmedRemoved] = useState(new Set());
+
+  function buildResultText(added, removed) {
+    return segs
+      .filter((seg, i) =>
+        seg.t === "s" ||
+        (seg.t === "r" && !removed.has(i)) ||
+        (seg.t === "a" && added.has(i))
+      )
+      .map(seg => seg.s)
+      .join(joinSep);
+  }
 
   function handleToggleAdded(idx) {
     setSelectedAdded(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx); else next.add(idx);
-      const text = segs
-        .filter((seg, i) => seg.t === "s" || (seg.t === "a" && next.has(i)))
-        .map(seg => seg.s)
-        .join(joinSep);
-      if (onEdit) onEdit(text);
+      if (onEdit) onEdit(buildResultText(next, confirmedRemoved));
       return next;
     });
   }
 
-  const addedSegs = segs.filter(s => s.t === "a");
-  const selectedCount = segs.filter((s, idx) => s.t === "a" && selectedAdded.has(idx)).length;
+  function handleToggleRemoved(idx) {
+    setConfirmedRemoved(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      if (onEdit) onEdit(buildResultText(selectedAdded, next));
+      return next;
+    });
+  }
+
+  const hasInteractive = segs.some(s => s.t === "r" || s.t === "a");
+  const pendingTotal =
+    segs.filter((s, idx) => s.t === "r" && !confirmedRemoved.has(idx)).length +
+    segs.filter((s, idx) => s.t === "a" && !selectedAdded.has(idx)).length;
 
   return (
     <div>
       <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
         {segs.map((seg, idx) => {
           if (seg.t === "s") return <span key={idx} className="pointer-events-none">{seg.s}{" "}</span>;
-          if (seg.t === "r") return (
-            <span key={idx} className="pointer-events-none bg-red-100 text-red-400 line-through rounded px-0.5 opacity-60">{seg.s}{" "}</span>
-          );
+          if (seg.t === "r") {
+            const confirmed = confirmedRemoved.has(idx);
+            return (
+              <span key={idx}
+                onClick={() => handleToggleRemoved(idx)}
+                className={confirmed
+                  ? "bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer"
+                  : "bg-red-50 text-red-400 line-through rounded px-0.5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"}
+              >{confirmed ? "\u2713 " : ""}{seg.s}{" "}</span>
+            );
+          }
           if (seg.t === "a") {
             const sel = selectedAdded.has(idx);
             return (
@@ -118,11 +145,11 @@ function InteractiveDiffField({ previous, current, onEdit, splitFn, joinSep = " 
           return null;
         })}
       </p>
-      {addedSegs.length > 0 && (
-        <p className="mt-1 text-[10px] text-amber-600">
-          {selectedCount === addedSegs.length
-            ? <span className="text-teal-600 font-medium">Tutte le aggiunte accettate</span>
-            : `${addedSegs.length - selectedCount} ${addedSegs.length - selectedCount === 1 ? "voce nuova" : "voci nuove"} da valutare`}
+      {hasInteractive && (
+        <p className={`mt-1 text-[10px] ${pendingTotal === 0 ? "text-teal-600 font-medium" : "text-amber-600"}`}>
+          {pendingTotal === 0
+            ? "Revisionato"
+            : `${pendingTotal} ${pendingTotal === 1 ? "azione" : "azioni"} da revisionare`}
         </p>
       )}
     </div>
@@ -155,32 +182,59 @@ function buildItemDiff(prev, curr) {
 
 function InteractiveItemDiffField({ previous, current, onEdit }) {
   const segs = useMemo(() => buildItemDiff(previous || "", current || ""), [previous, current]);
-  const [selectedAdded, setSelectedAdded] = useState(new Set());
+  const [selectedAdded,    setSelectedAdded]    = useState(new Set());
+  const [confirmedRemoved, setConfirmedRemoved] = useState(new Set());
+
+  function buildResultText(added, removed) {
+    return segs
+      .filter((seg, i) =>
+        seg.t === "s" ||
+        (seg.t === "r" && !removed.has(i)) ||
+        (seg.t === "a" && added.has(i))
+      )
+      .map(seg => seg.s)
+      .join(", ");
+  }
 
   function handleToggleAdded(idx) {
     setSelectedAdded(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx); else next.add(idx);
-      const text = segs
-        .filter((seg, i) => seg.t === "s" || (seg.t === "a" && next.has(i)))
-        .map(seg => seg.s)
-        .join(", ");
-      if (onEdit) onEdit(text);
+      if (onEdit) onEdit(buildResultText(next, confirmedRemoved));
       return next;
     });
   }
 
-  const addedSegs = segs.filter(s => s.t === "a");
-  const selectedCount = segs.filter((s, idx) => s.t === "a" && selectedAdded.has(idx)).length;
+  function handleToggleRemoved(idx) {
+    setConfirmedRemoved(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      if (onEdit) onEdit(buildResultText(selectedAdded, next));
+      return next;
+    });
+  }
+
+  const hasInteractive = segs.some(s => s.t === "r" || s.t === "a");
+  const pendingTotal =
+    segs.filter((s, idx) => s.t === "r" && !confirmedRemoved.has(idx)).length +
+    segs.filter((s, idx) => s.t === "a" && !selectedAdded.has(idx)).length;
 
   return (
     <div>
       <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
         {segs.map((seg, idx) => {
           if (seg.t === "s") return null;
-          if (seg.t === "r") return (
-            <span key={idx} className="pointer-events-none bg-red-100 text-red-400 line-through rounded px-0.5 opacity-60">{seg.s}</span>
-          );
+          if (seg.t === "r") {
+            const confirmed = confirmedRemoved.has(idx);
+            return (
+              <span key={idx}
+                onClick={() => handleToggleRemoved(idx)}
+                className={confirmed
+                  ? "bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer"
+                  : "bg-red-50 text-red-400 line-through rounded px-0.5 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"}
+              >{confirmed ? "\u2713 " : ""}{seg.s}</span>
+            );
+          }
           if (seg.t === "a") {
             const sel = selectedAdded.has(idx);
             return (
@@ -195,11 +249,11 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
           return null;
         })}
       </div>
-      {addedSegs.length > 0 && (
-        <p className="mt-1 text-[10px] text-amber-600">
-          {selectedCount === addedSegs.length
-            ? <span className="text-teal-600 font-medium">Tutte le aggiunte accettate</span>
-            : `${addedSegs.length - selectedCount} ${addedSegs.length - selectedCount === 1 ? "voce nuova" : "voci nuove"} da valutare`}
+      {hasInteractive && (
+        <p className={`mt-1 text-[10px] ${pendingTotal === 0 ? "text-teal-600 font-medium" : "text-amber-600"}`}>
+          {pendingTotal === 0
+            ? "Revisionato"
+            : `${pendingTotal} ${pendingTotal === 1 ? "azione" : "azioni"} da revisionare`}
         </p>
       )}
     </div>

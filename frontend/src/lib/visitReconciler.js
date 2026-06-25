@@ -341,6 +341,28 @@ export function reconcileDrafts(drafts, existingData, primaVisita = null) {
     return (seenDisc.get(id.key) || []).some(p => discMatch(p, id));
   };
 
+  const chainedLongitudinal = (() => {
+    if (!existingData.patient) return drafts.map(() => []);
+    const pvData = primaVisita?.data || {};
+    const previousState = { diagnosi_confermata: existingData.patient.diagnosi_confermata };
+    for (const { key } of LONGITUDINAL_FIELDS) {
+      const pvKey = PV_KEY_MAP[key] || key;
+      previousState[key] = existingData.patient[key] || pvData[pvKey] || null;
+    }
+    const sorted = drafts
+      .map((d, i) => ({ i, date: d.visit_date || "" }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const result = new Array(drafts.length);
+    for (const { i } of sorted) {
+      const longit = diffLongitudinalFields(drafts[i], previousState, null);
+      result[i] = longit;
+      for (const f of longit) {
+        if (f.current) previousState[f.key] = f.current;
+      }
+    }
+    return result;
+  })();
+
   return drafts.map((draft, draftIdx) => {
     const out = { ...draft };
 
@@ -708,8 +730,7 @@ export function reconcileDrafts(drafts, existingData, primaVisita = null) {
     }
 
     if (existingData.patient) {
-      const isFirstVisit = draftIdx === 0 && existingTherapies.length === 0;
-      out._longitudinal = diffLongitudinalFields(draft, existingData.patient, isFirstVisit ? null : primaVisita);
+      out._longitudinal = chainedLongitudinal[draftIdx] || [];
     }
 
     return out;
