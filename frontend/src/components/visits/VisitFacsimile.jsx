@@ -154,11 +154,114 @@ function InteractiveDiffField({ previous, current, onEdit }) {
   );
 }
 
+function buildItemDiff(prev, curr) {
+  const split = (text) => (text || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  const a = split(prev);
+  const b = split(curr);
+  if (!a.length && !b.length) return [];
+  if (!a.length) return b.map(s => ({ t: "a", s }));
+  if (!b.length) return a.map(s => ({ t: "r", s }));
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1].toLowerCase() === b[j-1].toLowerCase()
+        ? dp[i-1][j-1] + 1
+        : Math.max(dp[i-1][j], dp[i][j-1]);
+  const segs = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1].toLowerCase() === b[j-1].toLowerCase()) { segs.unshift({ t: "s", s: b[j-1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { segs.unshift({ t: "a", s: b[j-1] }); j--; }
+    else { segs.unshift({ t: "r", s: a[i-1] }); i--; }
+  }
+  return segs;
+}
+
+function InteractiveItemDiffField({ previous, current, onEdit }) {
+  const segs = useMemo(() => buildItemDiff(previous || "", current || ""), [previous, current]);
+  const [tokenStates, setTokenStates] = useState({});
+
+  function computeText(states) {
+    return segs
+      .filter((seg, idx) => {
+        if (seg.t === "s") return true;
+        if (seg.t === "r") return states[idx] !== "dismissed";
+        if (seg.t === "a") return states[idx] === "confirmed";
+        return false;
+      })
+      .map(seg => seg.s)
+      .join(", ");
+  }
+
+  const pendingCount = segs.filter((seg, idx) =>
+    (seg.t === "r" || seg.t === "a") && !tokenStates[idx]
+  ).length;
+  const allReviewed = segs.some(s => s.t === "r" || s.t === "a") &&
+    !segs.some((seg, idx) => (seg.t === "r" || seg.t === "a") && !tokenStates[idx]);
+
+  function handleClick(idx, seg) {
+    const newStates = { ...tokenStates };
+    if (seg.t === "r") newStates[idx] = "dismissed";
+    if (seg.t === "a") newStates[idx] = "confirmed";
+    setTokenStates(newStates);
+    if (onEdit) onEdit(computeText(newStates));
+  }
+
+  if (!previous) {
+    return (
+      <div className="text-[11px] leading-relaxed font-sans bg-emerald-50 rounded px-2 py-1 text-emerald-800 flex flex-wrap gap-x-1.5 gap-y-0.5">
+        {(current || "—").split(/[,;]/).map(s => s.trim()).filter(Boolean).map((item, i) => (
+          <span key={i}>{item}</span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
+        {segs.map((seg, idx) => {
+          const state = tokenStates[idx];
+          if (seg.t === "s") return <span key={idx}>{seg.s}</span>;
+          if (seg.t === "r") {
+            if (state === "dismissed") return null;
+            return (
+              <span key={idx}
+                onClick={() => handleClick(idx, seg)}
+                className="bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
+              >{seg.s}</span>
+            );
+          }
+          if (seg.t === "a") {
+            if (state === "confirmed") return <span key={idx}>{seg.s}</span>;
+            return (
+              <span key={idx}
+                onClick={() => handleClick(idx, seg)}
+                className="bg-emerald-100 text-emerald-800 rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
+              >{seg.s}</span>
+            );
+          }
+          return null;
+        })}
+      </div>
+      {segs.some(s => s.t === "r" || s.t === "a") && (
+        <p className={`mt-1 text-[10px] ${allReviewed ? "text-teal-600 font-medium" : "text-amber-600"}`}>
+          {allReviewed
+            ? "Revisionato"
+            : `${pendingCount} ${pendingCount === 1 ? "modifica" : "modifiche"} da revisionare`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LongitudinalInlineBlock({ entry, onEdit }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
   const isDiagnosi         = entry.key === "diagnosi";
-  const isInteractiveField = ["terapia_domiciliare", "comorbidita_apr", "anamnesi_fisiologica"].includes(entry.key);
+  const isWordDiffField    = entry.key === "terapia_domiciliare";
+  const isItemDiffField    = ["comorbidita_apr", "anamnesi_fisiologica"].includes(entry.key);
   return (
     <div className="mt-2.5 pt-2.5 border-t border-gray-100">
       {editing && isDiagnosi ? (
@@ -173,8 +276,14 @@ function LongitudinalInlineBlock({ entry, onEdit }) {
             onChange={v => { if (onEdit) onEdit(v); setEditing(false); }}
           />
         </div>
-      ) : isInteractiveField ? (
+      ) : isWordDiffField ? (
         <InteractiveDiffField
+          previous={entry.previous}
+          current={entry.current}
+          onEdit={onEdit}
+        />
+      ) : isItemDiffField ? (
+        <InteractiveItemDiffField
           previous={entry.previous}
           current={entry.current}
           onEdit={onEdit}
