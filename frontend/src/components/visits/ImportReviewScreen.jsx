@@ -125,9 +125,14 @@ function sentenceSplit(text) {
   return text.replace(/([.;])\s+/g, "$1\n").split(/\n+/).map(s => s.trim()).filter(Boolean);
 }
 
-function buildDiff(prev, curr) {
-  const a = sentenceSplit(prev || "");
-  const b = sentenceSplit(curr || "");
+function itemSplit(text) {
+  if (!text) return [];
+  return text.split(/,\s*/).map(s => s.trim()).filter(Boolean);
+}
+
+function buildDiff(prev, curr, splitFn = sentenceSplit) {
+  const a = splitFn(prev || "");
+  const b = splitFn(curr || "");
   if (!a.length && !b.length) return [];
   if (!a.length) return b.map(s => ({ t: "a", s }));
   if (!b.length) return a.map(s => ({ t: "r", s }));
@@ -146,7 +151,7 @@ function buildDiff(prev, curr) {
   return segs;
 }
 
-function DiffView({ previous, current, status }) {
+function DiffView({ previous, current, status, splitFn }) {
   if (status === LONGIT_STATUS.NUOVO_DATO || !previous) {
     return (
       <p className="text-[11px] leading-relaxed font-sans whitespace-pre-wrap break-words bg-emerald-50 rounded px-2 py-1 text-emerald-800">
@@ -161,7 +166,7 @@ function DiffView({ previous, current, status }) {
       </p>
     );
   }
-  const segs = buildDiff(previous, current);
+  const segs = buildDiff(previous, current, splitFn);
   return (
     <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
       {segs.map((seg, idx) => {
