@@ -154,14 +154,13 @@ function InteractiveDiffField({ previous, current, onEdit }) {
   );
 }
 
-function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
+function LongitudinalInlineBlock({ entry, onEdit }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
-  const active           = entry._skip !== true;
-  const isDiagnosi       = entry.key === "diagnosi";
+  const isDiagnosi         = entry.key === "diagnosi";
   const isInteractiveField = ["terapia_domiciliare", "comorbidita_apr", "anamnesi_fisiologica"].includes(entry.key);
   return (
-    <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1.5">
+    <div className="mt-2.5 pt-2.5 border-t border-gray-100">
       {editing && isDiagnosi ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-1">
@@ -194,15 +193,6 @@ function LongitudinalInlineBlock({ entry, onToggle, onEdit }) {
           )}
         </div>
       )}
-      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={e => onToggle(entry.key, !e.target.checked)}
-          className="accent-teal-600 w-3.5 h-3.5 flex-shrink-0"
-        />
-        <span className="text-[10px] text-gray-500">Importa nel profilo paziente</span>
-      </label>
     </div>
   );
 }
@@ -904,42 +894,22 @@ function EsameObiettivoEditor({ text, jointMap, onTextChange, onJointChange }) {
   );
 }
 
-function SectionBlock({ title, badge, longitEntry, children, defaultOpen = true }) {
+function SectionBlock({ title, badge, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
-  const isAccepted = longitEntry != null && !longitEntry._skip;
-  const isIgnored  = longitEntry != null &&  longitEntry._skip;
   return (
-    <div className={`rounded-lg overflow-hidden border transition-all ${
-      isAccepted ? "border-emerald-300 ring-1 ring-emerald-100" :
-      isIgnored  ? "border-gray-200"                            :
-      "border-gray-200"
-    }`}>
+    <div className="rounded-lg overflow-hidden border border-gray-200 transition-all">
       <button type="button" onClick={() => setOpen(v => !v)}
-        className={`w-full flex items-center justify-between px-3 py-2 transition-colors text-left ${
-          isAccepted ? "bg-emerald-50 hover:bg-emerald-100" :
-          isIgnored  ? "bg-gray-50 hover:bg-gray-100"       :
-          "bg-gray-50 hover:bg-gray-100"
-        }`}>
+        className="w-full flex items-center justify-between px-3 py-2 transition-colors text-left bg-gray-50 hover:bg-gray-100">
         <span className="flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-bold uppercase tracking-wider ${isIgnored ? "text-gray-400" : "text-[#0A2540]"}`}>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#0A2540]">
             {title}
           </span>
           {badge}
-          {isAccepted && (
-            <span className="text-[9px] bg-emerald-100 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5 font-medium">
-              da aggiungere
-            </span>
-          )}
-          {isIgnored && (
-            <span className="text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 font-medium">
-              ignorato
-            </span>
-          )}
         </span>
         {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
       </button>
       {open && (
-        <div className={`px-3 py-3 ${isIgnored ? "opacity-50 pointer-events-none select-none" : ""}`}>
+        <div className="px-3 py-3">
           {children}
         </div>
       )}
@@ -1030,30 +1000,30 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
         </div>
       </div>
 
-      <SectionBlock title="1) Diagnosi" longitEntry={getLongit(longitudinal, "diagnosi")}>
+      <SectionBlock title="1) Diagnosi">
         <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
         {getLongit(longitudinal, "diagnosi") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")} onToggle={onLongitudinalToggle}
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")}
             onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("diagnosi", v) : undefined} />
         )}
       </SectionBlock>
 
-      <SectionBlock title="2) Anamnesi fisiologica" longitEntry={getLongit(longitudinal, "anamnesi_fisiologica")}>
+      <SectionBlock title="2) Anamnesi fisiologica">
         <TextSection value={pg.anamnesi_fisiologica} onChange={v => updPG({ anamnesi_fisiologica: v })} />
         {getLongit(longitudinal, "anamnesi_fisiologica") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_fisiologica")} onToggle={onLongitudinalToggle}
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_fisiologica")}
             onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("anamnesi_fisiologica", v) : undefined} />
         )}
       </SectionBlock>
 
-      <SectionBlock title="3) Anamnesi familiare" longitEntry={getLongit(longitudinal, "anamnesi_familiare")}>
+      <SectionBlock title="3) Anamnesi familiare">
         <TextSection value={pg.anamnesi_familiare} onChange={v => updPG({ anamnesi_familiare: v })} />
         {getLongit(longitudinal, "anamnesi_familiare") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_familiare")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "anamnesi_familiare")} />
         )}
       </SectionBlock>
 
-      <SectionBlock title="4) Comorbilità / APR" longitEntry={getLongit(longitudinal, "comorbidita_apr")}>
+      <SectionBlock title="4) Comorbilità / APR">
         {(draft.comorbidita || []).length > 0 ? (
           <div className="space-y-2">
             <ComorbidityEditor
@@ -1071,15 +1041,15 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
           <TextSection value={pg.comorbidita_apr} onChange={v => updPG({ comorbidita_apr: v })} />
         )}
         {getLongit(longitudinal, "comorbidita_apr") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "comorbidita_apr")} onToggle={onLongitudinalToggle}
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "comorbidita_apr")}
             onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("comorbidita_apr", v) : undefined} />
         )}
       </SectionBlock>
 
-      <SectionBlock title="5) Terapia domiciliare (ingresso visita)" longitEntry={getLongit(longitudinal, "terapia_domiciliare")}>
+      <SectionBlock title="5) Terapia domiciliare (ingresso visita)">
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
         {getLongit(longitudinal, "terapia_domiciliare") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")} onToggle={onLongitudinalToggle}
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")}
             onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("terapia_domiciliare", v) : undefined} />
         )}
       </SectionBlock>
@@ -1130,7 +1100,7 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
         </SectionBlock>
       )}
 
-      <SectionBlock title="8) Allergie" longitEntry={getLongit(longitudinal, "allergie_testo")}>
+      <SectionBlock title="8) Allergie">
         {(draft.intolleranze || []).length > 0 ? (
           <div className="space-y-2">
             <IntolleranzeEditor
@@ -1148,7 +1118,7 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
           <TextSection value={pg.allergie} onChange={v => updPG({ allergie: v })} />
         )}
         {getLongit(longitudinal, "allergie_testo") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "allergie_testo")} onToggle={onLongitudinalToggle} />
+          <LongitudinalInlineBlock entry={getLongit(longitudinal, "allergie_testo")} />
         )}
       </SectionBlock>
 
