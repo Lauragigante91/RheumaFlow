@@ -213,7 +213,7 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
       <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
         {segs.map((seg, idx) => {
           const state = tokenStates[idx];
-          if (seg.t === "s") return <span key={idx}>{seg.s}</span>;
+          if (seg.t === "s") return null;
           if (seg.t === "r") {
             if (state === "dismissed") return null;
             return (
@@ -224,7 +224,7 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
             );
           }
           if (seg.t === "a") {
-            if (state === "confirmed") return <span key={idx}>{seg.s}</span>;
+            if (state === "confirmed") return <span key={idx} className="bg-emerald-50 text-emerald-800 rounded px-0.5">{seg.s}</span>;
             return (
               <span key={idx}
                 onClick={() => handleClick(idx, seg)}
