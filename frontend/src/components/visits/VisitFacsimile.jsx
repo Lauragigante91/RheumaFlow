@@ -76,83 +76,53 @@ function DiffView({ previous, current, splitFn }) {
   );
 }
 
-function InteractiveDiffField({ previous, current, onEdit, splitFn }) {
+function InteractiveDiffField({ previous, current, onEdit, splitFn, joinSep = " " }) {
   const segs = useMemo(() => buildDiff(previous || "", current || "", splitFn), [previous, current, splitFn]);
-  const [tokenStates, setTokenStates] = useState({});
+  const [selectedAdded, setSelectedAdded] = useState(new Set());
 
-  function computeText(states) {
-    return segs
-      .filter((seg, idx) => {
-        if (seg.t === "s") return true;
-        if (seg.t === "r") return states[idx] !== "dismissed";
-        if (seg.t === "a") return states[idx] === "confirmed";
-        return false;
-      })
-      .map(seg => seg.s)
-      .join(" ");
-  }
-
-  const interactiveSegs = segs.filter(s => s.t === "r" || s.t === "a");
-  const pendingCount = interactiveSegs.filter((_, i) => {
-    const idx = segs.indexOf(interactiveSegs[i]);
-    return !tokenStates[idx];
-  }).length;
-  const allReviewed = interactiveSegs.length > 0 &&
-    interactiveSegs.every((seg, i) => {
-      const idx = segs.indexOf(interactiveSegs[i]);
-      return !!tokenStates[idx];
+  function handleToggleAdded(idx) {
+    setSelectedAdded(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      const text = segs
+        .filter((seg, i) => seg.t === "s" || (seg.t === "a" && next.has(i)))
+        .map(seg => seg.s)
+        .join(joinSep);
+      if (onEdit) onEdit(text);
+      return next;
     });
-
-  function handleClick(idx, seg) {
-    const newStates = { ...tokenStates };
-    if (seg.t === "r") newStates[idx] = "dismissed";
-    if (seg.t === "a") newStates[idx] = "confirmed";
-    setTokenStates(newStates);
-    if (onEdit) onEdit(computeText(newStates));
   }
 
-  if (!previous) {
-    return (
-      <p className="text-[11px] leading-relaxed font-sans whitespace-pre-wrap break-words bg-emerald-50 rounded px-2 py-1 text-emerald-800">
-        {current || "—"}
-      </p>
-    );
-  }
+  const addedSegs = segs.filter(s => s.t === "a");
+  const selectedCount = segs.filter((s, idx) => s.t === "a" && selectedAdded.has(idx)).length;
 
   return (
     <div>
       <p className="text-[11px] leading-relaxed font-sans break-words whitespace-pre-wrap">
         {segs.map((seg, idx) => {
-          const state = tokenStates[idx];
-          if (seg.t === "s") return <span key={idx}>{seg.s}{" "}</span>;
-          if (seg.t === "r") {
-            if (state === "dismissed") return null;
-            return (
-              <span key={idx}
-                onClick={() => handleClick(idx, seg)}
-                className="bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
-              >{seg.s}{" "}</span>
-            );
-          }
+          if (seg.t === "s") return <span key={idx} className="pointer-events-none">{seg.s}{" "}</span>;
+          if (seg.t === "r") return (
+            <span key={idx} className="pointer-events-none bg-red-100 text-red-400 line-through rounded px-0.5 opacity-60">{seg.s}{" "}</span>
+          );
           if (seg.t === "a") {
-            if (state === "confirmed") {
-              return <span key={idx}>{seg.s}{" "}</span>;
-            }
+            const sel = selectedAdded.has(idx);
             return (
               <span key={idx}
-                onClick={() => handleClick(idx, seg)}
-                className="bg-emerald-100 text-emerald-800 rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
-              >{seg.s}{" "}</span>
+                onClick={() => handleToggleAdded(idx)}
+                className={sel
+                  ? "bg-emerald-200 text-emerald-900 rounded px-0.5 cursor-pointer"
+                  : "border border-dashed border-emerald-500 text-emerald-700 rounded px-0.5 cursor-pointer hover:bg-emerald-50 transition-colors"}
+              >{sel ? "\u2713 " : ""}{seg.s}{" "}</span>
             );
           }
           return null;
         })}
       </p>
-      {interactiveSegs.length > 0 && (
-        <p className={`mt-1 text-[10px] ${allReviewed ? "text-teal-600 font-medium" : "text-amber-600"}`}>
-          {allReviewed
-            ? "Revisionato"
-            : `${pendingCount} ${pendingCount === 1 ? "modifica" : "modifiche"} da revisionare`}
+      {addedSegs.length > 0 && (
+        <p className="mt-1 text-[10px] text-amber-600">
+          {selectedCount === addedSegs.length
+            ? <span className="text-teal-600 font-medium">Tutte le aggiunte accettate</span>
+            : `${addedSegs.length - selectedCount} ${addedSegs.length - selectedCount === 1 ? "voce nuova" : "voci nuove"} da valutare`}
         </p>
       )}
     </div>
@@ -185,66 +155,51 @@ function buildItemDiff(prev, curr) {
 
 function InteractiveItemDiffField({ previous, current, onEdit }) {
   const segs = useMemo(() => buildItemDiff(previous || "", current || ""), [previous, current]);
-  const [tokenStates, setTokenStates] = useState({});
+  const [selectedAdded, setSelectedAdded] = useState(new Set());
 
-  function computeText(states) {
-    return segs
-      .filter((seg, idx) => {
-        if (seg.t === "s") return true;
-        if (seg.t === "r") return states[idx] !== "dismissed";
-        if (seg.t === "a") return states[idx] === "confirmed";
-        return false;
-      })
-      .map(seg => seg.s)
-      .join(", ");
+  function handleToggleAdded(idx) {
+    setSelectedAdded(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      const text = segs
+        .filter((seg, i) => seg.t === "s" || (seg.t === "a" && next.has(i)))
+        .map(seg => seg.s)
+        .join(", ");
+      if (onEdit) onEdit(text);
+      return next;
+    });
   }
 
-  const pendingCount = segs.filter((seg, idx) =>
-    (seg.t === "r" || seg.t === "a") && !tokenStates[idx]
-  ).length;
-  const allReviewed = segs.some(s => s.t === "r" || s.t === "a") &&
-    !segs.some((seg, idx) => (seg.t === "r" || seg.t === "a") && !tokenStates[idx]);
-
-  function handleClick(idx, seg) {
-    const newStates = { ...tokenStates };
-    if (seg.t === "r") newStates[idx] = "dismissed";
-    if (seg.t === "a") newStates[idx] = "confirmed";
-    setTokenStates(newStates);
-    if (onEdit) onEdit(computeText(newStates));
-  }
+  const addedSegs = segs.filter(s => s.t === "a");
+  const selectedCount = segs.filter((s, idx) => s.t === "a" && selectedAdded.has(idx)).length;
 
   return (
     <div>
       <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
         {segs.map((seg, idx) => {
-          const state = tokenStates[idx];
           if (seg.t === "s") return null;
-          if (seg.t === "r") {
-            if (state === "dismissed") return null;
-            return (
-              <span key={idx}
-                onClick={() => handleClick(idx, seg)}
-                className="bg-red-100 text-red-700 line-through rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
-              >{seg.s}</span>
-            );
-          }
+          if (seg.t === "r") return (
+            <span key={idx} className="pointer-events-none bg-red-100 text-red-400 line-through rounded px-0.5 opacity-60">{seg.s}</span>
+          );
           if (seg.t === "a") {
-            if (state === "confirmed") return <span key={idx} className="bg-emerald-50 text-emerald-800 rounded px-0.5">{seg.s}</span>;
+            const sel = selectedAdded.has(idx);
             return (
               <span key={idx}
-                onClick={() => handleClick(idx, seg)}
-                className="bg-emerald-100 text-emerald-800 rounded px-0.5 cursor-pointer hover:opacity-60 transition-opacity"
-              >{seg.s}</span>
+                onClick={() => handleToggleAdded(idx)}
+                className={sel
+                  ? "bg-emerald-200 text-emerald-900 rounded px-0.5 cursor-pointer"
+                  : "border border-dashed border-emerald-500 text-emerald-700 rounded px-0.5 cursor-pointer hover:bg-emerald-50 transition-colors"}
+              >{sel ? "\u2713 " : ""}{seg.s}</span>
             );
           }
           return null;
         })}
       </div>
-      {segs.some(s => s.t === "r" || s.t === "a") && (
-        <p className={`mt-1 text-[10px] ${allReviewed ? "text-teal-600 font-medium" : "text-amber-600"}`}>
-          {allReviewed
-            ? "Revisionato"
-            : `${pendingCount} ${pendingCount === 1 ? "modifica" : "modifiche"} da revisionare`}
+      {addedSegs.length > 0 && (
+        <p className="mt-1 text-[10px] text-amber-600">
+          {selectedCount === addedSegs.length
+            ? <span className="text-teal-600 font-medium">Tutte le aggiunte accettate</span>
+            : `${addedSegs.length - selectedCount} ${addedSegs.length - selectedCount === 1 ? "voce nuova" : "voci nuove"} da valutare`}
         </p>
       )}
     </div>
@@ -277,6 +232,7 @@ function LongitudinalInlineBlock({ entry, onEdit }) {
           current={entry.current}
           onEdit={onEdit}
           splitFn={itemSplit}
+          joinSep=", "
         />
       ) : isItemDiffField ? (
         <InteractiveItemDiffField
