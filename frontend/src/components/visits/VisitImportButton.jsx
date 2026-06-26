@@ -510,8 +510,8 @@ export default function VisitImportButton({ patient, onImported, open: externalO
                       newLongit = ef
                         ? longit.map(f => f.key === fieldKey ? { ...f, current: value, _skip: false, _persisted: true, _persistent_conflict: false } : f)
                         : [...longit, { key: fieldKey, label: "Diagnosi", mode: "single", previous: null, current: value, status: "persisted", _skip: false, _persisted: true, _persistent_conflict: false }];
-                    } else if (isSame || !ef.current) {
-                      newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: value || f.current, _persisted: true, _persistent_conflict: false } : f);
+                    } else if (isSame || !ef.current || ef._persisted) {
+                      newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: value, _persisted: true, _persistent_conflict: false } : f);
                     } else {
                       newLongit = longit.map(f => f.key === fieldKey ? { ...f, _persisted: true, _persistent_conflict: true, _persistent_value: value } : f);
                     }
@@ -564,8 +564,8 @@ export default function VisitImportButton({ patient, onImported, open: externalO
                         newLongit = ef
                           ? longit.map(f => f.key === fieldKey ? { ...f, current: newValue, _skip: false, _persisted: true, _persistent_conflict: false } : f)
                           : [...longit, { key: fieldKey, label: "Diagnosi", mode: "single", previous: null, current: newValue, status: "persisted", _skip: false, _persisted: true, _persistent_conflict: false }];
-                      } else if (isSame || !ef.current) {
-                        newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: newValue || f.current, _persisted: true, _persistent_conflict: false } : f);
+                      } else if (isSame || !ef.current || ef._persisted) {
+                        newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: newValue, _persisted: true, _persistent_conflict: false } : f);
                       } else {
                         newLongit = longit.map(f => f.key === fieldKey ? { ...f, _persisted: true, _persistent_conflict: true, _persistent_value: newValue } : f);
                       }
