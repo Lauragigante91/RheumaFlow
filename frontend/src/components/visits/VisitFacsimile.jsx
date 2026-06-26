@@ -256,6 +256,170 @@ function InteractiveItemDiffField({ previous, current, onEdit }) {
   );
 }
 
+function buildTherapyDisplay(t) {
+  return [t.drug_name, t.dose, t.frequency].filter(Boolean).join(" ");
+}
+
+function TherapyDiffField({ entry, therapies, onEdit }) {
+  const allTherapies = useMemo(() => therapies || [], [therapies]);
+  const [confirmedRemovals, setConfirmedRemovals] = useState(new Set());
+  const [acceptedChanges,   setAcceptedChanges]   = useState(new Set());
+  const [acceptedAdditions, setAcceptedAdditions] = useState(new Set());
+
+  const prevTokens = useMemo(() =>
+    (entry.previous || "").split(/[,;]/).map(s => s.trim()).filter(Boolean),
+    [entry.previous]
+  );
+
+  const tokens = useMemo(() => {
+    function getKey(t) {
+      return (t.drug_canonical || t.drug_name || "").toLowerCase();
+    }
+    function matchToken(tok) {
+      const norm = tok.toLowerCase().trim();
+      for (const t of allTherapies) {
+        const name = (t.drug_name || "").toLowerCase();
+        const can  = (t.drug_canonical || "").toLowerCase();
+        if (name && norm.includes(name)) return getKey(t);
+        if (can  && norm.includes(can))  return getKey(t);
+        const first = name.split(/\s/)[0];
+        if (first && first.length >= 3 && norm.startsWith(first)) return getKey(t);
+      }
+      return null;
+    }
+
+    const prevMapped = prevTokens.map(tok => ({ tok, can: matchToken(tok) }));
+    const usedCans   = new Set();
+    const result     = [];
+
+    for (const t of allTherapies) {
+      if (t._skip === true || t._status !== "duplicate") continue;
+      const can = getKey(t);
+      result.push({ type: "same", canonical: can, display: buildTherapyDisplay(t) });
+      usedCans.add(can);
+    }
+
+    for (const t of allTherapies) {
+      if (t._skip === true || t._status === "duplicate") continue;
+      const can = getKey(t);
+      const currDisplay = buildTherapyDisplay(t);
+      const prevEntry = prevMapped.find(p => p.can === can);
+      if (prevEntry) {
+        result.push({ type: "changed", canonical: can, prevDisplay: prevEntry.tok, currDisplay });
+        usedCans.add(can);
+      } else {
+        result.push({ type: "added", canonical: can, display: currDisplay });
+      }
+    }
+
+    for (const { tok, can } of prevMapped) {
+      if (!can || !usedCans.has(can)) {
+        result.push({ type: "removed", display: tok, canonical: can || tok });
+      }
+    }
+
+    return result;
+  }, [prevTokens, allTherapies]);
+
+  function buildText(removals, changes, additions) {
+    return tokens.flatMap((tok, i) => {
+      if (tok.type === "same")    return [tok.display];
+      if (tok.type === "removed") return removals.has(i)  ? []            : [tok.display];
+      if (tok.type === "changed") return [changes.has(i)  ? tok.currDisplay : tok.prevDisplay];
+      if (tok.type === "added")   return additions.has(i) ? [tok.display]  : [];
+      return [];
+    }).join(", ");
+  }
+
+  function handleRemoved(idx) {
+    setConfirmedRemovals(prev => {
+      const next = new Set(prev); next.add(idx);
+      if (onEdit) onEdit(buildText(next, acceptedChanges, acceptedAdditions));
+      return next;
+    });
+  }
+
+  function handleChanged(idx) {
+    setAcceptedChanges(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      if (onEdit) onEdit(buildText(confirmedRemovals, next, acceptedAdditions));
+      return next;
+    });
+  }
+
+  function handleAdded(idx) {
+    setAcceptedAdditions(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      if (onEdit) onEdit(buildText(confirmedRemovals, acceptedChanges, next));
+      return next;
+    });
+  }
+
+  const hasInteractive = tokens.some(t => t.type !== "same");
+  const pendingTotal =
+    tokens.filter((t, i) => t.type === "removed" && !confirmedRemovals.has(i)).length +
+    tokens.filter((t, i) => t.type === "changed" && !acceptedChanges.has(i)).length +
+    tokens.filter((t, i) => t.type === "added"   && !acceptedAdditions.has(i)).length;
+
+  return (
+    <div>
+      <div className="text-[11px] leading-relaxed font-sans flex flex-wrap gap-x-1.5 gap-y-0.5">
+        {tokens.map((tok, idx) => {
+          if (tok.type === "same") {
+            return <span key={idx} className="pointer-events-none text-gray-800">{tok.display}</span>;
+          }
+          if (tok.type === "removed") {
+            if (confirmedRemovals.has(idx)) return null;
+            return (
+              <span key={idx}
+                onClick={() => handleRemoved(idx)}
+                className="bg-red-50 text-red-500 line-through rounded px-0.5 cursor-pointer border border-dashed border-red-400 hover:bg-red-100 transition-colors"
+              >{tok.display}</span>
+            );
+          }
+          if (tok.type === "changed") {
+            const accepted = acceptedChanges.has(idx);
+            return (
+              <span key={idx}
+                onClick={() => handleChanged(idx)}
+                className={accepted
+                  ? "text-gray-900 bg-emerald-50 rounded px-0.5 cursor-pointer"
+                  : "bg-amber-50 text-amber-700 rounded px-0.5 cursor-pointer border border-dashed border-amber-400 hover:bg-amber-100 transition-colors"}
+              >
+                {accepted
+                  ? tok.currDisplay
+                  : <><s className="text-red-400 opacity-70">{tok.prevDisplay}</s>{" "}{tok.currDisplay}</>
+                }
+              </span>
+            );
+          }
+          if (tok.type === "added") {
+            const accepted = acceptedAdditions.has(idx);
+            return (
+              <span key={idx}
+                onClick={() => handleAdded(idx)}
+                className={accepted
+                  ? "text-gray-900 bg-emerald-50 rounded px-0.5 cursor-pointer"
+                  : "border border-dashed border-emerald-500 text-emerald-700 rounded px-0.5 cursor-pointer hover:bg-emerald-50 transition-colors"}
+              >{tok.display}</span>
+            );
+          }
+          return null;
+        })}
+      </div>
+      {hasInteractive && (
+        <p className={`mt-1 text-[10px] ${pendingTotal === 0 ? "text-teal-600 font-medium" : "text-amber-600"}`}>
+          {pendingTotal === 0
+            ? "Revisionato"
+            : `${pendingTotal} ${pendingTotal === 1 ? "azione" : "azioni"} da revisionare`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LongitudinalInlineBlock({ entry, onEdit }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
@@ -1160,8 +1324,13 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
       <SectionBlock title="5) Terapia domiciliare (ingresso visita)">
         <TextSection value={pg.terapia_domiciliare} onChange={v => updPG({ terapia_domiciliare: v })} minH="min-h-[64px]" />
         {getLongit(longitudinal, "terapia_domiciliare") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "terapia_domiciliare")}
-            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("terapia_domiciliare", v) : undefined} />
+          <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+            <TherapyDiffField
+              entry={getLongit(longitudinal, "terapia_domiciliare")}
+              therapies={draft.therapies || []}
+              onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("terapia_domiciliare", v) : undefined}
+            />
+          </div>
         )}
       </SectionBlock>
 
