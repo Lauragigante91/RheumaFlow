@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Card } from "../components/ui/card";
-import { Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Info, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 
 const STEROIDS = [
   {
@@ -382,12 +382,287 @@ function Calcolatore() {
   );
 }
 
+const TOPICI_CLASSI = [
+  { id: "I",   label: "Classe I",   sublabel: "Debolissimi",  activeCls: "border-teal-500 text-teal-700 bg-teal-50",   dotCls: "bg-teal-500"   },
+  { id: "II",  label: "Classe II",  sublabel: "Deboli",       activeCls: "border-blue-500 text-blue-700 bg-blue-50",   dotCls: "bg-blue-500"   },
+  { id: "III", label: "Classe III", sublabel: "Moderati",     activeCls: "border-violet-500 text-violet-700 bg-violet-50", dotCls: "bg-violet-500" },
+  { id: "IV",  label: "Classe IV",  sublabel: "Potenti",      activeCls: "border-amber-500 text-amber-700 bg-amber-50",  dotCls: "bg-amber-500"  },
+  { id: "V",   label: "Classe V",   sublabel: "Molto potenti",activeCls: "border-red-500 text-red-700 bg-red-50",      dotCls: "bg-red-500"    },
+];
+
+const TOPICI_RISCHIO_CFG = {
+  basso:       { label: "Rischio basso",      cls: "bg-teal-50 text-teal-700 border-teal-200"     },
+  medio:       { label: "Rischio medio",      cls: "bg-violet-50 text-violet-700 border-violet-200" },
+  alto:        { label: "Rischio alto",       cls: "bg-amber-50 text-amber-700 border-amber-200"   },
+  "molto alto":{ label: "Rischio molto alto", cls: "bg-red-50 text-red-700 border-red-200"         },
+};
+
+const TOPICI_FARMACI = [
+  {
+    classe: "I", nome: "Idrocortisone", brand: "Locoidon 1%, Farmicort 1%",
+    concentrazione: "0.5–2.5%", formulazioni: ["crema", "unguento", "lozione"],
+    indicazioni: ["Dermatite seborroica", "Prurito lieve", "Zona perioculare", "Genitali", "Bambini"],
+    controindicazioni: ["Rosacea", "Acne", "Infezioni cutanee attive"],
+    note: "Unico sicuro per zona perioculare, genitali e bambini < 2 anni. Emivita breve, effetti sistemici minimi.",
+    rischio: "basso",
+  },
+  {
+    classe: "I", nome: "Desametasone", brand: "Auxiloson 0.1%",
+    concentrazione: "0.1%", formulazioni: ["crema", "gocce auricolari"],
+    indicazioni: ["Dermatite lieve", "Eczema auricolare"],
+    controindicazioni: ["Uso prolungato su ampie superfici"],
+    note: "Uso topico limitato. Formulazione auricolare utile in otite esterna.",
+    rischio: "basso",
+  },
+  {
+    classe: "II", nome: "Triamcinolone acetonide 0.025%", brand: "Triamvirtu 0.025%",
+    concentrazione: "0.025%", formulazioni: ["crema", "unguento"],
+    indicazioni: ["Eczema lieve-moderato", "Dermatite da contatto"],
+    controindicazioni: ["Viso", "Pieghe cutanee"],
+    note: "A bassa concentrazione ben tollerato. Evitare uso prolungato sul viso.",
+    rischio: "basso",
+  },
+  {
+    classe: "II", nome: "Fluocinolone acetonide 0.01%", brand: "Synalar 0.01%",
+    concentrazione: "0.01%", formulazioni: ["crema", "soluzione"],
+    indicazioni: ["Dermatite atopica lieve", "Psoriasi cuoio capelluto (soluzione)"],
+    controindicazioni: ["Bambini piccoli", "Viso prolungato"],
+    note: "Soluzione utile per cuoio capelluto. Non aumentare la concentrazione senza rivalutazione.",
+    rischio: "basso",
+  },
+  {
+    classe: "III", nome: "Betametasone valerato 0.1%", brand: "Beben, Betnovate",
+    concentrazione: "0.1%", formulazioni: ["crema", "unguento", "lozione", "schiuma"],
+    indicazioni: ["Psoriasi", "Eczema moderato-severo", "Lichen planus", "Dermatite da contatto severa"],
+    controindicazioni: ["Viso (uso prolungato)", "Pieghe occlusive", "Bambini < 1 anno"],
+    note: "Tra i piu usati in reumatologia per manifestazioni cutanee di LES e dermatomiosite. Schiuma indicata per cuoio capelluto.",
+    rischio: "medio",
+  },
+  {
+    classe: "III", nome: "Triamcinolone acetonide 0.1%", brand: "Triamvirtu 0.1%, Kenacort topico",
+    concentrazione: "0.1%", formulazioni: ["crema", "unguento", "pasta oromucosale"],
+    indicazioni: ["Eczema", "Psoriasi", "Afte orali", "Lichen planus orale"],
+    controindicazioni: ["Viso prolungato", "Infezioni fungine"],
+    note: "Pasta oromucosale (Kenacort in orabase) per afte e lichen orale. Utile nella sindrome di Sjogren con manifestazioni mucose.",
+    rischio: "medio",
+  },
+  {
+    classe: "III", nome: "Fluocinolone acetonide 0.025%", brand: "Synalar 0.025%",
+    concentrazione: "0.025%", formulazioni: ["crema", "unguento", "gocce"],
+    indicazioni: ["Psoriasi", "Dermatite atopica moderata", "Eczema cronico"],
+    controindicazioni: ["Rosacea", "Dermatite periorale", "Gravidanza (uso prolungato)"],
+    note: "Gocce per condotto uditivo. Attenzione all'uso in zone occluse.",
+    rischio: "medio",
+  },
+  {
+    classe: "III", nome: "Mometasone furoato 0.1%", brand: "Elocon",
+    concentrazione: "0.1%", formulazioni: ["crema", "unguento", "lozione"],
+    indicazioni: ["Psoriasi", "Eczema moderato-severo", "Lichen sclerosus genitale (adulto)"],
+    controindicazioni: ["Rosacea", "Acne", "Infezioni virali cutanee"],
+    note: "Profilo rischio-beneficio favorevole per la classe. Monosomministrazione giornaliera. Lozione per cuoio capelluto.",
+    rischio: "medio",
+  },
+  {
+    classe: "IV", nome: "Betametasone dipropionato 0.05%", brand: "Diprosone",
+    concentrazione: "0.05%", formulazioni: ["crema", "unguento", "lozione"],
+    indicazioni: ["Psoriasi a placche", "Lichen planus severo", "Eczema cronico refrattario"],
+    controindicazioni: ["Viso", "Genitali", "Bambini", "Uso > 4 settimane senza rivalutazione"],
+    note: "Alta potenza con buon profilo sistemico se usato correttamente. Evitare occlusione prolungata.",
+    rischio: "alto",
+  },
+  {
+    classe: "IV", nome: "Fluocinonide 0.05%", brand: "Topsym",
+    concentrazione: "0.05%", formulazioni: ["crema", "unguento", "gel"],
+    indicazioni: ["Psoriasi severa", "Lichen planus", "Lupus eritematoso discoide (LED)"],
+    controindicazioni: ["Viso", "Pieghe cutanee occluse", "Gravidanza"],
+    note: "Particolarmente utile nel lupus eritematoso discoide in associazione con antimalarici.",
+    rischio: "alto",
+  },
+  {
+    classe: "IV", nome: "Desametasone 0.25%", brand: "Viaderm (combo)",
+    concentrazione: "0.25%", formulazioni: ["crema"],
+    indicazioni: ["Eczema infetto (formulazione combinata)", "Dermatite da contatto severa"],
+    controindicazioni: ["Uso prolungato", "Zona perioculare"],
+    note: "Spesso in formulazione combinata con antibiotico/antimicotico. Solo a breve termine.",
+    rischio: "alto",
+  },
+  {
+    classe: "V", nome: "Clobetasolo propionato 0.05%", brand: "Dermovate, Clobesol",
+    concentrazione: "0.05%", formulazioni: ["crema", "unguento", "schiuma", "shampoo"],
+    indicazioni: ["Psoriasi severa refrattaria", "Lichen sclerosus genitale", "Pemfigo/Pemfigoide (topico)", "Alopecia areata"],
+    controindicazioni: ["Viso", "Pieghe", "Bambini", "Gravidanza", "Oltre 50 g/settimana"],
+    note: "Il piu potente disponibile. Massimo 2 settimane consecutive, max 50 g/sett. Rischio soppressione surrenalica, atrofia, strie. In reumatologia utile per lichen sclerosus e manifestazioni cutanee severe.",
+    rischio: "molto alto",
+  },
+  {
+    classe: "V", nome: "Betametasone dipropionato potenziato 0.05%", brand: "Diprolene",
+    concentrazione: "0.05%", formulazioni: ["unguento", "gel"],
+    indicazioni: ["Psoriasi a placche recalcitrante", "Lichen planus ipertrofico"],
+    controindicazioni: ["Viso", "Pieghe", "Bambini", "Gravidanza"],
+    note: "Formulazione a veicolazione potenziata. Ultrapotente come clobetasolo; usare con le stesse restrizioni.",
+    rischio: "molto alto",
+  },
+];
+
+const NOTE_GENERALI_TOPICI = [
+  "Unguento > crema per penetrazione (pelle secca/ipercheratotica). Crema per zone umide o in pieghe.",
+  "Regola delle 2 settimane: rivalutare dopo 2 settimane per le classi IV–V.",
+  "Regola dell'unita dito (FTU): 1 FTU ≈ 0.5 g copre palmo + dita. Guida alla quantita da applicare.",
+  "Evitare occlusione prolungata con classi IV–V (aumenta l'assorbimento sistemico).",
+  "Solo classe I per zona perioculare (rischio glaucoma e cataratta con classi superiori).",
+  "Bambini: preferire classe I–II, formulazioni diluite, cicli brevi.",
+  "Soppressione surrenalica possibile con uso prolungato di classe V su ampie superfici.",
+];
+
+function TopiciTab() {
+  const [activeClasse, setActiveClasse] = useState("III");
+  const [expandedRow, setExpandedRow]   = useState(null);
+  const [showNote, setShowNote]         = useState(false);
+
+  const classeConfig = TOPICI_CLASSI.find(c => c.id === activeClasse);
+  const filtered     = TOPICI_FARMACI.filter(f => f.classe === activeClasse);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {TOPICI_CLASSI.map(c => (
+          <button
+            key={c.id}
+            onClick={() => { setActiveClasse(c.id); setExpandedRow(null); }}
+            className={`flex-shrink-0 flex flex-col items-center px-4 py-2 rounded-lg border text-xs font-medium transition-colors ${
+              activeClasse === c.id ? c.activeCls : "border-gray-200 text-gray-500 bg-white hover:border-gray-300"
+            }`}
+          >
+            <span className="font-bold">{c.label}</span>
+            <span className="font-normal opacity-80">{c.sublabel}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${classeConfig.activeCls}`}>
+          <span className={`w-2 h-2 rounded-full ${classeConfig.dotCls}`} />
+          {classeConfig.label} — {classeConfig.sublabel}
+        </div>
+        <button
+          onClick={() => setShowNote(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#0A2540] border border-gray-200 rounded px-2.5 py-1 transition-colors"
+        >
+          <Info className="w-3.5 h-3.5" />
+          {showNote ? "Nascondi note" : "Note generali"}
+        </button>
+      </div>
+
+      {showNote && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-1.5">
+          {NOTE_GENERALI_TOPICI.map((n, i) => (
+            <p key={i} className="text-xs text-blue-900 leading-relaxed">{n}</p>
+          ))}
+        </div>
+      )}
+
+      <Card className="border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr className="text-left">
+                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Farmaco</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Brand</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Conc.</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Formulazioni</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Rischio</th>
+                <th className="px-4 py-2.5 w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((f) => {
+                const isOpen  = expandedRow === f.nome;
+                const rCfg    = TOPICI_RISCHIO_CFG[f.rischio] || TOPICI_RISCHIO_CFG.basso;
+                return (
+                  <React.Fragment key={f.nome}>
+                    <tr
+                      className={`border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors align-top ${isOpen ? "bg-blue-50/30" : ""}`}
+                      onClick={() => setExpandedRow(isOpen ? null : f.nome)}
+                    >
+                      <td className="px-4 py-3 font-semibold text-[#0A2540]">{f.nome}</td>
+                      <td className="px-4 py-3 text-gray-500">{f.brand}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700">{f.concentrazione}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {f.formulazioni.map(fm => (
+                            <span key={fm} className="inline-block px-1 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">
+                              {fm}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border ${rCfg.cls}`}>
+                          {rCfg.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">
+                        {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr className="border-b border-gray-200 bg-blue-50/20">
+                        <td colSpan={6} className="px-4 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1.5">Indicazioni</div>
+                              <ul className="space-y-0.5">
+                                {f.indicazioni.map(i => (
+                                  <li key={i} className="flex gap-1.5 text-xs text-gray-700">
+                                    <span className="text-teal-600 font-bold mt-0.5">›</span>{i}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1.5">Controindicazioni</div>
+                              <ul className="space-y-0.5">
+                                {f.controindicazioni.map(c => (
+                                  <li key={c} className="flex gap-1.5 text-xs text-gray-700">
+                                    <span className="text-red-500 font-bold mt-0.5">×</span>{c}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1.5">Note cliniche</div>
+                              <p className="text-xs text-gray-700 leading-relaxed">{f.note}</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-900">
+        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <span>
+          Classificazione per potenza anti-infiammatoria topica. La potenza reale dipende da concentrazione,
+          veicolo, sede di applicazione e integrita della barriera cutanea. Il giudizio clinico rimane indispensabile.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function SteroidCalc() {
   const [tab, setTab] = useState("tabella");
 
   const tabs = [
     { id: "tabella",     label: "Tabella di riferimento" },
     { id: "calcolatore", label: "Calcolatore"             },
+    { id: "topici",      label: "Steroide topico"         },
   ];
 
   return (
@@ -420,16 +695,19 @@ export default function SteroidCalc() {
 
       {tab === "tabella"     && <Tabella />}
       {tab === "calcolatore" && <Calcolatore />}
+      {tab === "topici"      && <TopiciTab />}
 
-      <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-900">
-        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <span>
-          Le equivalenze si riferiscono all'attivita anti-infiammatoria sistemica e sono stime approssimative.
-          Non tengono conto della farmacocinetica individuale, della via di somministrazione, dell'attivita
-          mineralcorticoide (rilevante in caso di sospensione o patologia surrenalica) e della durata della terapia.
-          Il giudizio clinico rimane indispensabile.
-        </span>
-      </div>
+      {tab !== "topici" && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-900">
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Le equivalenze si riferiscono all'attivita anti-infiammatoria sistemica e sono stime approssimative.
+            Non tengono conto della farmacocinetica individuale, della via di somministrazione, dell'attivita
+            mineralcorticoide (rilevante in caso di sospensione o patologia surrenalica) e della durata della terapia.
+            Il giudizio clinico rimane indispensabile.
+          </span>
+        </div>
+      )}
     </div>
   );
 }
