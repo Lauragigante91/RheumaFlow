@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FileCheck2, BookOpen, LogOut, Copy, Home,
   Database, FileJson, FileArchive, FileSpreadsheet, FlaskConical, ShieldCheck,
-  Menu, X, BrainCircuit, ExternalLink, KeyRound,
+  Menu, X, BrainCircuit, ExternalLink, KeyRound, Calculator,
 } from "lucide-react";
 import BrandMark, { BrandWordmark } from "./BrandMark";
 import { useAuth } from "../../contexts/AuthContext";
@@ -27,6 +27,7 @@ const nav = [
   { to: "/criteri", label: "Criteri", icon: FileCheck2 },
   { to: "/linee-guida", label: "Linee Guida", icon: BookOpen },
   { to: "/miscellanea", label: "Miscellanea", icon: FlaskConical },
+  { to: "/steroido-equivalenza", label: "Steroido-equiv.", icon: Calculator },
   { to: "/privacy", label: "Privacy / GDPR", icon: ShieldCheck },
 ];
 

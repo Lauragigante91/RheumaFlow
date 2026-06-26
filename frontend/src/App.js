@@ -14,6 +14,7 @@ import WorkupVisitPage from "./pages/WorkupVisitPage";
 import Criteria from "./pages/Criteria";
 import Guidelines from "./pages/Guidelines";
 import Miscellanea from "./pages/Miscellanea";
+import SteroidCalc from "./pages/SteroidCalc";
 import Privacy from "./pages/Privacy";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -68,6 +69,7 @@ function AppRoutes() {
                   <Route path="/criteri" element={<Criteria />} />
                   <Route path="/linee-guida" element={<Guidelines />} />
                   <Route path="/miscellanea" element={<Miscellanea />} />
+                  <Route path="/steroido-equivalenza" element={<SteroidCalc />} />
                   <Route path="/privacy" element={<Privacy />} />
                 </Routes>
               </ErrorBoundary>
