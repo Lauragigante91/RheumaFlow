@@ -56,6 +56,7 @@ export default function VisitImportButton({ patient, onImported, open: externalO
   const [multiExtracted, setMultiExtracted] = useState([]);
   const [multiApplyProgress, setMultiApplyProgress] = useState(null);
   const [fieldOverrides, setFieldOverrides] = useState({});
+  const [persistedFieldsMap, setPersistedFieldsMap] = useState({});
 
   const batchFieldConflicts = useMemo(() => {
     if (multiExtracted.length <= 1) return [];
@@ -485,6 +486,94 @@ export default function VisitImportButton({ patient, onImported, open: externalO
                   }
                   return { ...v, draft: newDraft };
                 }));
+              }}
+              persistedFieldsMap={persistedFieldsMap}
+              onSetPersisted={(visitIdx, fieldKey, value) => {
+                if (!value) return;
+                setPersistedFieldsMap(prev => ({ ...prev, [fieldKey]: { value } }));
+                setMultiExtracted(prev => {
+                  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                  const sorted = prev
+                    .map((v, i) => ({ i, date: v.date || v.draft?.visit_date || "" }))
+                    .sort((a, b) => a.date.localeCompare(b.date));
+                  const curPos = sorted.findIndex(x => x.i === visitIdx);
+                  if (curPos === -1) return prev;
+                  const result = [...prev];
+                  for (let si = curPos + 1; si < sorted.length; si++) {
+                    const { i } = sorted[si];
+                    const visit = result[i];
+                    const longit = visit.draft?._longitudinal || [];
+                    const ef = longit.find(f => f.key === fieldKey);
+                    const isSame = norm(ef?.current || "") === norm(value);
+                    let newLongit;
+                    if (!ef || ef._skip === true) {
+                      newLongit = ef
+                        ? longit.map(f => f.key === fieldKey ? { ...f, current: value, _skip: false, _persisted: true, _persistent_conflict: false } : f)
+                        : [...longit, { key: fieldKey, label: "Diagnosi", mode: "single", previous: null, current: value, status: "persisted", _skip: false, _persisted: true, _persistent_conflict: false }];
+                    } else if (isSame || !ef.current) {
+                      newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: value || f.current, _persisted: true, _persistent_conflict: false } : f);
+                    } else {
+                      newLongit = longit.map(f => f.key === fieldKey ? { ...f, _persisted: true, _persistent_conflict: true, _persistent_value: value } : f);
+                    }
+                    result[i] = { ...visit, draft: { ...visit.draft, _longitudinal: newLongit } };
+                  }
+                  return result;
+                });
+              }}
+              onResolvePersistentConflict={(visitIdx, fieldKey, action) => {
+                const persisted = persistedFieldsMap[fieldKey];
+                if (!persisted) return;
+                if (action === "keep") {
+                  const pv = persisted.value;
+                  setMultiExtracted(prev => prev.map((v, i) => {
+                    if (i !== visitIdx) return v;
+                    const longit = (v.draft?._longitudinal || []).map(f =>
+                      f.key === fieldKey ? { ...f, current: pv, _persistent_conflict: false, _persisted: true, _skip: false } : f
+                    );
+                    return { ...v, draft: { ...v.draft, _longitudinal: longit, profilo_generale: { ...(v.draft?.profilo_generale || {}), diagnosi: pv }, patient: { ...(v.draft?.patient || {}), diagnosi: pv } } };
+                  }));
+                } else {
+                  const visit = multiExtracted[visitIdx];
+                  const field = (visit?.draft?._longitudinal || []).find(f => f.key === fieldKey);
+                  const newValue = field?.current;
+                  if (!newValue) return;
+                  setPersistedFieldsMap(prev => ({ ...prev, [fieldKey]: { value: newValue } }));
+                  setMultiExtracted(prev => {
+                    const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                    const withCleared = prev.map((v, i) => {
+                      if (i !== visitIdx) return v;
+                      const longit = (v.draft?._longitudinal || []).map(f =>
+                        f.key === fieldKey ? { ...f, _persistent_conflict: false, _persisted: true, _skip: false } : f
+                      );
+                      return { ...v, draft: { ...v.draft, _longitudinal: longit } };
+                    });
+                    const sorted = withCleared
+                      .map((v, i) => ({ i, date: v.date || v.draft?.visit_date || "" }))
+                      .sort((a, b) => a.date.localeCompare(b.date));
+                    const curPos = sorted.findIndex(x => x.i === visitIdx);
+                    if (curPos === -1) return withCleared;
+                    const result = [...withCleared];
+                    for (let si = curPos + 1; si < sorted.length; si++) {
+                      const { i } = sorted[si];
+                      const visit = result[i];
+                      const longit = visit.draft?._longitudinal || [];
+                      const ef = longit.find(f => f.key === fieldKey);
+                      const isSame = norm(ef?.current || "") === norm(newValue);
+                      let newLongit;
+                      if (!ef || ef._skip === true) {
+                        newLongit = ef
+                          ? longit.map(f => f.key === fieldKey ? { ...f, current: newValue, _skip: false, _persisted: true, _persistent_conflict: false } : f)
+                          : [...longit, { key: fieldKey, label: "Diagnosi", mode: "single", previous: null, current: newValue, status: "persisted", _skip: false, _persisted: true, _persistent_conflict: false }];
+                      } else if (isSame || !ef.current) {
+                        newLongit = longit.map(f => f.key === fieldKey ? { ...f, current: newValue || f.current, _persisted: true, _persistent_conflict: false } : f);
+                      } else {
+                        newLongit = longit.map(f => f.key === fieldKey ? { ...f, _persisted: true, _persistent_conflict: true, _persistent_value: newValue } : f);
+                      }
+                      result[i] = { ...visit, draft: { ...visit.draft, _longitudinal: newLongit } };
+                    }
+                    return result;
+                  });
+                }
               }}
             />
           ) : (

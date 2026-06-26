@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Trash2, RotateCcw, Plus, Pencil, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Trash2, RotateCcw, Plus, Pencil, ChevronDown, ChevronUp, AlertTriangle, ArrowRight } from "lucide-react";
 import LabValueReviewPanel from "./LabValueReviewPanel";
 import { LAB_REVIEW_TRUSTED_UNITS } from "../../lib/labValueExtractor";
 import { parseJointExam } from "../../lib/jointExamParser";
@@ -420,7 +420,7 @@ function TherapyDiffField({ entry, therapies, onEdit }) {
   );
 }
 
-function LongitudinalInlineBlock({ entry, onEdit }) {
+function LongitudinalInlineBlock({ entry, onEdit, onSetPersisted, persistedValue, onResolveConflict }) {
   const [editing, setEditing] = useState(false);
   if (!entry) return null;
   const isDiagnosi         = entry.key === "diagnosi";
@@ -459,7 +459,7 @@ function LongitudinalInlineBlock({ entry, onEdit }) {
           <div className="flex-1 min-w-0">
             <DiffView previous={entry.previous} current={entry.current} />
           </div>
-          {isDiagnosi && onEdit && (
+          {isDiagnosi && onEdit && !entry._persistent_conflict && (
             <button type="button" onClick={() => setEditing(true)}
               className="flex-shrink-0 p-0.5 text-gray-400 hover:text-teal-600 transition-colors"
               title="Modifica diagnosi">
@@ -467,6 +467,40 @@ function LongitudinalInlineBlock({ entry, onEdit }) {
             </button>
           )}
         </div>
+      )}
+
+      {isDiagnosi && entry._persistent_conflict && onResolveConflict && (
+        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5 space-y-2">
+          <div className="text-[11px] font-semibold text-amber-800">Conflitto con diagnosi persistente</div>
+          <div className="text-[11px] text-amber-700 space-y-0.5">
+            <div><span className="font-medium">Persistente:</span> {persistedValue}</div>
+            <div><span className="font-medium">Nel referto:</span> {entry.current}</div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => onResolveConflict("keep")}
+              className="px-2.5 py-1 text-[11px] font-medium bg-white border border-amber-300 rounded text-amber-800 hover:bg-amber-100 transition-colors">
+              Mantieni persistente
+            </button>
+            <button type="button" onClick={() => onResolveConflict("update")}
+              className="px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition-colors">
+              Aggiorna da qui in avanti
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isDiagnosi && entry._persisted && !entry._persistent_conflict && (
+        <span className="inline-block mt-1.5 px-1.5 py-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200 rounded">
+          valore persistente
+        </span>
+      )}
+
+      {isDiagnosi && onSetPersisted && !entry._persisted && !entry._persistent_conflict && (
+        <button type="button" onClick={onSetPersisted}
+          className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400 hover:text-teal-700 transition-colors">
+          <ArrowRight className="w-3 h-3" />
+          Usa questa diagnosi per le visite successive
+        </button>
       )}
     </div>
   );
@@ -1192,7 +1226,7 @@ function SectionBlock({ title, badge, children, defaultOpen = true }) {
   );
 }
 
-export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongitudinalToggle, onLongitudinalEdit }) {
+export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongitudinalToggle, onLongitudinalEdit, isMulti, persistedFieldsMap, onSetPersisted, onResolvePersistentConflict }) {
   if (!draft) return null;
 
   const today       = new Date().toISOString().slice(0, 10);
@@ -1277,10 +1311,23 @@ export default function VisitFacsimile({ draft, onUpdate, longitudinal, onLongit
 
       <SectionBlock title="1) Diagnosi">
         <DiagnosiSelect value={pg.diagnosi} onChange={v => updPG({ diagnosi: v })} />
-        {getLongit(longitudinal, "diagnosi") && (
-          <LongitudinalInlineBlock entry={getLongit(longitudinal, "diagnosi")}
-            onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("diagnosi", v) : undefined} />
-        )}
+        {(() => {
+          const entry = getLongit(longitudinal, "diagnosi");
+          if (!entry) return null;
+          return (
+            <LongitudinalInlineBlock
+              entry={entry}
+              onEdit={onLongitudinalEdit ? (v) => onLongitudinalEdit("diagnosi", v) : undefined}
+              onSetPersisted={isMulti && onSetPersisted && entry.current && !entry._persisted
+                ? () => onSetPersisted("diagnosi", entry.current)
+                : undefined}
+              persistedValue={persistedFieldsMap?.diagnosi?.value}
+              onResolveConflict={onResolvePersistentConflict
+                ? (action) => onResolvePersistentConflict("diagnosi", action)
+                : undefined}
+            />
+          );
+        })()}
       </SectionBlock>
 
       <SectionBlock title="2) Anamnesi fisiologica">

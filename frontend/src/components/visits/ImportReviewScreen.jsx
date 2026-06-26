@@ -500,6 +500,9 @@ export default function ImportReviewScreen({
   onFieldOverride,
   onLongitudinalToggle,
   onLongitudinalEdit,
+  persistedFieldsMap,
+  onSetPersisted,
+  onResolvePersistentConflict,
 }) {
   const isMulti = visitResults.length > 1;
   const [currentIdx,    setCurrentIdx]    = useState(0);
@@ -712,6 +715,10 @@ export default function ImportReviewScreen({
                 longitudinal={current.draft?._longitudinal}
                 onLongitudinalToggle={(fieldKey, skip) => onLongitudinalToggle?.(currentIdx, fieldKey, skip)}
                 onLongitudinalEdit={(fieldKey, newValue) => onLongitudinalEdit?.(currentIdx, fieldKey, newValue)}
+                isMulti={isMulti}
+                persistedFieldsMap={persistedFieldsMap}
+                onSetPersisted={(fieldKey, value) => onSetPersisted?.(currentIdx, fieldKey, value)}
+                onResolvePersistentConflict={(fieldKey, action) => onResolvePersistentConflict?.(currentIdx, fieldKey, action)}
               />
             </div>
           </div>

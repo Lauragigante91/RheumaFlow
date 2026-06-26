@@ -44,6 +44,8 @@ export const LONGIT_STATUS = {
   MODIFICA:   "modifica",
 };
 
+export const PERSISTENT_LONGITUDINAL_FIELDS = new Set(["diagnosi"]);
+
 export const LONGIT_STATUS_META = {
   invariato:  { label: "Invariato",     color: "gray",  dot: "#9ca3af", desc: "Già presente — nessuna azione" },
   nuovo_dato: { label: "Nuovo dato",    color: "teal",  dot: "#0d9488", desc: "Verrà aggiunto al profilo" },
